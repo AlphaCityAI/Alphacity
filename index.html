@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha City - Decentralized Future</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font (as recommended in guidelines) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        // Configure Tailwind CSS
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-primary': tailwind.colors.blue[500],
+                        'brand-primary-hover': tailwind.colors.blue[400],
+                        'brand-secondary': tailwind.colors.yellow[400],
+                        'brand-secondary-hover': tailwind.colors.yellow[300],
+                        'dark-bg': '#111827', // bg-gray-900
+                        'dark-card': '#1F2937', // bg-gray-800
+                        'dark-text': '#E5E7EB', // text-gray-200
+                        'dark-text-secondary': '#9CA3AF', // text-gray-400
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        /* Simple smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Custom scrollbar for a more polished look (optional) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1F2937; /* dark-card */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151; /* bg-gray-700 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4B5563; /* bg-gray-600 */
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased">
+
+    <!-- 
+      =================================
+      Header & Navigation
+      =================================
+    -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="#" class="text-3xl font-bold text-white">
+                    Alpha<span class="text-brand-secondary">City</span>
+                </a>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#home" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Home</a>
+                    <a href="#about" class="text-dark-text-secondary hover:text-white transition-colors duration-200">About</a>
+                    <a href="#tokenomics" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Tokenomics</a>
+                    <a href="#roadmap" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Roadmap</a>
+                    <a href="#community" class="bg-brand-secondary text-gray-900 px-5 py-2 rounded-lg font-medium hover:bg-brand-secondary-hover shadow-lg shadow-yellow-500/20 transition-all duration-200">
+                        Community
+                    </a>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
+                        <!-- Hamburger Icon -->
+                        <svg id="menu-open-icon" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                        <!-- Close Icon (hidden by default) -->
+                        <svg id="menu-close-icon" class="w-7 h-7 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Menu (hidden by default) -->
+        <div id="mobile-menu" class="md:hidden hidden bg-dark-card shadow-xl">
+            <a href="#home" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Home</a>
+            <a href="#about" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">About</a>
+            <a href="#tokenomics" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Tokenomics</a>
+            <a href="#roadmap" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Roadmap</a>
+            <a href="#community" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Community</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- 
+          =================================
+          Hero Section
+          =================================
+          ** THIS IS A PRIMARY SPOT FOR CUSTOM GRAPHICS **
+          You can replace the bg-dark-card with a:
+          - <video> background
+          - High-res image: bg-[url('your-image.jpg')]
+          - A custom SVG pattern
+        -->
+        <section id="home" class="relative bg-dark-card py-32 md:py-48 text-center overflow-hidden">
+            <!-- Optional: Add a subtle overlay or graphic element -->
+            <div class="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/50 to-transparent opacity-30"></div>
+            
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+                    Welcome to <span class="text-brand-secondary">Alpha City</span>
+                </h1>
+                <p class="text-lg md:text-xl text-dark-text-secondary max-w-3xl mx-auto mb-10">
+                    A decentralized metropolis for visionaries, builders, and creators. We are building the future of web3, together.
+                </p>
+                <a href="#roadmap" class="bg-brand-primary text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-brand-primary-hover shadow-xl shadow-blue-500/30 transition-all duration-300 transform hover:scale-105">
+                    View Roadmap
+                </a>
+            </div>
+            <!-- You could add a subtle animated graphic or particle effect here with JS -->
+        </section>
+
+        <!-- 
+          =================================
+          About Section
+          =================================
+        -->
+        <section id="about" class="py-24 bg-dark-bg">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center">
+                    <!-- 
+                      ** CUSTOM GRAPHIC SPOT **
+                      Replace this placeholder with a photo of yourself, 
+                      your team, or a custom illustration.
+                    -->
+                    <div>
+                        <img 
+                            src="https://placehold.co/800x800/1F2937/E5E7EB?text=Alpha+City+Graphic" 
+                            alt="A placeholder image representing the Alpha City project"
+                            class="rounded-xl shadow-2xl object-cover aspect-square"
+                            onerror="this.src='https://placehold.co/800x800/1F2937/E5E7EB?text=Image+Error'"
+                        >
+                    </div>
+
+                    <div class="md:pr-12">
+                        <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">The Vision</h2>
+                        <h3 class="text-3xl md:text-4xl font-bold text-white mb-6">
+                            What is Alpha City?
+                        </h3>
+                        <p class="text-dark-text-secondary text-lg mb-6">
+                            Alpha City is a next-generation blockchain project focused on scalability, security, and community-driven governance. Our mission is to provide the infrastructure for a truly decentralized digital economy.
+                        </p>
+                        <p class="text-dark-text-secondary text-lg mb-8">
+                            We believe in a future where users have full control over their digital assets and identity. We are the architects of that future, and we're inviting you to build it with us.
+                        </p>
+                        <a href="#community" class="text-lg font-medium text-brand-secondary hover:text-brand-secondary-hover transition-colors duration-200">
+                            Join our Discord &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 
+          =================================
+          Tokenomics Section (Was Services)
+          =================================
+        -->
+        <section id="tokenomics" class="py-24 bg-dark-card">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">Tokenomics</h2>
+                    <h3 class="text-3xl md:text-4xl font-bold text-white mb-4">
+                        The ALPHA Token
+                    </h3>
+                    <p class="text-lg text-dark-text-secondary">
+                        The $ALPHA token powers the entire Alpha City ecosystem, from governance to network fees and staking rewards.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Tokenomics 1 -->
+                    <div class="bg-dark-bg p-8 rounded-xl shadow-lg transform hover:-translate-y-2 transition-transform duration-300">
+                        <!-- 
+                          ** CUSTOM GRAPHIC SPOT **
+                          Icon: Total Supply
+                        -->
+                        <div class="bg-brand-primary/10 text-brand-primary p-3 w-14 h-14 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-semibold text-white mb-3">Total Supply</h4>
+                        <p class="text-dark-text-secondary">
+                            A fixed, non-inflationary total supply of 1,000,000,000 $ALPHA ensures long-term value and scarcity.
+                        </p>
+                    </div>
+
+                    <!-- Tokenomics 2 -->
+                    <div class="bg-dark-bg p-8 rounded-xl shadow-lg transform hover:-translate-y-2 transition-transform duration-300">
+                        <!-- 
+                          ** CUSTOM GRAPHIC SPOT **
+                          Icon: Distribution
+                        -->
+                        <div class="bg-brand-primary/10 text-brand-primary p-3 w-14 h-14 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-semibold text-white mb-3">Fair Distribution</h4>
+                        <p class="text-dark-text-secondary">
+                            50% Community Treasury, 20% Staking Rewards, 15% Core Team, 10% Ecosystem Fund, 5% Public Sale.
+                        </p>
+                    </div>
+
+                    <!-- Tokenomics 3 -->
+                    <div class="bg-dark-bg p-8 rounded-xl shadow-lg transform hover:-translate-y-2 transition-transform duration-300">
+                        <!-- 
+                          ** CUSTOM GRAPHIC SPOT **
+                          Icon: Utility
+                        -->
+                        <div class="bg-brand-primary/10 text-brand-primary p-3 w-14 h-14 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563.097-1.15.16-1.75.18h-1.5a.75.75 0 00-.75.75v1.5a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-.75-.75h-1.5A.75.75 0 013 16.5v-1.5a.75.75 0 00-.75-.75H1.5a.75.75 0 01-.75-.75v-1.5A.75.75 0 011.5 12h1.5a.75.75 0 00.75-.75v-1.5a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5a.75.75 0 00.75.75h1.5a.75.75 0 01.75.75v1.5a.75.75 0 00.75.75h.75a6 6 0 016-6z" />
+                            </svg>
+                        </div>
+                        <h4 class="text-xl font-semibold text-white mb-3">Token Utility</h4>
+                        <p class="text-dark-text-secondary">
+                            Use $ALPHA for governance votes, staking to secure the network, and as the primary currency in our dApp ecosystem.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 
+          =================================
+          Roadmap Section (Was Portfolio)
+          =================================
+        -->
+        <section id="roadmap" class="py-24 bg-dark-bg">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">Our Progress</h2>
+                    <h3 class="text-3xl md:text-4xl font-bold text-white mb-4">
+                        Project Roadmap
+                    </h3>
+                    <p class="text-lg text-dark-text-secondary">
+                        We are transparent about our goals and progress. Here is what we have planned for the coming quarters.
+                    </p>
+                </div>
+
+                <!-- Roadmap Timeline -->
+                <div class="relative max-w-3xl mx-auto">
+                    <!-- Vertical Line -->
+                    <div class="absolute left-1/2 -translate-x-1/2 w-1 bg-gray-700 h-full rounded-full"></div>
+
+                    <!-- Roadmap Item 1 -->
+                    <div class="relative mb-12">
+                        <div class="absolute left-1/2 -translate-x-1/2 w-6 h-6 bg-brand-primary rounded-full border-4 border-dark-bg shadow-lg"></div>
+                        <div class="ml-[calc(50%_+_2rem)] pl-8 pb-8">
+                            <h3 class="text-sm font-semibold text-brand-primary uppercase">Q4 2025 - COMPLETED</h3>
+                            <h4 class="text-xl font-semibold text-white mt-2 mb-2">Project Inception</h4>
+                            <p class="text-dark-text-secondary">Whitepaper V1.0 release, initial seed funding secured, and core team assembly. Public website launch.</p>
+                        </div>
+                    </div>
+
+                    <!-- Roadmap Item 2 -->
+                    <div class="relative mb-12">
+                        <div class="absolute left-1/2 -translate-x-1/2 w-6 h-6 bg-brand-primary rounded-full border-4 border-dark-bg shadow-lg"></div>
+                        <div class="mr-[calc(50%_+_2rem)] pr-8 pb-8 text-right">
+                            <h3 class="text-sm font-semibold text-brand-primary uppercase">Q1 2026 - IN PROGRESS</h3>
+                            <h4 class="text-xl font-semibold text-white mt-2 mb-2">Testnet Launch</h4>
+                            <p class="text-dark-text-secondary">Internal testnet deployment. Smart contract audits initiated. Begin community building and marketing push.</p>
+                        </div>
+                    </div>
+
+                    <!-- Roadmap Item 3 -->
+                    <div class="relative mb-12">
+                        <div class="absolute left-1/2 -translate-x-1/2 w-6 h-6 bg-brand-secondary rounded-full border-4 border-dark-bg shadow-lg"></div>
+                        <div class="ml-[calc(50%_+_2rem)] pl-8 pb-8">
+                            <h3 class="text-sm font-semibold text-brand-secondary uppercase">Q2 2026 - UP NEXT</h3>
+                            <h4 class="text-xl font-semibold text-white mt-2 mb-2">Token Sale & Mainnet</h4>
+                            <p class="text-dark-text-secondary">Public token sale ($ALPHA). Mainnet V1.0 launch. First CEX/DEX listings and liquidity pool deployment.</p>
+                        </div>
+                    </div>
+
+                    <!-- Roadmap Item 4 -->
+                    <div class="relative mb-12">
+                        <div class="absolute left-1/2 -translate-x-1/2 w-6 h-6 bg-gray-600 rounded-full border-4 border-dark-bg shadow-lg"></div>
+                        <div class="mr-[calc(50%_+_2rem)] pr-8 pb-8 text-right">
+                            <h3 class="text-sm font-semibold text-dark-text-secondary uppercase">Q3 2026 - FUTURE</h3>
+                            <h4 class="text-xl font-semibold text-white mt-2 mb-2">Governance & dApps</h4>
+                            <p class="text-dark-text-secondary">Launch of the Alpha City DAO for governance. Release of first flagship dApp and SDK for developers.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 
+          =================================
+          Community Section (Was Contact)
+          =================================
+        -->
+        <section id="community" class="py-24 bg-dark-card">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">Join Us</h2>
+                    <h3 class="text-3xl md:text-4xl font-bold text-white mb-4">
+                        Join the Community
+                    </h3>
+                    <p class="text-lg text-dark-text-secondary">
+                        Alpha City is built by its community. Join the conversation, contribute to development, and help shape the future of our ecosystem.
+                    </p>
+                </div>
+
+                <div class="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Discord -->
+                    <a href="#" class="bg-brand-secondary text-gray-900 rounded-lg p-6 text-center font-bold text-xl hover:bg-brand-secondary-hover shadow-xl shadow-yellow-500/20 transition-all duration-300 transform hover:scale-105">
+                        Join Discord
+                    </a>
+                    
+                    <!-- Twitter -->
+                    <a href="#" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
+                        Follow Twitter
+                    </a>
+
+                    <!-- Telegram -->
+                    <a href="#" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
+                        Join Telegram
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 
+      =================================
+      Footer
+      =================================
+    -->
+    <footer class="bg-dark-bg border-t border-gray-800">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <p class="text-dark-text-secondary text-center md:text-left mb-4 md:mb-0">
+                    &copy; <span id="current-year"></span> Alpha City. All rights reserved.
+                </p>
+                <!-- Social Media Links -->
+                <div class="flex space-x-6">
+                    <!-- Replace '#' with your actual social links -->
+                    <a href="#" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
+                        <span class="sr-only">Telegram</span>
+                        <!-- Telegram Icon -->
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.875L6 12z" />
+                        </svg>
+                    </a>
+                    <a href="#" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
+                        <span class="sr-only">Discord</span>
+                        <!-- Discord/Chat Icon -->
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 01.375-.375h6a.375.375 0 01.375.375v6a.375.375 0 01-.375.375h-6a.375.375 0 01-.375-.375v-6zM3.375 7.125c0-1.036.84-1.875 1.875-1.875h6c1.036 0 1.875.84 1.875 1.875v6c0 1.036-.84 1.875-1.875 1.875h-6A1.875 1.875 0 013.375 13.125v-6zM13.125 7.125c0-1.036.84-1.875 1.875-1.875h6c1.036 0 1.875.84 1.875 1.875v6c0 1.036-.84 1.875-1.875 1.875h-6A1.875 1.875 0 0113.125 13.125v-6z" />
+                        </svg>
+                    </a>
+                    <a href="#" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
+                        <span class="sr-only">Twitter</span>
+                        <!-- Twitter Icon -->
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.46 6c-.77.35-1.6.58-2.46.67.9-.54 1.58-1.4 1.9-2.39-.85.5-1.78.87-2.77 1.06C18.27 4.5 17.12 4 15.84 4c-2.38 0-4.31 1.93-4.31 4.31 0 .34.04.67.11.99C7.8 9.06 4.12 7.13 1.67 4.15c-.34.58-.53 1.26-.53 1.98 0 1.5.76 2.82 1.92 3.6- .7-.02-1.36-.21-1.94-.53v.05c0 2.1.1.5 3.84 4.1- .4.11-.82.17-1.25.17-.3 0-.6-.03-.88-.08.55 1.72 2.15 2.97 4.05 3-1.48 1.16-3.35 1.85-5.37 1.85-.35 0-.69-.02-1.03-.06 1.92 1.23 4.2 1.95 6.63 1.95 7.95 0 12.3-6.59 12.3-12.3 0-.19 0-.37-.01-.56.84-.6 1.57-1.36 2.14-2.22z" /></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+      =================================
+      JavaScript for Mobile Menu
+      =================================
+    -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const openIcon = document.getElementById('menu-open-icon');
+            const closeIcon = document.getElementById('menu-close-icon');
+
+            // Toggle menu
+            menuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                openIcon.classList.toggle('hidden');
+                closeIcon.classList.toggle('hidden');
+            });
+
+            // Close menu when a link is clicked
+            const mobileLinks = mobileMenu.querySelectorAll('a');
+            mobileLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    openIcon.classList.remove('hidden');
+                    closeIcon.classList.add('hidden');
+                });
+            });
+
+            // Set current year in footer
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+        });
+    </script>
+
+</body>
+</html>
