@@ -73,9 +73,9 @@
                 <!-- Desktop Navigation -->
                 <div class="hidden md:flex space-x-8 items-center">
                     <a href="#home" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Home</a>
-                    <a href="#about" class="text-dark-text-secondary hover:text-white transition-colors duration-200">About</a>
-                    <a href="#tokenomics" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The Token</a>
-                    <a href="#roadmap" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The NFTs</a>
+                    <a href="#the-project" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The Project</a>
+                    <a href="#the-token" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The Token</a>
+                    <a href="#the-nfts" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The NFTs</a>
                     <a href="#community" class="bg-brand-secondary text-gray-900 px-5 py-2 rounded-lg font-medium hover:bg-brand-secondary-hover shadow-lg shadow-yellow-500/20 transition-all duration-200">
                         Community
                     </a>
@@ -100,9 +100,9 @@
         <!-- Mobile Menu (hidden by default) -->
         <div id="mobile-menu" class="md:hidden hidden bg-dark-card shadow-xl">
             <a href="#home" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Home</a>
-            <a href="#about" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">About</a>
-            <a href="#tokenomics" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Tokenomics</a>
-            <a href="#roadmap" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">NFT Roadmap</a>
+            <a href="#the-project" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The Project</a>
+            <a href="#the-token" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The Token</a>
+            <a href="#the-nfts" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The NFTs</a>
             <a href="#community" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">Community</a>
         </div>
     </header>
@@ -118,7 +118,7 @@
           - High-res image: bg-[url('your-image.jpg')]
           - A custom SVG pattern
         -->
-        <section id="home" class="relative bg-dark-card py-32 md:py-48 text-center overflow-hidden">
+        <section id="home" class="relative bg-dark-card py-24 md:py-36 text-center overflow-hidden">
             <!-- Optional: Add a subtle overlay or graphic element -->
             <div class="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/50 to-transparent opacity-30"></div>
             
@@ -129,9 +129,29 @@
                 <p class="text-lg md:text-xl text-dark-text-secondary max-w-3xl mx-auto mb-10">
                     Innovation, utility, and community on $SUI.
                 </p>
-                <a href="#roadmap" class="bg-brand-primary text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-brand-primary-hover shadow-xl shadow-blue-500/30 transition-all duration-300 transform hover:scale-105">
-                    View Roadmap
-                </a>
+                
+                <!-- Art Showcase Grid -->
+                <div class="max-w-4xl mx-auto mt-12">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                        <!-- Art Box 1 -->
+                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
+                            <img src="https://i.postimg.cc/4NRJ9j4D/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-e09a4857-42dd-42f5-ad41-8263023e07d6-3.png" alt="Placeholder for art 1" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+1'">
+                        </div>
+                        <!-- Art Box 2 -->
+                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
+                            <img src="https://i.postimg.cc/bvZXMRN5/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-ad11f5b8-8532-485b-a1a8-df68ebe0e02e-2.png" alt="Placeholder for art 2" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+2'">
+                        </div>
+                        <!-- Art Box 3 -->
+                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
+                            <img src="https://i.postimg.cc/bwMVGfp5/meat-king-Front-facing-cyberpunk-portrait-on-a-red-background-e394fe19-93b8-4779-b170-d3c354e5d00e-0.png" alt="Placeholder for art 3" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+3'">
+                        </div>
+                        <!-- Art Box 4 -->
+                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
+                            <img src="https://i.postimg.cc/bwKLy0Rc/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-3c3f7421-2784-4bd2-b289-d9d5579ec5d8-3.png" alt="Placeholder for art 4" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+4'">
+                        </div>
+                    </div>
+                </div>
+
             </div>
             <!-- You could add a subtle animated graphic or particle effect here with JS -->
         </section>
@@ -141,7 +161,7 @@
           About Section
           =================================
         -->
-        <section id="about" class="py-24 bg-dark-bg">
+        <section id="the-project" class="py-24 bg-dark-bg">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center">
                     <!-- 
@@ -151,9 +171,9 @@
                     -->
                     <div>
                         <img 
-                            src="https://placehold.co/800x800/1F2937/E5E7EB?text=Alpha+City+Graphic" 
+                            src="https://i.postimg.cc/wxfvRwRs/alphacity-background-6.jpg" 
                             alt="A placeholder image representing the Alpha City project"
-                            class="rounded-xl shadow-2xl object-cover aspect-square"
+                            class="rounded-xl shadow-2xl object-cover aspect-[4/3]"
                             onerror="this.src='https://placehold.co/800x800/1F2937/E5E7EB?text=Image+Error'"
                         >
                     </div>
@@ -182,7 +202,7 @@
           Tokenomics Section (Was Services)
           =================================
         -->
-        <section id="The Token" class="py-24 bg-dark-card">
+        <section id="the-token" class="py-24 bg-dark-card">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center max-w-3xl mx-auto mb-16">
                     <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">Our Coin</h2>
@@ -208,7 +228,7 @@
                         </div>
                         <h4 class="text-xl font-semibold text-white mb-3">Total Supply</h4>
                         <p class="text-dark-text-secondary">
-                            1,000,000,000 tokens. Locked liquidity pool. 50% of LP fee rewards are shared directly with holders. 
+                            1,000,000,000 tokens. Locked liquidity pool. LP fees are split 50/50 between direct holder rewards and token buybacks/burns.
                         </p>
                     </div>
 
@@ -243,7 +263,7 @@
                         </div>
                         <h4 class="text-xl font-semibold text-white mb-3">Benefits</h4>
                         <p class="text-dark-text-secondary">
-                            All $CITY holders are eligible for profit-sharing initiatives, p2e gaming, and community. Holders of 5m+ receive access the best trading utility ANYWHERE on $SUI.  
+                            All $CITY holders are eligible for profit-sharing, p2e gaming, and community. Holders of 5m+ receive access the best trading utility ANYWHERE on $SUI - already with $500k+ in realized holder profits.   
                         </p>
                     </div>
                 </div>
@@ -255,7 +275,7 @@
           Roadmap Section (Was Portfolio)
           =================================
         -->
-        <section id="roadmap" class="py-24 bg-dark-bg">
+        <section id="the-nfts" class="py-24 bg-dark-bg">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center max-w-3xl mx-auto mb-16">
                     <h2 class="text-sm font-semibold text-brand-primary uppercase tracking-wider mb-2">Our NFTs</h2>
@@ -263,7 +283,7 @@
                         NFT Roadmap
                     </h3>
                     <p class="text-lg text-dark-text-secondary">
-                        Like everything we do, our NFTs are an exercise in innovation. Art, technology, utiity, rewards. Here's what we have planned:
+                        Like everything we do, our NFTs are an exercise in innovation. Art, technology, utiity, rewards. Here's a preview of our plans:
                     </V>
                 </div>
 
@@ -298,7 +318,7 @@
                         <div class="ml-[calc(50%_+_2rem)] pl-8 pb-8">
                             <h3 class="text-sm font-semibold text-brand-secondary uppercase">Milestone 3</h3>
                             <h4 class="text-xl font-semibold text-white mt-2 mb-2">NFT Gaming Ecosystem</h4>
-                            <p class="text-dark-text-secondary">Innovative, NFT-integrated P2E elements. Rewards generated from trading royalties.</p>
+                            <p class="text-dark-text-secondary">Innovative, NFT-integrated P2E elements. Rewards generated from NFT sales and trading royalties.</p>
                         </div>
                     </div>
 
@@ -308,7 +328,7 @@
                         <div class="mr-[calc(50%_+_2rem)] pr-8 pb-8 text-right">
                             <h3 class="text-sm font-semibold text-dark-text-secondary uppercase">Milestone 4 and Onward</h3>
                             <h4 class="text-xl font-semibold text-white mt-2 mb-2">System Expansion</h4>
-                            <p class="text-dark-text-secondary">Innovation continues, expanding in web3 and branching further into guerilla marketing, IRL merch, and more. </p>
+                            <p class="text-dark-text-secondary">Innovation continues, with rapid web3 expansion alongside forays into guerilla marketing, IRL merch, and more. </p>
                         </div>
                     </div>
                 </div>
@@ -334,17 +354,17 @@
 
                 <div class="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Discord -->
-                    <a href="#" class="bg-brand-secondary text-gray-900 rounded-lg p-6 text-center font-bold text-xl hover:bg-brand-secondary-hover shadow-xl shadow-yellow-500/20 transition-all duration-300 transform hover:scale-105">
-                        Join Discord
+                    <a href="https://app.nexa.xyz/trade/0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY" target="_blank" rel="noopener noreferrer" class="bg-brand-secondary text-gray-900 rounded-lg p-6 text-center font-bold text-xl hover:bg-brand-secondary-hover shadow-xl shadow-yellow-500/20 transition-all duration-300 transform hover:scale-105">
+                        Buy $CITY
                     </a>
                     
                     <!-- Twitter -->
-                    <a href="#" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
+                    <a href="https://x.com/alphacity_AI" target="_blank" rel="noopener noreferrer" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
                         Follow Twitter
                     </a>
 
                     <!-- Telegram -->
-                    <a href="#" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
+                    <a href="https://t.me/alphacityunderground" target="_blank" rel="noopener noreferrer" class="bg-dark-bg text-white rounded-lg p-6 text-center font-bold text-xl hover:bg-gray-700 shadow-lg transition-all duration-300 transform hover:scale-105">
                         Join Telegram
                     </a>
                 </div>
@@ -363,27 +383,6 @@
                 <p class="text-dark-text-secondary text-center md:text-left mb-4 md:mb-0">
                     &copy; <span id="current-year"></span> Alpha City. All rights reserved.
                 </p>
-                <!-- Social Media Links -->
-                <div class="flex space-x-6">
-                    <!-- Replace '#' with your actual social links -->
-                    <a href="https://t.me/alphacityunderground" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
-                        <span class="sr-only">Telegram</span>
-                        <!-- Telegram Icon -->
-                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.875L6 12z" />
-                        </svg>
-                    </a>
-                    <a href="#" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
-                        <span class="sr-only">Discord</span>
-                        <!-- Discord/Chat Icon -->
-                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 01.375-.375h6a.375.375 0 01.375.375v6a.375.375 0 01-.375.375h-6a.375.375 0 01-.375-.375v-6zM3.375 7.125c0-1.036.84-1.875 1.875-1.875h6c1.036 0 1.875.84 1.875 1.875v6c0 1.036-.84 1.875-1.875 1.875h-6A1.875 1.875 0 013.375 13.125v-6zM13.125 7.125c0-1.036.84-1.875 1.875-1.875h6c1.036 0 1.875.84 1.875 1.875v6c0 1.036-.84 1.875-1.875 1.875h-6A1.875 1.875 0 0113.125 13.125v-6z" />
-                        </svg>
-                    </a>
-                    <a href="https://x.com/alphacity_AI" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
-                        <span class="sr-only">Twitter</span>
-                        <!-- Twitter Icon -->
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.46 6c-.77.35-1.6.58-2.46.67.9-.54 1.58-1.4 1.9-2.39-.85.5-1.78.87-2.77 1.06C18.27 4.5 17.12 4 15.84 4c-2.38 0-4.31 1.93-4.31 4.31 0 .34.04.67.11.99C7.8 9.06 4.12 7.13 1.67 4.15c-.34.58-.53 1.26-.53 1.98 0 1.5.76 2.82 1.92 3.6- .7-.02-1.36-.21-1.94-.53v.05c0 2.1.1.5 3.84 4.1- .4.11-.82.17-1.25.17-.3 0-.6-.03-.88-.08.55 1.72 2.15 2.97 4.05 3-1.48 1.16-3.35 1.85-5.37 1.85-.35 0-.69-.02-1.03-.06 1.92 1.23 4.2 1.95 6.63 1.95 7.95 0 12.3-6.59 12.3-12.3 0-.19 0-.37-.01-.56.84-.6 1.57-1.36 2.14-2.22z" /></svg>
                     </a>
                 </div>
             </div>
