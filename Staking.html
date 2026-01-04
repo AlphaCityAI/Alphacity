@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staking Portal - Alpha City</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        // Configure Tailwind CSS
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-primary': tailwind.colors.blue[500],
+                        'brand-primary-hover': tailwind.colors.blue[400],
+                        'brand-secondary': tailwind.colors.yellow[400],
+                        'brand-secondary-hover': tailwind.colors.yellow[300],
+                        'dark-bg': '#111827', 
+                        'dark-card': '#1F2937', 
+                        'dark-text': '#E5E7EB', 
+                        'dark-text-secondary': '#9CA3AF', 
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+        
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .nft-card-selected {
+            border-color: #3B82F6; /* brand-primary */
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Navigation -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="index.html" class="text-2xl font-bold text-white flex items-center gap-2 group">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                    <span class="bg-brand-primary/20 text-brand-primary text-xs px-2 py-0.5 rounded border border-brand-primary/30 group-hover:bg-brand-primary/30 transition-colors">Staking v1.1</span>
+                </a>
+
+                <!-- Right Side Actions -->
+                <div class="flex items-center gap-4">
+                    <a href="index.html" class="hidden md:block text-dark-text-secondary hover:text-white transition-colors">Back to Home</a>
+                    <button id="connect-wallet-btn" class="bg-brand-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="wallet-text">Connect Wallet</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <!-- Dashboard Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <!-- Stat 1: TVL -->
+            <div class="glass-panel p-6 rounded-xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-dark-text-secondary text-sm font-medium uppercase tracking-wider">Total Value Locked</h3>
+                <p class="text-3xl font-bold text-white mt-1">$0.00</p>
+                <div class="mt-4 flex items-center text-green-400 text-sm">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <span>+5.2% in 24h</span>
+                </div>
+            </div>
+
+            <!-- Stat 2: Active Stakers -->
+            <div class="glass-panel p-6 rounded-xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-brand-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-dark-text-secondary text-sm font-medium uppercase tracking-wider">Active Stakers</h3>
+                <p class="text-3xl font-bold text-brand-secondary mt-1">1,245</p>
+                <div class="mt-4 flex items-center text-dark-text-secondary text-sm">
+                    <span>95% Staked in Lockups</span>
+                </div>
+            </div>
+
+            <!-- Stat 3: My Rewards -->
+            <div class="glass-panel p-6 rounded-xl relative overflow-hidden border-brand-secondary/30">
+                <div class="absolute inset-0 bg-gradient-to-br from-brand-secondary/5 to-transparent"></div>
+                <h3 class="text-brand-secondary text-sm font-medium uppercase tracking-wider flex items-center gap-2">
+                    Pending Rewards
+                    <span class="animate-pulse-slow w-2 h-2 bg-green-500 rounded-full"></span>
+                </h3>
+                <p class="text-3xl font-bold text-white mt-1" id="citizen-credits-display">0.00</p>
+                <p class="text-xs text-dark-text-secondary mb-4">Citizen Credits</p>
+                <button id="claim-btn" disabled class="w-full py-2 bg-dark-card border border-brand-secondary/50 text-brand-secondary rounded hover:bg-brand-secondary hover:text-gray-900 transition-all font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Claim Rewards
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column: Main Interactions -->
+            <div class="lg:col-span-2">
+                
+                <!-- Asset Type Switcher -->
+                <div class="flex space-x-2 mb-4 bg-dark-bg p-1 rounded-xl inline-flex border border-gray-800">
+                    <button id="switch-token" class="px-6 py-2 rounded-lg font-bold text-sm transition-all bg-brand-primary text-white shadow-lg" onclick="switchTab('token')">
+                        $CITY Token
+                    </button>
+                    <button id="switch-nft" class="px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white" onclick="switchTab('nft')">
+                        Citizens NFT
+                    </button>
+                </div>
+
+                <!-- Token Staking View -->
+                <div id="token-view" class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 overflow-hidden">
+                    <!-- Tabs -->
+                    <div class="flex border-b border-gray-700">
+                        <button class="flex-1 py-4 text-center font-medium text-brand-primary border-b-2 border-brand-primary bg-dark-bg/50">Stake</button>
+                        <button class="flex-1 py-4 text-center font-medium text-dark-text-secondary hover:text-white transition-colors">Unstake</button>
+                    </div>
+
+                    <div class="p-6 md:p-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-white">Stake $CITY</h2>
+                            <div class="text-right">
+                                <p class="text-sm text-dark-text-secondary">Wallet Balance</p>
+                                <p class="font-mono text-white" id="wallet-balance">Connect Wallet</p>
+                            </div>
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="bg-dark-bg p-4 rounded-xl border border-gray-700 mb-6">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-sm text-dark-text-secondary">Amount to Stake</span>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <input type="number" id="stake-input" placeholder="0.0" class="bg-transparent text-3xl font-bold text-white w-full outline-none placeholder-gray-700" disabled>
+                                <button class="text-brand-primary font-bold text-sm hover:text-brand-primary-hover px-3 py-1 bg-brand-primary/10 rounded-md transition-colors" onclick="setMax()">MAX</button>
+                            </div>
+                        </div>
+
+                        <!-- Percentage Slider -->
+                        <div class="mb-8">
+                            <div class="flex justify-between text-xs text-dark-text-secondary mb-2">
+                                <span>0%</span>
+                                <span>25%</span>
+                                <span>50%</span>
+                                <span>75%</span>
+                                <span>100%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-primary" id="stake-slider" disabled>
+                        </div>
+
+                        <!-- Lock Duration Selection -->
+                        <div class="grid grid-cols-3 gap-4 mb-8">
+                            <div class="cursor-pointer bg-dark-bg border border-brand-primary text-white p-3 rounded-lg text-center transition-all shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+                                <div class="font-bold">7 Days</div>
+                                <div class="text-xs text-brand-primary">1.0x Multiplier</div>
+                            </div>
+                            <div class="cursor-pointer bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all opacity-60">
+                                <div class="font-bold">30 Days</div>
+                                <div class="text-xs">1.5x Multiplier</div>
+                            </div>
+                            <div class="cursor-pointer bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all opacity-60">
+                                <div class="font-bold">90 Days</div>
+                                <div class="text-xs">2.0x Multiplier</div>
+                            </div>
+                        </div>
+
+                        <!-- Info Summary -->
+                        <div class="bg-brand-primary/5 rounded-lg p-4 mb-6 border border-brand-primary/10">
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-dark-text-secondary">You will receive</span>
+                                <span class="text-white font-medium" id="preview-receive">0 sCITY</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-dark-text-secondary">Exchange Rate</span>
+                                <span class="text-white font-medium">1 CITY = 1 sCITY</span>
+                            </div>
+                        </div>
+
+                        <button id="stake-btn" class="w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg" disabled>
+                            Connect Wallet to Stake
+                        </button>
+                    </div>
+                </div>
+
+                <!-- NFT Staking View (Hidden Default) -->
+                <div id="nft-view" class="hidden bg-dark-card rounded-2xl shadow-xl border border-gray-800 overflow-hidden min-h-[500px]">
+                    <div class="p-6 md:p-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-white">Stake Citizens</h2>
+                                <p class="text-sm text-dark-text-secondary">Select NFTs to stake for credit bonuses.</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-dark-text-secondary">Available</p>
+                                <p class="font-mono text-white" id="nft-count">0</p>
+                            </div>
+                        </div>
+
+                        <!-- NFT Grid -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 max-h-96 overflow-y-auto pr-2" id="nft-grid">
+                            <!-- Populated by JS -->
+                            <div class="col-span-full text-center py-12 text-dark-text-secondary">
+                                Connect wallet to view your Citizens
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-700 pt-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <div class="text-sm">
+                                    <span class="text-dark-text-secondary">Selected:</span>
+                                    <span class="text-white font-bold ml-1" id="selected-nft-count">0</span>
+                                </div>
+                                <div class="text-sm">
+                                    <span class="text-dark-text-secondary">Yield Boost:</span>
+                                    <span class="text-green-400 font-bold ml-1" id="nft-boost-preview">+0.00/hr</span>
+                                </div>
+                            </div>
+                            <button id="stake-nft-btn" class="w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg" disabled onclick="stakeSelectedNFTs()">
+                                Select NFTs
+                            </button>
+                        </div>
+
+                        <!-- Staked NFTs Section -->
+                        <div class="mt-8 pt-8 border-t border-gray-800">
+                             <h3 class="text-sm font-bold text-dark-text-secondary uppercase mb-4">Currently Staked</h3>
+                             <div class="grid grid-cols-4 gap-2" id="staked-nft-grid">
+                                 <!-- Staked items go here -->
+                                 <p class="text-xs text-gray-600 col-span-full">No NFTs staked yet.</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Sidebar: Info & History -->
+            <div class="space-y-6">
+                
+                <!-- My Position Card -->
+                <div class="bg-dark-card rounded-xl p-6 shadow-lg border border-gray-800">
+                    <h3 class="text-white font-bold mb-4">Your Position</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center pb-4 border-b border-gray-700">
+                            <span class="text-dark-text-secondary">Staked Balance</span>
+                            <span class="text-white font-mono font-medium" id="staked-display">0.00 CITY</span>
+                        </div>
+                        <div class="flex justify-between items-center pb-4 border-b border-gray-700">
+                            <span class="text-dark-text-secondary">Staked NFTs</span>
+                            <span class="text-white font-mono font-medium" id="staked-nft-display">0</span>
+                        </div>
+                        <div class="flex justify-between items-center pb-4 border-b border-gray-700">
+                            <span class="text-dark-text-secondary">Avg. Lock Time</span>
+                            <span class="text-white font-mono font-medium">0 Days</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-dark-text-secondary">Reward Rate</span>
+                            <span class="text-green-400 font-mono font-medium" id="reward-rate-display">0.00 / hr</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div class="bg-dark-bg p-6 rounded-xl border border-gray-800">
+                    <h3 class="text-brand-secondary font-bold mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        About Citizen Credits
+                    </h3>
+                    <p class="text-sm text-dark-text-secondary leading-relaxed mb-4">
+                        Citizen Credits are a non-transferrable ecosystem reward generated by staking $CITY. They strengthen your influence within the system, with many benefits yet unknown...
+                    </p>
+                    <p class="text-sm text-dark-text-secondary leading-relaxed">
+                        <strong class="text-white">NFT Bonus:</strong> Staking Citizens acts as a multiplier on your credit generation.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Simple Footer -->
+    <footer class="bg-dark-bg border-t border-gray-800 py-8 mt-auto">
+        <div class="container mx-auto px-4 text-center text-dark-text-secondary text-sm">
+            &copy; 2024 Alpha City. All rights reserved.
+        </div>
+    </footer>
+
+    <!-- Interactive Logic -->
+    <script>
+        // --- Mock Data ---
+        const userNFTs = [
+            { id: 1042, img: 'https://i.postimg.cc/4NRJ9j4D/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-e09a4857-42dd-42f5-ad41-8263023e07d6-3.png', name: 'Citizen #1042' },
+            { id: 3921, img: 'https://i.postimg.cc/bvZXMRN5/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-ad11f5b8-8532-485b-a1a8-df68ebe0e02e-2.png', name: 'Citizen #3921' },
+            { id: 882,  img: 'https://i.postimg.cc/bwMVGfp5/meat-king-Front-facing-cyberpunk-portrait-on-a-red-background-e394fe19-93b8-4779-b170-d3c354e5d00e-0.png', name: 'Citizen #882' },
+            { id: 5541, img: 'https://i.postimg.cc/bwKLy0Rc/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-3c3f7421-2784-4bd2-b289-d9d5579ec5d8-3.png', name: 'Citizen #5541' },
+            { id: 129,  img: 'https://placehold.co/400x400/1F2937/4B5563?text=Cit+129', name: 'Citizen #129' },
+            { id: 773,  img: 'https://placehold.co/400x400/1F2937/4B5563?text=Cit+773', name: 'Citizen #773' }
+        ];
+
+        // --- State ---
+        let isConnected = false;
+        let walletBalance = 50000; 
+        let stakedBalance = 0;
+        let stakedNFTs = [];
+        let selectedNFTs = []; // IDs of NFTs selected to stake
+        let citizenCredits = 0;
+        let rewardInterval;
+        let activeTab = 'token';
+
+        // --- UI Update Function ---
+        function updateUI() {
+            const connectBtn = document.getElementById('connect-wallet-btn');
+            const walletDisplay = document.getElementById('wallet-balance');
+            const stakedDisplay = document.getElementById('staked-display');
+            const stakedNftDisplay = document.getElementById('staked-nft-display');
+            const rewardRateDisplay = document.getElementById('reward-rate-display');
+            const stakeInput = document.getElementById('stake-input');
+            const stakeSlider = document.getElementById('stake-slider');
+            const stakeBtn = document.getElementById('stake-btn');
+
+            if (isConnected) {
+                // Header & General
+                walletDisplay.textContent = `${walletBalance.toLocaleString()} CITY`;
+                stakedDisplay.textContent = `${stakedBalance.toLocaleString()} CITY`;
+                stakedNftDisplay.textContent = stakedNFTs.length;
+                
+                // Calculate Rate: (Tokens * 0.00005) + (NFTs * 0.05)
+                const tokenRate = (stakedBalance * 0.00005);
+                const nftRate = (stakedNFTs.length * 0.05);
+                const totalRate = (tokenRate + nftRate) * 10; // x10 for display purposes (per hour roughly)
+                rewardRateDisplay.textContent = `+${totalRate.toFixed(4)} / hr`;
+
+                stakeInput.disabled = false;
+                stakeSlider.disabled = false;
+                
+                connectBtn.innerHTML = `<div class="flex items-center gap-2"><div class="w-2 h-2 bg-green-500 rounded-full"></div><span>0x84...92A</span></div>`;
+                connectBtn.classList.replace('bg-brand-primary', 'bg-dark-card');
+                connectBtn.classList.add('border', 'border-gray-700');
+
+                // Render NFTs if NFT tab active
+                if(activeTab === 'nft') renderNFTGrid();
+                
+                updateStakeButtonState();
+            } else {
+                walletDisplay.textContent = 'Connect Wallet';
+                stakeInput.disabled = true;
+                stakeSlider.disabled = true;
+                stakeBtn.textContent = 'Connect Wallet to Stake';
+                stakeBtn.disabled = true;
+                stakeBtn.classList.add('bg-gray-700', 'text-gray-400', 'cursor-not-allowed');
+                stakeBtn.classList.remove('bg-brand-primary', 'text-white', 'hover:bg-brand-primary-hover');
+            }
+        }
+
+        // --- Token Logic ---
+        function updateStakeButtonState() {
+            const stakeBtn = document.getElementById('stake-btn');
+            const stakeInput = document.getElementById('stake-input');
+            const amount = parseFloat(stakeInput.value);
+            
+            if (activeTab === 'token') {
+                if (isConnected && amount > 0 && amount <= walletBalance) {
+                    stakeBtn.textContent = 'Stake Now';
+                    stakeBtn.disabled = false;
+                    stakeBtn.classList.remove('bg-gray-700', 'text-gray-400', 'cursor-not-allowed');
+                    stakeBtn.classList.add('bg-brand-primary', 'text-white', 'hover:bg-brand-primary-hover', 'cursor-pointer');
+                } else {
+                    stakeBtn.textContent = amount > walletBalance ? 'Insufficient Balance' : (isConnected ? 'Enter Amount' : 'Connect Wallet to Stake');
+                    stakeBtn.disabled = true;
+                    stakeBtn.classList.add('bg-gray-700', 'text-gray-400', 'cursor-not-allowed');
+                    stakeBtn.classList.remove('bg-brand-primary', 'text-white', 'hover:bg-brand-primary-hover');
+                }
+            }
+        }
+
+        // --- NFT Logic ---
+        function renderNFTGrid() {
+            const grid = document.getElementById('nft-grid');
+            const stakedGrid = document.getElementById('staked-nft-grid');
+            const nftCount = document.getElementById('nft-count');
+            
+            // Available Grid
+            grid.innerHTML = '';
+            const availableNFTs = userNFTs.filter(nft => !stakedNFTs.includes(nft.id));
+            nftCount.textContent = availableNFTs.length;
+
+            if(availableNFTs.length === 0) {
+                 grid.innerHTML = `<div class="col-span-full text-center py-8 text-dark-text-secondary">No Citizens found in wallet.</div>`;
+            } else {
+                availableNFTs.forEach(nft => {
+                    const isSelected = selectedNFTs.includes(nft.id);
+                    const card = document.createElement('div');
+                    card.className = `relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200 ${isSelected ? 'nft-card-selected' : 'border-transparent hover:border-gray-600 bg-dark-bg'}`;
+                    card.onclick = () => toggleNFTSelection(nft.id);
+                    card.innerHTML = `
+                        <img src="${nft.img}" class="w-full h-full object-cover aspect-square">
+                        <div class="absolute bottom-0 w-full bg-black/60 backdrop-blur-sm p-2 text-xs font-bold text-white">
+                            ${nft.name}
+                        </div>
+                        ${isSelected ? '<div class="absolute top-2 right-2 bg-brand-primary text-white rounded-full p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></div>' : ''}
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+
+            // Staked Grid (Small icons)
+            stakedGrid.innerHTML = '';
+            if(stakedNFTs.length === 0) {
+                stakedGrid.innerHTML = `<p class="text-xs text-gray-600 col-span-full">No NFTs staked yet.</p>`;
+            } else {
+                stakedNFTs.forEach(id => {
+                    const nft = userNFTs.find(n => n.id === id);
+                    const div = document.createElement('div');
+                    div.className = 'rounded-md overflow-hidden opacity-75';
+                    div.innerHTML = `<img src="${nft.img}" class="w-full aspect-square object-cover" title="${nft.name}">`;
+                    stakedGrid.appendChild(div);
+                });
+            }
+
+            // Update NFT Buttons
+            const stakeNftBtn = document.getElementById('stake-nft-btn');
+            document.getElementById('selected-nft-count').textContent = selectedNFTs.length;
+            document.getElementById('nft-boost-preview').textContent = `+${(selectedNFTs.length * 0.5).toFixed(2)}/hr`; // 0.5 credits per hr per NFT
+
+            if(selectedNFTs.length > 0) {
+                stakeNftBtn.textContent = `Stake ${selectedNFTs.length} Citizens`;
+                stakeNftBtn.disabled = false;
+                stakeNftBtn.classList.remove('bg-gray-700', 'text-gray-400', 'cursor-not-allowed');
+                stakeNftBtn.classList.add('bg-brand-primary', 'text-white', 'hover:bg-brand-primary-hover', 'cursor-pointer');
+            } else {
+                stakeNftBtn.textContent = 'Select NFTs';
+                stakeNftBtn.disabled = true;
+                stakeNftBtn.classList.add('bg-gray-700', 'text-gray-400', 'cursor-not-allowed');
+                stakeNftBtn.classList.remove('bg-brand-primary', 'text-white', 'hover:bg-brand-primary-hover', 'cursor-pointer');
+            }
+        }
+
+        function toggleNFTSelection(id) {
+            if(selectedNFTs.includes(id)) {
+                selectedNFTs = selectedNFTs.filter(nftId => nftId !== id);
+            } else {
+                selectedNFTs.push(id);
+            }
+            renderNFTGrid();
+        }
+
+        function stakeSelectedNFTs() {
+            if(selectedNFTs.length === 0) return;
+            const btn = document.getElementById('stake-nft-btn');
+            btn.textContent = "Staking...";
+            
+            setTimeout(() => {
+                stakedNFTs = [...stakedNFTs, ...selectedNFTs];
+                selectedNFTs = [];
+                renderNFTGrid();
+                updateUI();
+                startRewards(); // Update rate
+            }, 1000);
+        }
+
+        // --- Global Logic ---
+        function switchTab(tab) {
+            activeTab = tab;
+            const tokenView = document.getElementById('token-view');
+            const nftView = document.getElementById('nft-view');
+            const tokenBtn = document.getElementById('switch-token');
+            const nftBtn = document.getElementById('switch-nft');
+
+            if(tab === 'token') {
+                tokenView.classList.remove('hidden');
+                nftView.classList.add('hidden');
+                tokenBtn.classList.add('bg-brand-primary', 'text-white', 'shadow-lg');
+                tokenBtn.classList.remove('text-dark-text-secondary');
+                nftBtn.classList.remove('bg-brand-primary', 'text-white', 'shadow-lg');
+                nftBtn.classList.add('text-dark-text-secondary');
+            } else {
+                tokenView.classList.add('hidden');
+                nftView.classList.remove('hidden');
+                nftBtn.classList.add('bg-brand-primary', 'text-white', 'shadow-lg');
+                nftBtn.classList.remove('text-dark-text-secondary');
+                tokenBtn.classList.remove('bg-brand-primary', 'text-white', 'shadow-lg');
+                tokenBtn.classList.add('text-dark-text-secondary');
+                
+                if(isConnected) renderNFTGrid();
+            }
+            updateStakeButtonState();
+        }
+
+        function startRewards() {
+            if (rewardInterval) clearInterval(rewardInterval);
+            if (stakedBalance > 0 || stakedNFTs.length > 0) {
+                rewardInterval = setInterval(() => {
+                    const tokenYield = (stakedBalance / 10000) * 0.005;
+                    const nftYield = (stakedNFTs.length * 0.005);
+                    
+                    citizenCredits += (tokenYield + nftYield);
+                    
+                    document.getElementById('citizen-credits-display').textContent = citizenCredits.toFixed(4);
+                    
+                    if (citizenCredits > 0.1) {
+                        const claimBtn = document.getElementById('claim-btn');
+                        claimBtn.disabled = false;
+                        claimBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }, 100); 
+            }
+        }
+
+        function setMax() {
+            if (!isConnected) return;
+            document.getElementById('stake-input').value = walletBalance;
+            document.getElementById('stake-slider').value = 100;
+            updateStakeButtonState();
+            document.getElementById('preview-receive').textContent = `${walletBalance} sCITY`;
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('connect-wallet-btn').addEventListener('click', () => {
+            if (!isConnected) {
+                const btn = document.getElementById('connect-wallet-btn');
+                btn.textContent = 'Connecting...';
+                setTimeout(() => {
+                    isConnected = true;
+                    updateUI();
+                }, 800);
+            }
+        });
+
+        document.getElementById('stake-input').addEventListener('input', (e) => {
+            updateStakeButtonState();
+            document.getElementById('preview-receive').textContent = `${e.target.value || 0} sCITY`;
+        });
+
+        document.getElementById('stake-btn').addEventListener('click', () => {
+            if (!isConnected) return;
+            const amount = parseFloat(document.getElementById('stake-input').value);
+            if (amount > 0 && amount <= walletBalance) {
+                const btn = document.getElementById('stake-btn');
+                btn.textContent = 'Staking...';
+                setTimeout(() => {
+                    walletBalance -= amount;
+                    stakedBalance += amount;
+                    document.getElementById('stake-input').value = '';
+                    document.getElementById('preview-receive').textContent = '0 sCITY';
+                    updateUI();
+                    startRewards();
+                    btn.textContent = 'Stake Successful!';
+                    setTimeout(() => updateStakeButtonState(), 2000);
+                }, 1000);
+            }
+        });
+
+        document.getElementById('claim-btn').addEventListener('click', () => {
+            if (citizenCredits > 0) {
+                const btn = document.getElementById('claim-btn');
+                const oldText = btn.textContent;
+                btn.textContent = 'Claiming...';
+                setTimeout(() => {
+                    alert(`Successfully claimed ${citizenCredits.toFixed(2)} Citizen Credits!`);
+                    citizenCredits = 0;
+                    document.getElementById('citizen-credits-display').textContent = '0.00';
+                    btn.textContent = oldText;
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                }, 1000);
+            }
+        });
+        
+        document.getElementById('stake-slider').addEventListener('input', (e) => {
+            if (!isConnected) return;
+            const percentage = e.target.value;
+            const amount = (walletBalance * (percentage / 100)).toFixed(2);
+            document.getElementById('stake-input').value = amount;
+            updateStakeButtonState();
+            document.getElementById('preview-receive').textContent = `${amount} sCITY`;
+        });
+
+        // Initialize
+        updateUI();
+
+    </script>
+</body>
+</html>
