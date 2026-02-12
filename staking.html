@@ -397,33 +397,78 @@
         }
 
         async function detectWallet() {
+            const providers = [];
+
+            if (window.phantom?.sui) {
+                providers.push({ name: 'Phantom', provider: window.phantom.sui });
+            }
+
+            if (window.slush?.sui) {
+                providers.push({ name: 'Slush', provider: window.slush.sui });
+            }
+
             if (window.suiet) {
-                return {
-                    name: 'Suiet',
-                    connect: async () => {
-                        await window.suiet.connect();
-                        return window.suiet.account.address;
-                    },
-                    signAndExecute: async (transactionBlock) => window.suiet.signAndExecuteTransactionBlock({
-                        transactionBlock,
-                        options: { showEffects: true },
-                    }),
-                };
+                providers.push({ name: 'Suiet', provider: window.suiet });
             }
 
             if (window.suiWallet) {
-                return {
-                    name: 'Sui Wallet',
-                    connect: async () => {
-                        await window.suiWallet.requestPermissions();
-                        const accounts = await window.suiWallet.getAccounts();
-                        return accounts[0];
-                    },
-                    signAndExecute: async (transactionBlock) => window.suiWallet.signAndExecuteTransactionBlock({
-                        transactionBlock,
-                        options: { showEffects: true },
-                    }),
+                providers.push({ name: 'Sui Wallet', provider: window.suiWallet });
+            }
+
+            if (window.sui && !providers.some((item) => item.provider === window.sui)) {
+                providers.push({ name: 'Sui Provider', provider: window.sui });
+            }
+
+            const findAddress = (accountLike) => {
+                if (!accountLike) return null;
+                return accountLike.address || accountLike[0]?.address || accountLike[0] || accountLike.accounts?.[0]?.address || null;
+            };
+
+            for (const { name, provider } of providers) {
+                if (!provider) continue;
+
+                const connect = async () => {
+                    if (typeof provider.connect === 'function') {
+                        const result = await provider.connect();
+                        const address = findAddress(result) || findAddress(provider.account) || findAddress(provider.accounts);
+                        if (address) return address;
+                    }
+
+                    if (typeof provider.requestPermissions === 'function' && typeof provider.getAccounts === 'function') {
+                        await provider.requestPermissions();
+                        const accounts = await provider.getAccounts();
+                        const address = findAddress(accounts);
+                        if (address) return address;
+                    }
+
+                    if (typeof provider.getAccounts === 'function') {
+                        const accounts = await provider.getAccounts();
+                        const address = findAddress(accounts);
+                        if (address) return address;
+                    }
+
+                    throw new Error(`${name} did not return an account address.`);
                 };
+
+                const signAndExecute = async (transactionBlock) => {
+                    if (typeof provider.signAndExecuteTransactionBlock === 'function') {
+                        return provider.signAndExecuteTransactionBlock({
+                            transactionBlock,
+                            options: { showEffects: true },
+                        });
+                    }
+
+                    if (typeof provider.signAndExecuteTransaction === 'function') {
+                        return provider.signAndExecuteTransaction({
+                            transaction: transactionBlock,
+                            options: { showEffects: true },
+                        });
+                    }
+
+                    throw new Error(`${name} does not support signAndExecuteTransactionBlock.`);
+                };
+
+                return { name, connect, signAndExecute };
             }
 
             return null;
@@ -676,7 +721,7 @@
                 try {
                     walletAdapter = await detectWallet();
                     if (!walletAdapter) {
-                        alert('No Sui wallet detected. Install Suiet or Sui Wallet to continue.');
+                        alert('No Sui wallet detected. Install Phantom, Slush, Suiet, or Sui Wallet to continue.');
                         btn.innerHTML = '<span id="wallet-text">Connect Wallet</span>';
                         return;
                     }
