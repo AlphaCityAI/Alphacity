@@ -150,7 +150,7 @@
                     <!-- Tabs -->
                     <div class="flex border-b border-gray-700">
                         <button class="flex-1 py-4 text-center font-medium text-brand-primary border-b-2 border-brand-primary bg-dark-bg/50">Stake</button>
-                        <button class="flex-1 py-4 text-center font-medium text-dark-text-secondary hover:text-white transition-colors">Unstake</button>
+                        <button class="flex-1 py-4 text-center font-medium text-dark-text-secondary opacity-50 cursor-not-allowed" disabled title="Unstaking will be enabled when smart contract withdrawals are live.">Unstake (Soon)</button>
                     </div>
 
                     <div class="p-6 md:p-8">
@@ -186,19 +186,19 @@
                         </div>
 
                         <!-- Lock Duration Selection -->
-                        <div class="grid grid-cols-3 gap-4 mb-8">
-                            <div class="cursor-pointer bg-dark-bg border border-brand-primary text-white p-3 rounded-lg text-center transition-all shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+                        <div class="grid grid-cols-3 gap-4 mb-8" id="lock-options">
+                            <button type="button" class="lock-option bg-dark-bg border border-brand-primary text-white p-3 rounded-lg text-center transition-all shadow-[0_0_15px_rgba(59,130,246,0.15)]" data-days="7" data-multiplier="1.0">
                                 <div class="font-bold">7 Days</div>
                                 <div class="text-xs text-brand-primary">1.0x Multiplier</div>
-                            </div>
-                            <div class="cursor-pointer bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all opacity-60">
+                            </button>
+                            <button type="button" class="lock-option bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all" data-days="30" data-multiplier="1.5">
                                 <div class="font-bold">30 Days</div>
                                 <div class="text-xs">1.5x Multiplier</div>
-                            </div>
-                            <div class="cursor-pointer bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all opacity-60">
+                            </button>
+                            <button type="button" class="lock-option bg-dark-bg border border-gray-700 text-dark-text-secondary p-3 rounded-lg text-center hover:border-gray-500 transition-all" data-days="90" data-multiplier="2.0">
                                 <div class="font-bold">90 Days</div>
                                 <div class="text-xs">2.0x Multiplier</div>
-                            </div>
+                            </button>
                         </div>
 
                         <!-- Info Summary -->
@@ -209,7 +209,7 @@
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-dark-text-secondary">Exchange Rate</span>
-                                <span class="text-white font-medium">1 CITY = 1 sCITY</span>
+                                <span class="text-white font-medium" id="exchange-rate">1 CITY = 1 sCITY</span>
                             </div>
                         </div>
 
@@ -287,7 +287,7 @@
                         </div>
                         <div class="flex justify-between items-center pb-4 border-b border-gray-700">
                             <span class="text-dark-text-secondary">Avg. Lock Time</span>
-                            <span class="text-white font-mono font-medium">0 Days</span>
+                            <span class="text-white font-mono font-medium" id="avg-lock-display">7 Days</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-dark-text-secondary">Reward Rate</span>
@@ -336,15 +336,105 @@
             { id: 773,  img: 'https://placehold.co/400x400/1F2937/4B5563?text=Cit+773', name: 'Citizen #773' }
         ];
 
+        // --- Sui Configuration ---
+        const SUI_RPC_URL = 'https://fullnode.mainnet.sui.io:443';
+        const CITY_COIN_TYPE = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
+        // Sui Move staking package configuration.
+        // Fill these after deploying contracts/alpha_city_staking to your target network.
+        const STAKING_PACKAGE_ID = '0x0';
+        const STAKING_POOL_ID = '0x0';
+        const SUI_CLOCK_OBJECT_ID = '0x6';
+
         // --- State ---
         let isConnected = false;
-        let walletBalance = 50000; 
+        let walletBalance = 0;
+        let walletAddress = '';
+        let cityCoinDecimals = 9;
         let stakedBalance = 0;
         let stakedNFTs = [];
         let selectedNFTs = []; // IDs of NFTs selected to stake
         let citizenCredits = 0;
         let rewardInterval;
         let activeTab = 'token';
+        let selectedLockDays = 7;
+        let selectedLockMultiplier = 1.0;
+        let walletAdapter = null;
+        let suiSdk = null;
+
+        const rpcRequest = async (method, params = []) => {
+            const response = await fetch(SUI_RPC_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method,
+                    params,
+                }),
+            });
+
+            const payload = await response.json();
+            if (payload.error) {
+                throw new Error(payload.error.message || `RPC error in ${method}`);
+            }
+            return payload.result;
+        };
+
+        async function getCityBalance(owner) {
+            const result = await rpcRequest('suix_getBalance', [owner, CITY_COIN_TYPE]);
+            return Number(result.totalBalance || '0') / (10 ** cityCoinDecimals);
+        }
+
+        async function ensureCoinMetadata() {
+            try {
+                const metadata = await rpcRequest('suix_getCoinMetadata', [CITY_COIN_TYPE]);
+                if (metadata?.decimals !== undefined) {
+                    cityCoinDecimals = metadata.decimals;
+                }
+            } catch (error) {
+                console.warn('Unable to load CITY metadata, using 9 decimals.', error);
+            }
+        }
+
+        async function detectWallet() {
+            if (window.suiet) {
+                return {
+                    name: 'Suiet',
+                    connect: async () => {
+                        await window.suiet.connect();
+                        return window.suiet.account.address;
+                    },
+                    signAndExecute: async (transactionBlock) => window.suiet.signAndExecuteTransactionBlock({
+                        transactionBlock,
+                        options: { showEffects: true },
+                    }),
+                };
+            }
+
+            if (window.suiWallet) {
+                return {
+                    name: 'Sui Wallet',
+                    connect: async () => {
+                        await window.suiWallet.requestPermissions();
+                        const accounts = await window.suiWallet.getAccounts();
+                        return accounts[0];
+                    },
+                    signAndExecute: async (transactionBlock) => window.suiWallet.signAndExecuteTransactionBlock({
+                        transactionBlock,
+                        options: { showEffects: true },
+                    }),
+                };
+            }
+
+            return null;
+        }
+
+        async function ensureSuiSdk() {
+            if (suiSdk) return suiSdk;
+            const txModule = await import('https://esm.sh/@mysten/sui@1.14.0/transactions');
+            suiSdk = { Transaction: txModule.Transaction };
+            return suiSdk;
+        }
 
         // --- UI Update Function ---
         function updateUI() {
@@ -359,7 +449,7 @@
 
             if (isConnected) {
                 // Header & General
-                walletDisplay.textContent = `${walletBalance.toLocaleString()} CITY`;
+                walletDisplay.textContent = `${walletBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} CITY`;
                 stakedDisplay.textContent = `${stakedBalance.toLocaleString()} CITY`;
                 stakedNftDisplay.textContent = stakedNFTs.length;
                 
@@ -372,7 +462,7 @@
                 stakeInput.disabled = false;
                 stakeSlider.disabled = false;
                 
-                connectBtn.innerHTML = `<div class="flex items-center gap-2"><div class="w-2 h-2 bg-green-500 rounded-full"></div><span>0x84...92A</span></div>`;
+                connectBtn.innerHTML = `<div class="flex items-center gap-2"><div class="w-2 h-2 bg-green-500 rounded-full"></div><span>${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}</span></div>`;
                 connectBtn.classList.replace('bg-brand-primary', 'bg-dark-card');
                 connectBtn.classList.add('border', 'border-gray-700');
 
@@ -392,6 +482,31 @@
         }
 
         // --- Token Logic ---
+        function selectLockDuration(days, multiplier) {
+            selectedLockDays = days;
+            selectedLockMultiplier = multiplier;
+            document.querySelectorAll('.lock-option').forEach((option) => {
+                const optionDays = Number(option.dataset.days);
+                const optionMultiplier = Number(option.dataset.multiplier);
+                const isSelected = optionDays === selectedLockDays && optionMultiplier === selectedLockMultiplier;
+
+                option.classList.toggle('border-brand-primary', isSelected);
+                option.classList.toggle('text-white', isSelected);
+                option.classList.toggle('shadow-[0_0_15px_rgba(59,130,246,0.15)]', isSelected);
+                option.classList.toggle('border-gray-700', !isSelected);
+                option.classList.toggle('text-dark-text-secondary', !isSelected);
+                const label = option.querySelector('.text-xs');
+                if (label) {
+                    label.classList.toggle('text-brand-primary', isSelected);
+                }
+            });
+
+            document.getElementById('avg-lock-display').textContent = `${selectedLockDays} Days`;
+            document.getElementById('exchange-rate').textContent = `1 CITY = ${selectedLockMultiplier.toFixed(1)} sCITY`;
+            const inputValue = parseFloat(document.getElementById('stake-input').value || '0');
+            document.getElementById('preview-receive').textContent = `${(inputValue * selectedLockMultiplier).toFixed(2)} sCITY`;
+        }
+
         function updateStakeButtonState() {
             const stakeBtn = document.getElementById('stake-btn');
             const stakeInput = document.getElementById('stake-input');
@@ -550,42 +665,99 @@
             document.getElementById('stake-input').value = walletBalance;
             document.getElementById('stake-slider').value = 100;
             updateStakeButtonState();
-            document.getElementById('preview-receive').textContent = `${walletBalance} sCITY`;
+            document.getElementById('preview-receive').textContent = `${(walletBalance * selectedLockMultiplier).toFixed(2)} sCITY`;
         }
 
         // --- Event Listeners ---
-        document.getElementById('connect-wallet-btn').addEventListener('click', () => {
+        document.getElementById('connect-wallet-btn').addEventListener('click', async () => {
             if (!isConnected) {
                 const btn = document.getElementById('connect-wallet-btn');
                 btn.textContent = 'Connecting...';
-                setTimeout(() => {
+                try {
+                    walletAdapter = await detectWallet();
+                    if (!walletAdapter) {
+                        alert('No Sui wallet detected. Install Suiet or Sui Wallet to continue.');
+                        btn.innerHTML = '<span id="wallet-text">Connect Wallet</span>';
+                        return;
+                    }
+
+                    await ensureCoinMetadata();
+                    walletAddress = await walletAdapter.connect();
+                    walletBalance = await getCityBalance(walletAddress);
                     isConnected = true;
                     updateUI();
-                }, 800);
+                } catch (error) {
+                    console.error(error);
+                    alert(`Wallet connection failed: ${error.message}`);
+                    btn.innerHTML = '<span id="wallet-text">Connect Wallet</span>';
+                }
             }
         });
 
         document.getElementById('stake-input').addEventListener('input', (e) => {
             updateStakeButtonState();
-            document.getElementById('preview-receive').textContent = `${e.target.value || 0} sCITY`;
+            const amount = parseFloat(e.target.value || '0');
+            document.getElementById('preview-receive').textContent = `${(amount * selectedLockMultiplier).toFixed(2)} sCITY`;
         });
 
-        document.getElementById('stake-btn').addEventListener('click', () => {
+        document.getElementById('stake-btn').addEventListener('click', async () => {
             if (!isConnected) return;
             const amount = parseFloat(document.getElementById('stake-input').value);
             if (amount > 0 && amount <= walletBalance) {
                 const btn = document.getElementById('stake-btn');
                 btn.textContent = 'Staking...';
-                setTimeout(() => {
-                    walletBalance -= amount;
+                try {
+                    const { Transaction } = await ensureSuiSdk();
+                    const coinData = await rpcRequest('suix_getCoins', [walletAddress, CITY_COIN_TYPE, null, 50]);
+                    const coinObjects = coinData.data || [];
+
+                    const requiredAmount = BigInt(Math.floor(amount * (10 ** cityCoinDecimals)));
+                    const availableAmount = coinObjects.reduce((sum, coin) => sum + BigInt(coin.balance), 0n);
+                    if (availableAmount < requiredAmount) {
+                        throw new Error('Insufficient CITY balance for staking transaction.');
+                    }
+
+                    const tx = new Transaction();
+                    tx.setSender(walletAddress);
+
+                    const primaryCoin = tx.object(coinObjects[0].coinObjectId);
+                    if (coinObjects.length > 1) {
+                        tx.mergeCoins(primaryCoin, coinObjects.slice(1).map((coin) => tx.object(coin.coinObjectId)));
+                    }
+
+                    if (STAKING_PACKAGE_ID === '0x0' || STAKING_POOL_ID === '0x0') {
+                        throw new Error('Set STAKING_PACKAGE_ID and STAKING_POOL_ID in staking.html before staking.');
+                    }
+
+                    const lockSeconds = Number(selectedLockDays) * 24 * 60 * 60;
+                    const [stakeCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(requiredAmount.toString())]);
+                    tx.moveCall({
+                        target: `${STAKING_PACKAGE_ID}::staking::stake`,
+                        typeArguments: [CITY_COIN_TYPE],
+                        arguments: [
+                            tx.object(STAKING_POOL_ID),
+                            stakeCoin,
+                            tx.pure.u64(lockSeconds),
+                            tx.object(SUI_CLOCK_OBJECT_ID),
+                        ],
+                    });
+
+                    await walletAdapter.signAndExecute(tx);
+
+                    walletBalance = await getCityBalance(walletAddress);
                     stakedBalance += amount;
                     document.getElementById('stake-input').value = '';
-                    document.getElementById('preview-receive').textContent = '0 sCITY';
+                    document.getElementById('preview-receive').textContent = '0.00 sCITY';
                     updateUI();
                     startRewards();
                     btn.textContent = 'Stake Successful!';
                     setTimeout(() => updateStakeButtonState(), 2000);
-                }, 1000);
+                } catch (error) {
+                    console.error(error);
+                    btn.textContent = 'Stake Failed';
+                    alert(`Staking failed: ${error.message}`);
+                    setTimeout(() => updateStakeButtonState(), 2000);
+                }
             }
         });
 
@@ -611,10 +783,17 @@
             const amount = (walletBalance * (percentage / 100)).toFixed(2);
             document.getElementById('stake-input').value = amount;
             updateStakeButtonState();
-            document.getElementById('preview-receive').textContent = `${amount} sCITY`;
+            document.getElementById('preview-receive').textContent = `${(parseFloat(amount) * selectedLockMultiplier).toFixed(2)} sCITY`;
+        });
+
+        document.querySelectorAll('.lock-option').forEach((option) => {
+            option.addEventListener('click', () => {
+                selectLockDuration(Number(option.dataset.days), Number(option.dataset.multiplier));
+            });
         });
 
         // Initialize
+        selectLockDuration(selectedLockDays, selectedLockMultiplier);
         updateUI();
 
     </script>
