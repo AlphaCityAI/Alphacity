@@ -398,39 +398,69 @@
 
         async function detectWallet() {
             const providers = [];
+            const seen = new Set();
+            const pushProvider = (name, provider) => {
+                if (!provider || seen.has(provider)) return;
+                providers.push({ name, provider });
+                seen.add(provider);
+            };
 
-            if (window.phantom?.sui) {
-                providers.push({ name: 'Phantom', provider: window.phantom.sui });
+            // Explicit wallet globals.
+            pushProvider('Slush', window.slush?.sui || window.slush || window.slushWallet?.sui || window.slushWallet);
+            pushProvider('Phantom', window.phantom?.sui);
+            pushProvider('Suiet', window.suiet);
+            pushProvider('Sui Wallet', window.suiWallet);
+
+            // Sui-standard injected provider list (some wallets only register here).
+            const suiProviders = window.sui?.providers;
+            if (Array.isArray(suiProviders)) {
+                for (const injected of suiProviders) {
+                    const walletName = (injected?.name || injected?.wallet?.name || '').toLowerCase();
+                    if (walletName.includes('slush')) {
+                        pushProvider('Slush', injected);
+                    } else if (walletName.includes('phantom')) {
+                        pushProvider('Phantom', injected);
+                    } else {
+                        pushProvider(injected?.name || 'Sui Provider', injected);
+                    }
+                }
             }
 
-            if (window.slush?.sui) {
-                providers.push({ name: 'Slush', provider: window.slush.sui });
-            }
+            // Fallback single provider.
+            pushProvider('Sui Provider', window.sui);
 
-            if (window.suiet) {
-                providers.push({ name: 'Suiet', provider: window.suiet });
-            }
-
-            if (window.suiWallet) {
-                providers.push({ name: 'Sui Wallet', provider: window.suiWallet });
-            }
-
-            if (window.sui && !providers.some((item) => item.provider === window.sui)) {
-                providers.push({ name: 'Sui Provider', provider: window.sui });
-            }
+            // Prefer Slush first to make sure its popup is triggered for Slush users.
+            providers.sort((a, b) => {
+                if (a.name === 'Slush' && b.name !== 'Slush') return -1;
+                if (b.name === 'Slush' && a.name !== 'Slush') return 1;
+                return 0;
+            });
 
             const findAddress = (accountLike) => {
                 if (!accountLike) return null;
-                return accountLike.address || accountLike[0]?.address || accountLike[0] || accountLike.accounts?.[0]?.address || null;
+                if (typeof accountLike === 'string') return accountLike;
+                if (Array.isArray(accountLike)) {
+                    const first = accountLike[0];
+                    if (typeof first === 'string') return first;
+                    return first?.address || first?.account?.address || null;
+                }
+                return (
+                    accountLike.address ||
+                    accountLike.account?.address ||
+                    accountLike.accounts?.[0]?.address ||
+                    accountLike.accounts?.[0] ||
+                    null
+                );
             };
 
             for (const { name, provider } of providers) {
-                if (!provider) continue;
-
                 const connect = async () => {
                     if (typeof provider.connect === 'function') {
                         const result = await provider.connect();
-                        const address = findAddress(result) || findAddress(provider.account) || findAddress(provider.accounts);
+                        const address =
+                            findAddress(result) ||
+                            findAddress(provider.account) ||
+                            findAddress(provider.accounts);
                         if (address) return address;
                     }
 
@@ -443,6 +473,12 @@
 
                     if (typeof provider.getAccounts === 'function') {
                         const accounts = await provider.getAccounts();
+                        const address = findAddress(accounts);
+                        if (address) return address;
+                    }
+
+                    if (typeof provider.request === 'function') {
+                        const accounts = await provider.request({ method: 'sui_requestAccounts' });
                         const address = findAddress(accounts);
                         if (address) return address;
                     }
@@ -465,7 +501,14 @@
                         });
                     }
 
-                    throw new Error(`${name} does not support signAndExecuteTransactionBlock.`);
+                    if (typeof provider.request === 'function') {
+                        return provider.request({
+                            method: 'sui_signAndExecuteTransactionBlock',
+                            params: [{ transactionBlock, options: { showEffects: true } }],
+                        });
+                    }
+
+                    throw new Error(`${name} does not support transaction signing.`);
                 };
 
                 return { name, connect, signAndExecute };
@@ -721,7 +764,7 @@
                 try {
                     walletAdapter = await detectWallet();
                     if (!walletAdapter) {
-                        alert('No Sui wallet detected. Install Phantom, Slush, Suiet, or Sui Wallet to continue.');
+                        alert('No Sui wallet detected. Install/enable Slush, Phantom, Suiet, or Sui Wallet and refresh the page.');
                         btn.innerHTML = '<span id="wallet-text">Connect Wallet</span>';
                         return;
                     }
