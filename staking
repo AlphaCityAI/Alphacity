@@ -360,6 +360,7 @@
     <!-- 
       THIS IS THE CRITICAL LINE THAT CONNECTS THE FILES 
       It tells the browser to load 'main.js' as a module.
-    -->
+    -->
+
 </body>
 </html>
