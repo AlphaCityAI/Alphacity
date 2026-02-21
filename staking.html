@@ -62,7 +62,7 @@
             background-color: rgba(59, 130, 246, 0.1);
         }
     </style>
-  <script type="module" crossorigin src="/assets/index-Bad4BQBf.js"></script>
+  <script type="module" crossorigin src="/assets/index-Bk-Ww0Mc.js"></script>
 </head>
 <body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
 
@@ -112,17 +112,14 @@
                 </div>
             </div>
 
-            <!-- Stat 2: Active Stakers -->
-            <div class="glass-panel p-6 rounded-xl relative overflow-hidden group">
-                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-brand-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
+            <!-- Stat 2: Citizen Credits Leaderboard -->
+            <div class="glass-panel p-6 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-dark-text-secondary text-sm font-medium uppercase tracking-wider">Citizen Credits Leaderboard</h3>
+                    <span class="text-xs text-dark-text-secondary">Top 20</span>
                 </div>
-                <h3 class="text-dark-text-secondary text-sm font-medium uppercase tracking-wider">Active Stakers</h3>
-                <p class="text-3xl font-bold text-brand-secondary mt-1" id="active-stakers-display">0</p>
-                <div class="mt-4 flex items-center text-dark-text-secondary text-sm">
-                    <span>Wallets with active CITY stake</span>
+                <div id="credits-leaderboard-list" class="max-h-44 overflow-y-auto pr-1 space-y-2">
+                    <p class="text-sm text-dark-text-secondary">Loading leaderboard...</p>
                 </div>
             </div>
 
