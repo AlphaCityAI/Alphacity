@@ -126,17 +126,81 @@
     // ---------- Helpers ----------
     const enc = new TextEncoder();
 
-    function detectProvider() {
-      const candidates = [
-        { name: 'slush', obj: window.slush?.sui || window.slush },
-        { name: 'suiWallet', obj: window.suiWallet },
-        { name: 'sui', obj: window.sui },
-        { name: 'martian', obj: window.martian?.sui || window.martian },
-        { name: 'ethos', obj: window.ethos?.sui || window.ethos },
-      ].filter(c => !!c.obj);
+    // ---------- Wallet Standard API ----------
+    // Mirrors the approach used by the staking page to discover wallets
+    // via the Wallet Standard (https://github.com/wallet-standard/wallet-standard)
+    const registeredWallets = new Set();
+    let walletListCache;
 
-      if (!candidates.length) return null;
-      return candidates[0];
+    function registerWallet(wallet) {
+      walletListCache = undefined;
+      registeredWallets.add(wallet);
+    }
+
+    function getRegisteredWallets() {
+      if (!walletListCache) walletListCache = [...registeredWallets];
+      return walletListCache;
+    }
+
+    function initWalletStandard() {
+      const appApi = Object.freeze({ register: (...wallets) => {
+        wallets.forEach(w => registerWallet(w));
+      }});
+
+      try {
+        window.addEventListener('wallet-standard:register-wallet', (e) => e.detail(appApi));
+      } catch (err) {
+        console.error('wallet-standard:register-wallet listener error', err);
+      }
+
+      try {
+        window.dispatchEvent(new CustomWalletEvent(appApi));
+      } catch (err) {
+        console.error('wallet-standard:app-ready dispatch error', err);
+      }
+    }
+
+    class CustomWalletEvent extends Event {
+      #api;
+      get detail() { return this.#api; }
+      get type() { return 'wallet-standard:app-ready'; }
+      constructor(api) {
+        super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+        this.#api = api;
+      }
+    }
+
+    // ---------- Wallet discovery ----------
+    function discoverWallets() {
+      const found = [];
+      const seen = new Set();
+
+      // 1. Wallet Standard wallets (preferred — used by Slush, Sui Wallet, etc.)
+      for (const w of getRegisteredWallets()) {
+        const hasConnect = !!w.features?.['standard:connect'];
+        const hasSign = !!w.features?.['sui:signPersonalMessage'];
+        if (hasConnect && hasSign && !seen.has(w.name)) {
+          seen.add(w.name);
+          found.push({ source: 'standard', name: w.name, wallet: w });
+        }
+      }
+
+      // 2. Legacy global providers as fallback
+      const legacy = [
+        { name: 'Slush', obj: window.slush?.sui || window.slush },
+        { name: 'Sui Wallet', obj: window.suiWallet },
+        { name: 'Sui', obj: window.sui },
+        { name: 'Martian', obj: window.martian?.sui || window.martian },
+        { name: 'Ethos', obj: window.ethos?.sui || window.ethos },
+      ];
+      for (const c of legacy) {
+        if (c.obj && !seen.has(c.name)) {
+          seen.add(c.name);
+          found.push({ source: 'legacy', name: c.name, provider: c.obj });
+        }
+      }
+
+      return found;
     }
 
     function isValidSuiAddress(a) {
@@ -180,45 +244,83 @@ Timestamp: ${ts}`
       };
     }
 
+    // ---------- Connect & sign via Wallet Standard ----------
+    async function connectStandard(entry) {
+      const w = entry.wallet;
+      const connectFeature = w.features['standard:connect'];
+      const result = await connectFeature.connect();
+      const accounts = result?.accounts || w.accounts || [];
+      const account = accounts.find(a => a.chains?.includes('sui:mainnet'))
+                   || accounts[0];
+      if (!account?.address) throw new Error(w.name + ' returned no Sui account.');
+      return { address: account.address, account };
+    }
+
+    async function signStandard(entry, account, msgBytes) {
+      const signFeature = entry.wallet.features['sui:signPersonalMessage'];
+      const result = await signFeature.signPersonalMessage({ message: msgBytes, account });
+      return Array.isArray(result) ? result[0] : result;
+    }
+
+    // ---------- Connect & sign via legacy provider ----------
+    async function connectLegacy(entry) {
+      const p = entry.provider;
+      if (typeof p.connect === 'function') await p.connect();
+
+      let addr = null;
+      if (typeof p.getAccounts === 'function') {
+        const accts = await p.getAccounts();
+        addr = accts?.[0]?.address || accts?.[0];
+      }
+      if (!addr && Array.isArray(p.accounts)) {
+        addr = p.accounts?.[0]?.address || p.accounts?.[0];
+      }
+      if (!addr && typeof p.account === 'string') {
+        addr = p.account;
+      }
+      return { address: addr, account: null };
+    }
+
+    async function signLegacy(entry, msgBytes, challengeText) {
+      const p = entry.provider;
+      if (typeof p.signPersonalMessage === 'function') {
+        return await p.signPersonalMessage({ message: msgBytes });
+      } else if (typeof p.signMessage === 'function') {
+        return await p.signMessage({ message: challengeText });
+      }
+      throw new Error('This wallet does not support message signing.');
+    }
+
     // ---------- Main verification flow ----------
     async function verify() {
       retryBtn.style.display = 'none';
       setStatus('<span class="spinner"></span> Connecting to wallet&hellip;');
 
-      // 1. Detect & connect wallet
-      const found = detectProvider();
-      if (!found) {
+      // 1. Discover wallets (standard + legacy)
+      const wallets = discoverWallets();
+      if (!wallets.length) {
         setStatus('&#x26A0;&#xFE0F; No Sui wallet found. Please open this page in a wallet-enabled browser.');
         showRetry();
         return;
       }
 
-      const walletProvider = found.obj;
+      const entry = wallets[0];
 
-      if (typeof walletProvider.connect === 'function') {
-        await walletProvider.connect();
-      }
-
-      // 2. Get wallet address from provider
-      let addr = null;
-      if (typeof walletProvider.getAccounts === 'function') {
-        const accts = await walletProvider.getAccounts();
-        addr = accts?.[0]?.address || accts?.[0];
-      }
-      if (!addr && Array.isArray(walletProvider.accounts)) {
-        addr = walletProvider.accounts?.[0]?.address || walletProvider.accounts?.[0];
-      }
-      if (!addr && typeof walletProvider.account === 'string') {
-        addr = walletProvider.account;
+      // 2. Connect and get address
+      let address, account;
+      if (entry.source === 'standard') {
+        ({ address, account } = await connectStandard(entry));
+      } else {
+        ({ address, account } = await connectLegacy(entry));
       }
 
-      if (!addr || !isValidSuiAddress(addr)) {
+      if (!address || !isValidSuiAddress(address)) {
         setStatus('&#x26A0;&#xFE0F; Wallet did not provide a valid Sui address.');
         showRetry();
         return;
       }
 
-      const address = String(addr).trim();
+      address = String(address).trim();
       walletAddressEl.textContent = address;
       walletAddressEl.style.display = 'block';
 
@@ -230,14 +332,10 @@ Timestamp: ${ts}`
       const msgBytes = enc.encode(challenge);
       let res = null;
 
-      if (typeof walletProvider.signPersonalMessage === 'function') {
-        res = await walletProvider.signPersonalMessage({ message: msgBytes });
-      } else if (typeof walletProvider.signMessage === 'function') {
-        res = await walletProvider.signMessage({ message: challenge });
+      if (entry.source === 'standard') {
+        res = await signStandard(entry, account, msgBytes);
       } else {
-        setStatus('&#x26A0;&#xFE0F; This wallet does not support message signing.');
-        showRetry();
-        return;
+        res = await signLegacy(entry, msgBytes, challenge);
       }
 
       const norm = normalizeSigResult(res);
@@ -249,7 +347,7 @@ Timestamp: ${ts}`
         wallet_address: address,
         group_id: groupId,
         tg_user_id: tgUserId,
-        provider: found.name,
+        provider: entry.name,
         challenge,
         signature: norm.signature || null,
         signature_bytes_b64: norm.bytes ? bytesToB64(norm.bytes) : null,
@@ -270,14 +368,40 @@ Timestamp: ${ts}`
       }
     }
 
-    // ---------- Auto-start on page load ----------
+    // ---------- Auto-start with retry logic ----------
+    // Wallets register asynchronously via the Wallet Standard;
+    // retry at increasing intervals (matching the staking page pattern).
     function handleError(err) {
       setStatus(`&#x274C; Error: ${err?.message || err}`);
       showRetry();
     }
 
     retryBtn.addEventListener('click', () => verify().catch(handleError));
-    verify().catch(handleError);
+
+    initWalletStandard();
+
+    let verified = false;
+    function attemptVerify() {
+      if (verified) return;
+      verified = true;
+      verify().catch(handleError);
+    }
+
+    const WALLET_RETRY_DELAYS = [800, 2500, 5000];
+
+    WALLET_RETRY_DELAYS.forEach(delay => {
+      setTimeout(() => {
+        if (!verified && discoverWallets().length > 0) attemptVerify();
+      }, delay);
+    });
+
+    // Immediate attempt in case wallet is already registered
+    if (discoverWallets().length > 0) {
+      attemptVerify();
+    } else {
+      // Final fallback: try after longest delay regardless
+      setTimeout(() => { if (!verified) attemptVerify(); }, WALLET_RETRY_DELAYS[WALLET_RETRY_DELAYS.length - 1]);
+    }
   </script>
 </body>
 </html>
