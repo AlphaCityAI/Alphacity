@@ -194,7 +194,7 @@
     const groupId = qs.get('group_id') || '';
     const tgUserId = qs.get('tg_user_id') || '';
     const tokenType = qs.get('token_type') || '';
-    const minBalance = qs.get('min_balance') || '0';
+    const minBalance = qs.get('min_balance') || qs.get('required_balance') || '0';
 
     document.getElementById('ctxGroup').textContent = `group: ${groupId || '-'}`;
     document.getElementById('ctxUser').textContent = `user: ${tgUserId || '-'}`;
@@ -226,6 +226,25 @@
     function hideWalletPicker() { walletPickerEl.style.display = 'none'; }
     function showAccountPicker() { accountPickerEl.style.display = 'block'; }
     function hideAccountPicker() { accountPickerEl.style.display = 'none'; }
+
+    function showTelegramFallback(walletAddress) {
+      // The page was opened inside Telegram but not as a proper WebApp,
+      // so sendData() is unavailable.  Direct the user back to the bot
+      // where the /register flow can finalise their registration.
+      const botUser = 'GuildSafeBot';
+      const deepLink = groupId
+        ? `https://t.me/${botUser}?start=register_${groupId}`
+        : `https://t.me/${botUser}`;
+      const short = walletAddress.length > 14
+        ? walletAddress.slice(0, 6) + '&hellip;' + walletAddress.slice(-4)
+        : walletAddress;
+      setStatus(
+        '&#x2705; Wallet <b>' + short + '</b> verified on-chain!<br><br>' +
+        'To complete your group registration, return to the bot and run ' +
+        '<b>/register ' + walletAddress + '</b><br><br>' +
+        '<a href="' + deepLink + '" style="color:var(--accent2)">Open GuildSafe Bot &rarr;</a>'
+      );
+    }
 
     // ---------- Helpers ----------
     const enc = new TextEncoder();
@@ -573,10 +592,21 @@ Wallet: ${addr}`;
 
       const payload = JSON.stringify(signaturePayload);
 
-      if (tg?.sendData) {
-        tg.sendData(payload);
-        setStatus('&#x2705; Wallet verified! Returning to Telegram&hellip;');
-        tg.close();
+      // tg.initData is non-empty only when the page was opened as a proper
+      // Telegram WebApp (e.g. via a web_app keyboard button).  When opened
+      // through a regular URL button sendData() exists but silently fails.
+      if (tg?.sendData && tg.initData) {
+        try {
+          tg.sendData(payload);
+          setStatus('&#x2705; Wallet verified! Returning to Telegram&hellip;');
+          setTimeout(() => { try { tg.close(); } catch (_) {} }, 500);
+        } catch (e) {
+          console.error('sendData failed:', e);
+          showTelegramFallback(address);
+        }
+      } else if (tg) {
+        // Opened inside Telegram but not as a full WebApp (e.g. URL button).
+        showTelegramFallback(address);
       } else {
         navigator.clipboard?.writeText(payload);
         setStatus('&#x2705; Verified (debug mode &mdash; payload copied to clipboard).');
