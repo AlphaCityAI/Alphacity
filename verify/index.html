@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>GuildSafe Wallet Verify</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -19,6 +19,10 @@
     body {
       margin: 0;
       padding: 18px;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+      padding-left: calc(18px + env(safe-area-inset-left));
+      padding-right: calc(18px + env(safe-area-inset-right));
       background: var(--bg);
       color: var(--text);
       font-family: Inter, system-ui, Arial, sans-serif;
@@ -188,9 +192,33 @@
   <script>
     // ---------- Telegram context ----------
     const tg = window.Telegram?.WebApp || null;
-    if (tg) tg.ready();
+    if (tg) {
+      tg.ready();
+      tg.expand();
+
+      // Apply Telegram theme colours so the UI matches the user's Telegram theme
+      const tp = tg.themeParams;
+      if (tp?.bg_color) {
+        const r = document.documentElement;
+        r.style.setProperty('--bg', tp.bg_color);
+        if (tp.secondary_bg_color) r.style.setProperty('--card', tp.secondary_bg_color);
+        if (tp.text_color)         r.style.setProperty('--text', tp.text_color);
+        if (tp.hint_color)         r.style.setProperty('--muted', tp.hint_color);
+        if (tp.button_color)       r.style.setProperty('--accent', tp.button_color);
+        if (tp.link_color)         r.style.setProperty('--accent2', tp.link_color);
+        if (tp.destructive_text_color) r.style.setProperty('--danger', tp.destructive_text_color);
+        if (tp.section_separator_color) r.style.setProperty('--border', tp.section_separator_color);
+      }
+
+      // Show the native Telegram back button so the user can close the Mini App
+      if (tg.BackButton) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => { try { tg.close(); } catch (_) {} });
+      }
+    }
 
     const BOT_USERNAME = 'GuildSafeBot';
+    const IS_MOBILE_PLATFORM = tg && ['android', 'android_x', 'ios'].includes(tg.platform);
 
     const qs = new URLSearchParams(window.location.search);
     const groupId = qs.get('group_id') || '';
@@ -223,7 +251,24 @@
     const accountListEl = document.getElementById('accountList');
 
     function setStatus(html) { statusEl.innerHTML = html; }
-    function showRetry() { retryBtn.style.display = 'block'; }
+
+    let _mainBtnHandler = null;
+    function showRetry() {
+      retryBtn.style.display = 'block';
+      if (tg?.MainButton) {
+        if (_mainBtnHandler) tg.MainButton.offClick(_mainBtnHandler);
+        _mainBtnHandler = () => verify().catch(handleError);
+        tg.MainButton.setText('Retry');
+        tg.MainButton.show();
+        tg.MainButton.onClick(_mainBtnHandler);
+      }
+    }
+    function hideMainButton() {
+      if (tg?.MainButton) {
+        tg.MainButton.hide();
+        if (_mainBtnHandler) { tg.MainButton.offClick(_mainBtnHandler); _mainBtnHandler = null; }
+      }
+    }
     function showWalletPicker() { walletPickerEl.style.display = 'block'; }
     function hideWalletPicker() { walletPickerEl.style.display = 'none'; }
     function showAccountPicker() { accountPickerEl.style.display = 'block'; }
@@ -485,6 +530,7 @@ Wallet: ${addr}`;
     // ---------- Main verification flow ----------
     async function verify() {
       retryBtn.style.display = 'none';
+      hideMainButton();
       hideWalletPicker();
       hideAccountPicker();
       tokenBalanceEl.style.display = 'none';
@@ -493,7 +539,16 @@ Wallet: ${addr}`;
       // 1. Discover wallets (standard + legacy)
       const wallets = discoverWallets();
       if (!wallets.length) {
-        setStatus('&#x26A0;&#xFE0F; No Sui wallet found. Please open this page in a wallet-enabled browser.');
+        if (IS_MOBILE_PLATFORM) {
+          setStatus(
+            '&#x26A0;&#xFE0F; No Sui wallet found.<br><br>' +
+            'On mobile, open this page inside the <b>Slush</b> or <b>Sui Wallet</b> in-app browser, ' +
+            'or use a desktop device with a Sui wallet extension installed.<br><br>' +
+            '<a href="https://slush.app" style="color:var(--accent2)">Get Slush Wallet &rarr;</a>'
+          );
+        } else {
+          setStatus('&#x26A0;&#xFE0F; No Sui wallet found. Please open this page in a wallet-enabled browser.');
+        }
         showRetry();
         return;
       }
