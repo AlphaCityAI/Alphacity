@@ -33,26 +33,6 @@
     }
     h2 { margin: 0 0 8px 0; font-size: 20px; }
     p { margin: 8px 0; color: var(--muted); }
-    .row { display: grid; gap: 10px; margin-top: 12px; }
-    input, textarea, button {
-      width: 100%;
-      box-sizing: border-box;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      padding: 10px 12px;
-      background: #0f172a;
-      color: var(--text);
-    }
-    textarea { min-height: 80px; resize: vertical; font-family: ui-monospace, monospace; }
-    button {
-      border: none;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-connect { background: var(--accent2); color: #062033; }
-    .btn-sign { background: #f59e0b; color: #2a1600; }
-    .btn-submit { background: var(--accent); color: #052e16; }
-    .btn-danger { background: var(--danger); color: #2b0808; }
     .pill {
       font-size: 12px;
       padding: 5px 10px;
@@ -62,35 +42,65 @@
       display: inline-block;
       margin-right: 8px;
     }
-    .small { font-size: 12px; color: var(--muted); }
-    code { color: #93c5fd; }
+    #status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      text-align: center;
+    }
+    #walletAddress {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--accent2);
+      word-break: break-all;
+      display: none;
+    }
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 10px;
+      border: none;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+      display: none;
+    }
+    .btn-retry { background: var(--accent2); color: #062033; }
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--muted);
+      border-top-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>GuildSafe Wallet Verification</h2>
-    <p>Connect your Sui wallet, sign the verification challenge, then submit.</p>
+    <p>Select your Sui wallet to verify token holdings.</p>
 
     <div>
       <span class="pill" id="ctxGroup">group: -</span>
       <span class="pill" id="ctxUser">user: -</span>
     </div>
 
-    <div class="row">
-      <input id="walletAddress" placeholder="Wallet address (0x...)" readonly />
-      <button class="btn-connect" id="connectBtn">1) Connect Wallet</button>
-
-      <textarea id="challengeBox" readonly placeholder="Challenge will appear here..."></textarea>
-      <button class="btn-sign" id="signBtn">2) Sign Challenge</button>
-
-      <textarea id="sigBox" readonly placeholder="Signature payload will appear here..."></textarea>
-      <button class="btn-submit" id="submitBtn">3) Submit to Telegram Bot</button>
-
-      <button class="btn-danger" id="resetBtn">Reset</button>
-      <p class="small">
-        If your wallet doesn't auto-inject, you can still paste an address manually in fallback mode.
-      </p>
-    </div>
+    <div id="status"><span class="spinner"></span> Connecting to wallet&hellip;</div>
+    <div id="walletAddress"></div>
+    <button class="btn-retry" id="retryBtn">Retry</button>
   </div>
 
   <script>
@@ -105,58 +115,16 @@
     document.getElementById('ctxGroup').textContent = `group: ${groupId || '-'}`;
     document.getElementById('ctxUser').textContent = `user: ${tgUserId || '-'}`;
 
-    // ---------- State ----------
-    let walletProvider = null;
-    let providerName = null;
-    let address = '';
-    let challenge = '';
-    let signaturePayload = null;
-
+    // ---------- UI refs ----------
+    const statusEl = document.getElementById('status');
     const walletAddressEl = document.getElementById('walletAddress');
-    const challengeEl = document.getElementById('challengeBox');
-    const sigEl = document.getElementById('sigBox');
+    const retryBtn = document.getElementById('retryBtn');
+
+    function setStatus(html) { statusEl.innerHTML = html; }
+    function showRetry() { retryBtn.style.display = 'block'; }
 
     // ---------- Helpers ----------
-    const enc = new TextEncoder();
-
-    function makeChallenge(addr) {
-      const nonce = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
-      const ts = Date.now();
-      return {
-        nonce,
-        ts,
-        text:
-`GuildSafe Wallet Verification
-Group: ${groupId}
-TelegramUser: ${tgUserId}
-Wallet: ${addr}
-Nonce: ${nonce}
-Timestamp: ${ts}`
-      };
-    }
-
-    function bytesToB64(bytes) {
-      try {
-        const arr = Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
-        return btoa(String.fromCharCode(...arr));
-      } catch {
-        return null;
-      }
-    }
-
-    function normalizeSigResult(r) {
-      // Handles shapes from different wallet implementations
-      return {
-        signature: r?.signature || r?.signatureBase64 || r?.signedMessage || null,
-        bytes: r?.bytes || r?.messageBytes || null,
-        publicKey: r?.publicKey || r?.pubKey || null,
-        scheme: r?.signatureScheme || r?.scheme || null,
-        raw: r
-      };
-    }
-
     function detectProvider() {
-      // Try common injected Sui wallet shapes
       const candidates = [
         { name: 'slush', obj: window.slush?.sui || window.slush },
         { name: 'suiWallet', obj: window.suiWallet },
@@ -173,21 +141,26 @@ Timestamp: ${ts}`
       return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim());
     }
 
-    async function connectWallet() {
+    // ---------- Main verification flow ----------
+    async function verify() {
+      retryBtn.style.display = 'none';
+      setStatus('<span class="spinner"></span> Connecting to wallet&hellip;');
+
+      // 1. Detect & connect wallet
       const found = detectProvider();
       if (!found) {
-        alert('No injected Sui wallet found. Open this page from Telegram inside a wallet-enabled environment.');
+        setStatus('&#x26A0;&#xFE0F; No Sui wallet found. Please open this page in a wallet-enabled browser.');
+        showRetry();
         return;
       }
 
-      walletProvider = found.obj;
-      providerName = found.name;
+      const walletProvider = found.obj;
 
-      // Try multiple method names
       if (typeof walletProvider.connect === 'function') {
         await walletProvider.connect();
       }
 
+      // 2. Get wallet address
       let addr = null;
       if (typeof walletProvider.getAccounts === 'function') {
         const accts = await walletProvider.getAccounts();
@@ -201,96 +174,44 @@ Timestamp: ${ts}`
       }
 
       if (!addr || !isValidSuiAddress(addr)) {
-        alert('Connected wallet did not provide a valid Sui address.');
+        setStatus('&#x26A0;&#xFE0F; Wallet did not provide a valid Sui address.');
+        showRetry();
         return;
       }
 
-      address = String(addr).trim();
-      walletAddressEl.value = address;
+      const address = String(addr).trim();
+      walletAddressEl.textContent = address;
+      walletAddressEl.style.display = 'block';
 
-      const c = makeChallenge(address);
-      challenge = c.text;
-      challengeEl.value = challenge;
-      signaturePayload = null;
-      sigEl.value = '';
-    }
+      // 3. Submit wallet address to Telegram bot for token-balance verification
+      setStatus('<span class="spinner"></span> Submitting for verification&hellip;');
 
-    async function signChallenge() {
-      if (!walletProvider || !address || !challenge) {
-        alert('Connect wallet first.');
-        return;
-      }
-
-      let res = null;
-      const msgBytes = enc.encode(challenge);
-
-      if (typeof walletProvider.signPersonalMessage === 'function') {
-        res = await walletProvider.signPersonalMessage({ message: msgBytes });
-      } else if (typeof walletProvider.signMessage === 'function') {
-        // Some providers expect string
-        res = await walletProvider.signMessage({ message: challenge });
-      } else {
-        alert('This wallet does not support message signing via available APIs.');
-        return;
-      }
-
-      const norm = normalizeSigResult(res);
-
-      signaturePayload = {
+      const payload = JSON.stringify({
         wallet_address: address,
         group_id: groupId,
         tg_user_id: tgUserId,
-        provider: providerName,
-        challenge,
-        signature: norm.signature || null,
-        signature_bytes_b64: norm.bytes ? bytesToB64(norm.bytes) : null,
-        public_key: norm.publicKey || null,
-        signature_scheme: norm.scheme || null,
-        signed_at: Date.now()
-      };
-
-      sigEl.value = JSON.stringify(signaturePayload, null, 2);
-    }
-
-    function submitToTelegram() {
-      if (!signaturePayload) {
-        alert('Sign the challenge first.');
-        return;
-      }
-
-      const payload = JSON.stringify(signaturePayload);
+        provider: found.name,
+        verified_at: Date.now()
+      });
 
       if (tg?.sendData) {
         tg.sendData(payload);
+        setStatus('&#x2705; Wallet submitted! Returning to Telegram&hellip;');
         tg.close();
       } else {
-        // Debug fallback for non-Telegram browser
         navigator.clipboard?.writeText(payload);
-        alert('Not in Telegram WebApp. Payload copied to clipboard for debugging.');
+        setStatus('&#x2705; Verified (debug mode &mdash; payload copied to clipboard).');
       }
     }
 
-    function resetAll() {
-      walletProvider = null;
-      providerName = null;
-      address = '';
-      challenge = '';
-      signaturePayload = null;
-      walletAddressEl.value = '';
-      challengeEl.value = '';
-      sigEl.value = '';
+    // ---------- Auto-start on page load ----------
+    function handleError(err) {
+      setStatus(`&#x274C; Error: ${err?.message || err}`);
+      showRetry();
     }
 
-    document.getElementById('connectBtn').addEventListener('click', async () => {
-      try { await connectWallet(); } catch (e) { alert(`Connect failed: ${e?.message || e}`); }
-    });
-
-    document.getElementById('signBtn').addEventListener('click', async () => {
-      try { await signChallenge(); } catch (e) { alert(`Sign failed: ${e?.message || e}`); }
-    });
-
-    document.getElementById('submitBtn').addEventListener('click', submitToTelegram);
-    document.getElementById('resetBtn').addEventListener('click', resetAll);
+    retryBtn.addEventListener('click', () => verify().catch(handleError));
+    verify().catch(handleError);
   </script>
 </body>
 </html>
