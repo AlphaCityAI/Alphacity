@@ -74,7 +74,6 @@
       display: none;
     }
     .btn-retry { background: var(--accent2); color: #062033; }
-    .btn-connect { background: var(--accent2); color: #062033; }
 
     /* Wallet picker */
     #walletPicker {
@@ -160,7 +159,7 @@
       <span class="pill" id="ctxUser">user: -</span>
     </div>
 
-    <div id="status">Choose a wallet to verify your ownership.</div>
+    <div id="status"><span class="spinner"></span> Looking for wallets&hellip;</div>
     <div id="walletPicker">
       <p>Select a wallet provider:</p>
       <div id="walletList"></div>
@@ -170,7 +169,6 @@
       <div id="accountList"></div>
     </div>
     <div id="walletAddress"></div>
-    <button class="btn-connect" id="connectBtn" style="display:block">Connect Wallet</button>
     <button class="btn-retry" id="retryBtn">Retry</button>
   </div>
 
@@ -190,7 +188,6 @@
     const statusEl = document.getElementById('status');
     const walletAddressEl = document.getElementById('walletAddress');
     const retryBtn = document.getElementById('retryBtn');
-    const connectBtn = document.getElementById('connectBtn');
     const walletPickerEl = document.getElementById('walletPicker');
     const walletListEl = document.getElementById('walletList');
     const accountPickerEl = document.getElementById('accountPicker');
@@ -199,8 +196,6 @@
 
     function setStatus(html) { statusEl.innerHTML = html; }
     function showRetry() { retryBtn.style.display = 'block'; }
-    function showConnect() { connectBtn.style.display = 'block'; }
-    function hideConnect() { connectBtn.style.display = 'none'; }
     function showWalletPicker() { walletPickerEl.style.display = 'block'; }
     function hideWalletPicker() { walletPickerEl.style.display = 'none'; }
     function showAccountPicker() { accountPickerEl.style.display = 'block'; }
@@ -424,7 +419,6 @@ Timestamp: ${ts}`
     // ---------- Main verification flow ----------
     async function verify() {
       retryBtn.style.display = 'none';
-      hideConnect();
       hideWalletPicker();
       hideAccountPicker();
       setStatus('<span class="spinner"></span> Looking for wallets&hellip;');
@@ -521,10 +515,36 @@ Timestamp: ${ts}`
       showRetry();
     }
 
-    connectBtn.addEventListener('click', () => verify().catch(handleError));
     retryBtn.addEventListener('click', () => verify().catch(handleError));
 
     initWalletStandard();
+
+    // Auto-trigger the wallet picker on load.
+    // Wallet Standard wallets register asynchronously, so retry at short
+    // intervals before giving up and showing an error.
+    // discoverWallets() only iterates in-memory Sets and window globals — lightweight.
+    const WALLET_RETRY_DELAYS = [0, 800, 2500]; // intermediate checks
+    const WALLET_FINAL_DELAY = 5000;            // last-resort trigger regardless of discovery
+    let started = false;
+
+    function attemptStart() {
+      if (started) return;
+      if (discoverWallets().length > 0) {
+        started = true;
+        verify().catch(handleError);
+      }
+    }
+
+    WALLET_RETRY_DELAYS.forEach(delay => setTimeout(attemptStart, delay));
+
+    // Final fallback: start regardless after WALLET_FINAL_DELAY (wallets may be
+    // slow to register, and verify() will surface the "no wallet" error itself)
+    setTimeout(() => {
+      if (!started) {
+        started = true;
+        verify().catch(handleError);
+      }
+    }, WALLET_FINAL_DELAY);
   </script>
 </body>
 </html>
