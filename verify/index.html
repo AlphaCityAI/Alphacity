@@ -62,6 +62,16 @@
       word-break: break-all;
       display: none;
     }
+    #tokenBalance {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      word-break: break-all;
+      display: none;
+    }
     button {
       width: 100%;
       box-sizing: border-box;
@@ -157,6 +167,8 @@
     <div>
       <span class="pill" id="ctxGroup">group: -</span>
       <span class="pill" id="ctxUser">user: -</span>
+      <span class="pill" id="ctxToken" style="display:none">token: -</span>
+      <span class="pill" id="ctxMinBalance" style="display:none">min: -</span>
     </div>
 
     <div id="status"><span class="spinner"></span> Looking for wallets&hellip;</div>
@@ -169,6 +181,7 @@
       <div id="accountList"></div>
     </div>
     <div id="walletAddress"></div>
+    <div id="tokenBalance"></div>
     <button class="btn-retry" id="retryBtn">Retry</button>
   </div>
 
@@ -180,13 +193,26 @@
     const qs = new URLSearchParams(window.location.search);
     const groupId = qs.get('group_id') || '';
     const tgUserId = qs.get('tg_user_id') || '';
+    const tokenType = qs.get('token_type') || '';
+    const minBalance = qs.get('min_balance') || '0';
 
     document.getElementById('ctxGroup').textContent = `group: ${groupId || '-'}`;
     document.getElementById('ctxUser').textContent = `user: ${tgUserId || '-'}`;
 
+    if (tokenType) {
+      const shortToken = tokenType.split('::').pop() || tokenType;
+      const ctxTokenEl = document.getElementById('ctxToken');
+      ctxTokenEl.textContent = `token: ${shortToken}`;
+      ctxTokenEl.style.display = 'inline-block';
+      const ctxMinEl = document.getElementById('ctxMinBalance');
+      ctxMinEl.textContent = `min: ${minBalance}`;
+      ctxMinEl.style.display = 'inline-block';
+    }
+
     // ---------- UI refs ----------
     const statusEl = document.getElementById('status');
     const walletAddressEl = document.getElementById('walletAddress');
+    const tokenBalanceEl = document.getElementById('tokenBalance');
     const retryBtn = document.getElementById('retryBtn');
     const walletPickerEl = document.getElementById('walletPicker');
     const walletListEl = document.getElementById('walletList');
@@ -285,22 +311,24 @@
       return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim());
     }
 
-    function makeChallenge(addr) {
+    function makeChallenge(addr, tokenBal) {
       const nonce = crypto.randomUUID
         ? crypto.randomUUID()
         : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
       const ts = Date.now();
-      return {
-        nonce,
-        ts,
-        text:
+      let text =
 `GuildSafe Wallet Verification
 Group: ${groupId}
 TelegramUser: ${tgUserId}
-Wallet: ${addr}
-Nonce: ${nonce}
-Timestamp: ${ts}`
-      };
+Wallet: ${addr}`;
+      if (tokenType && tokenBal !== null && tokenBal !== undefined) {
+        text += `\nToken: ${tokenType}`;
+        text += `\nRequiredBalance: ${minBalance}`;
+        text += `\nTokenBalance: ${tokenBal}`;
+      }
+      text += `\nNonce: ${nonce}`;
+      text += `\nTimestamp: ${ts}`;
+      return { nonce, ts, text };
     }
 
     function bytesToB64(bytes) {
@@ -320,6 +348,24 @@ Timestamp: ${ts}`
         scheme: r?.signatureScheme || r?.scheme || null,
         raw: r
       };
+    }
+
+    // ---------- Token balance check ----------
+    async function getSuiTokenBalance(address, coinType) {
+      const res = await fetch('https://fullnode.mainnet.sui.io', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'suix_getBalance',
+          params: [address, coinType]
+        })
+      });
+      if (!res.ok) throw new Error('Failed to fetch token balance from Sui RPC (HTTP ' + res.status + ' ' + res.statusText + ')');
+      const data = await res.json();
+      if (data.error) throw new Error('RPC error: ' + data.error.message);
+      return data?.result?.totalBalance || '0';
     }
 
     // ---------- Connect & sign via Wallet Standard ----------
@@ -421,6 +467,7 @@ Timestamp: ${ts}`
       retryBtn.style.display = 'none';
       hideWalletPicker();
       hideAccountPicker();
+      tokenBalanceEl.style.display = 'none';
       setStatus('<span class="spinner"></span> Looking for wallets&hellip;');
 
       // 1. Discover wallets (standard + legacy)
@@ -463,10 +510,35 @@ Timestamp: ${ts}`
       walletAddressEl.textContent = address;
       walletAddressEl.style.display = 'block';
 
-      // 5. Sign challenge to prove wallet ownership
+      // 5. Check token balance against required threshold
+      let tokenBalance = null;
+      let balanceVerified = null;
+      if (tokenType) {
+        setStatus('<span class="spinner"></span> Checking token balance&hellip;');
+        try {
+          tokenBalance = await getSuiTokenBalance(address, tokenType);
+          try {
+            balanceVerified = BigInt(tokenBalance) >= BigInt(minBalance);
+          } catch (bigIntErr) {
+            console.error('BigInt comparison failed:', bigIntErr);
+            balanceVerified = false;
+          }
+          tokenBalanceEl.textContent = balanceVerified
+            ? `\u2705 Token balance: ${tokenBalance} (meets threshold: ${minBalance})`
+            : `\u26A0\uFE0F Token balance: ${tokenBalance} (below threshold: ${minBalance})`;
+          tokenBalanceEl.style.color = balanceVerified ? 'var(--accent)' : 'var(--danger)';
+          tokenBalanceEl.style.display = 'block';
+        } catch (e) {
+          setStatus(`&#x26A0;&#xFE0F; Failed to check token balance: ${e?.message || e}`);
+          showRetry();
+          return;
+        }
+      }
+
+      // 6. Sign challenge to prove wallet ownership
       setStatus('<span class="spinner"></span> Signing verification challenge&hellip;');
 
-      const c = makeChallenge(address);
+      const c = makeChallenge(address, tokenBalance);
       const challenge = c.text;
       const msgBytes = enc.encode(challenge);
       let res = null;
@@ -479,7 +551,7 @@ Timestamp: ${ts}`
 
       const norm = normalizeSigResult(res);
 
-      // 6. Submit signed payload to Telegram bot
+      // 7. Submit signed payload to Telegram bot
       setStatus('<span class="spinner"></span> Submitting for verification&hellip;');
 
       const signaturePayload = {
@@ -492,7 +564,11 @@ Timestamp: ${ts}`
         signature_bytes_b64: norm.bytes ? bytesToB64(norm.bytes) : null,
         public_key: norm.publicKey || null,
         signature_scheme: norm.scheme || null,
-        signed_at: Date.now()
+        signed_at: Date.now(),
+        token_type: tokenType || null,
+        required_balance: tokenType ? minBalance : null,
+        token_balance: tokenBalance,
+        balance_verified: balanceVerified
       };
 
       const payload = JSON.stringify(signaturePayload);
