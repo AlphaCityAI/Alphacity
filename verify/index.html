@@ -190,6 +190,8 @@
     const tg = window.Telegram?.WebApp || null;
     if (tg) tg.ready();
 
+    const BOT_USERNAME = 'GuildSafeBot';
+
     const qs = new URLSearchParams(window.location.search);
     const groupId = qs.get('group_id') || '';
     const tgUserId = qs.get('tg_user_id') || '';
@@ -231,10 +233,9 @@
       // The page was opened inside Telegram but not as a proper WebApp,
       // so sendData() is unavailable.  Direct the user back to the bot
       // where the /register flow can finalise their registration.
-      const botUser = 'GuildSafeBot';
       const deepLink = groupId
-        ? `https://t.me/${botUser}?start=register_${groupId}`
-        : `https://t.me/${botUser}`;
+        ? `https://t.me/${BOT_USERNAME}?start=register_${groupId}`
+        : `https://t.me/${BOT_USERNAME}`;
       const short = walletAddress.length > 14
         ? walletAddress.slice(0, 6) + '&hellip;' + walletAddress.slice(-4)
         : walletAddress;
@@ -599,6 +600,7 @@ Wallet: ${addr}`;
         try {
           tg.sendData(payload);
           setStatus('&#x2705; Wallet verified! Returning to Telegram&hellip;');
+          // Brief delay so sendData() completes before the WebApp is closed.
           setTimeout(() => { try { tg.close(); } catch (_) {} }, 500);
         } catch (e) {
           console.error('sendData failed:', e);
