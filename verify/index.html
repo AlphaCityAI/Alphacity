@@ -74,6 +74,68 @@
       display: none;
     }
     .btn-retry { background: var(--accent2); color: #062033; }
+    .btn-connect { background: var(--accent2); color: #062033; }
+
+    /* Wallet picker */
+    #walletPicker {
+      margin-top: 16px;
+      display: none;
+    }
+    #walletPicker p {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .wallet-option {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .wallet-option:hover {
+      border-color: var(--accent2);
+      background: #0f2033;
+    }
+    /* Account picker */
+    #accountPicker {
+      margin-top: 16px;
+      display: none;
+    }
+    #accountPicker p {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .account-option {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--accent2);
+      font-size: 13px;
+      font-family: monospace;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .account-option:hover {
+      border-color: var(--accent2);
+      background: #0f2033;
+    }
     .spinner {
       display: inline-block;
       width: 16px;
@@ -98,8 +160,17 @@
       <span class="pill" id="ctxUser">user: -</span>
     </div>
 
-    <div id="status"><span class="spinner"></span> Connecting to wallet&hellip;</div>
+    <div id="status">Choose a wallet to verify your ownership.</div>
+    <div id="walletPicker">
+      <p>Select a wallet provider:</p>
+      <div id="walletList"></div>
+    </div>
+    <div id="accountPicker">
+      <p>Select an account:</p>
+      <div id="accountList"></div>
+    </div>
     <div id="walletAddress"></div>
+    <button class="btn-connect" id="connectBtn" style="display:block">Connect Wallet</button>
     <button class="btn-retry" id="retryBtn">Retry</button>
   </div>
 
@@ -119,9 +190,21 @@
     const statusEl = document.getElementById('status');
     const walletAddressEl = document.getElementById('walletAddress');
     const retryBtn = document.getElementById('retryBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const walletPickerEl = document.getElementById('walletPicker');
+    const walletListEl = document.getElementById('walletList');
+    const accountPickerEl = document.getElementById('accountPicker');
+    const accountPickerLabel = accountPickerEl.querySelector('p');
+    const accountListEl = document.getElementById('accountList');
 
     function setStatus(html) { statusEl.innerHTML = html; }
     function showRetry() { retryBtn.style.display = 'block'; }
+    function showConnect() { connectBtn.style.display = 'block'; }
+    function hideConnect() { connectBtn.style.display = 'none'; }
+    function showWalletPicker() { walletPickerEl.style.display = 'block'; }
+    function hideWalletPicker() { walletPickerEl.style.display = 'none'; }
+    function showAccountPicker() { accountPickerEl.style.display = 'block'; }
+    function hideAccountPicker() { accountPickerEl.style.display = 'none'; }
 
     // ---------- Helpers ----------
     const enc = new TextEncoder();
@@ -250,10 +333,9 @@ Timestamp: ${ts}`
       const connectFeature = w.features['standard:connect'];
       const result = await connectFeature.connect();
       const accounts = result?.accounts || w.accounts || [];
-      const account = accounts.find(a => a.chains?.includes('sui:mainnet'))
-                   || accounts[0];
-      if (!account?.address) throw new Error(w.name + ' returned no Sui account.');
-      return { address: account.address, account };
+      const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+      const allAccounts = suiAccounts.length ? suiAccounts : accounts;
+      return { accounts: allAccounts };
     }
 
     async function signStandard(entry, account, msgBytes) {
@@ -267,18 +349,18 @@ Timestamp: ${ts}`
       const p = entry.provider;
       if (typeof p.connect === 'function') await p.connect();
 
-      let addr = null;
+      let addrs = [];
       if (typeof p.getAccounts === 'function') {
         const accts = await p.getAccounts();
-        addr = accts?.[0]?.address || accts?.[0];
+        addrs = (accts || []).map(a => a?.address || a).filter(Boolean);
       }
-      if (!addr && Array.isArray(p.accounts)) {
-        addr = p.accounts?.[0]?.address || p.accounts?.[0];
+      if (!addrs.length && Array.isArray(p.accounts)) {
+        addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
       }
-      if (!addr && typeof p.account === 'string') {
-        addr = p.account;
+      if (!addrs.length && typeof p.account === 'string') {
+        addrs = [p.account];
       }
-      return { address: addr, account: null };
+      return { accounts: addrs.map(addr => ({ address: addr })) };
     }
 
     async function signLegacy(entry, msgBytes, challengeText) {
@@ -291,10 +373,61 @@ Timestamp: ${ts}`
       throw new Error('This wallet does not support message signing.');
     }
 
+    // ---------- Wallet selection UI ----------
+    function pickWallet(wallets) {
+      return new Promise((resolve) => {
+        walletListEl.innerHTML = '';
+        wallets.forEach(entry => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wallet-option';
+          btn.textContent = entry.name;
+          btn.addEventListener('click', () => {
+            hideWalletPicker();
+            resolve(entry);
+          });
+          walletListEl.appendChild(btn);
+        });
+        showWalletPicker();
+      });
+    }
+
+    function shortAddr(addr) {
+      // Addresses shorter than 11 chars can't be meaningfully shortened (6 + ... + 4 = 13 chars)
+      if (!addr || addr.length < 11) return addr;
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    function pickAccount(accounts, walletName) {
+      if (accounts.length === 1) return Promise.resolve(accounts[0]);
+      return new Promise((resolve) => {
+        accountListEl.innerHTML = '';
+        accountPickerLabel.textContent =
+          `Multiple accounts found in ${walletName}. Select one:`;
+        accounts.forEach(account => {
+          const addr = account?.address || account;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'account-option';
+          btn.textContent = shortAddr(addr);
+          btn.title = addr;
+          btn.addEventListener('click', () => {
+            hideAccountPicker();
+            resolve(account);
+          });
+          accountListEl.appendChild(btn);
+        });
+        showAccountPicker();
+      });
+    }
+
     // ---------- Main verification flow ----------
     async function verify() {
       retryBtn.style.display = 'none';
-      setStatus('<span class="spinner"></span> Connecting to wallet&hellip;');
+      hideConnect();
+      hideWalletPicker();
+      hideAccountPicker();
+      setStatus('<span class="spinner"></span> Looking for wallets&hellip;');
 
       // 1. Discover wallets (standard + legacy)
       const wallets = discoverWallets();
@@ -304,15 +437,28 @@ Timestamp: ${ts}`
         return;
       }
 
-      const entry = wallets[0];
+      // 2. Let user choose their wallet provider
+      setStatus('Select a wallet to continue.');
+      const entry = await pickWallet(wallets);
 
-      // 2. Connect and get address
-      let address, account;
+      // 3. Connect and get accounts
+      setStatus('<span class="spinner"></span> Connecting to ' + entry.name + '&hellip;');
+      let rawAccounts;
       if (entry.source === 'standard') {
-        ({ address, account } = await connectStandard(entry));
+        ({ accounts: rawAccounts } = await connectStandard(entry));
       } else {
-        ({ address, account } = await connectLegacy(entry));
+        ({ accounts: rawAccounts } = await connectLegacy(entry));
       }
+
+      if (!rawAccounts || !rawAccounts.length) {
+        setStatus('&#x26A0;&#xFE0F; ' + entry.name + ' did not provide any Sui accounts.');
+        showRetry();
+        return;
+      }
+
+      // 4. Let user pick an account if multiple are available
+      const account = await pickAccount(rawAccounts, entry.name);
+      const address = String(account?.address || account || '').trim();
 
       if (!address || !isValidSuiAddress(address)) {
         setStatus('&#x26A0;&#xFE0F; Wallet did not provide a valid Sui address.');
@@ -320,11 +466,10 @@ Timestamp: ${ts}`
         return;
       }
 
-      address = String(address).trim();
       walletAddressEl.textContent = address;
       walletAddressEl.style.display = 'block';
 
-      // 3. Sign challenge to prove wallet ownership
+      // 5. Sign challenge to prove wallet ownership
       setStatus('<span class="spinner"></span> Signing verification challenge&hellip;');
 
       const c = makeChallenge(address);
@@ -340,7 +485,7 @@ Timestamp: ${ts}`
 
       const norm = normalizeSigResult(res);
 
-      // 4. Submit signed payload to Telegram bot
+      // 6. Submit signed payload to Telegram bot
       setStatus('<span class="spinner"></span> Submitting for verification&hellip;');
 
       const signaturePayload = {
@@ -368,40 +513,18 @@ Timestamp: ${ts}`
       }
     }
 
-    // ---------- Auto-start with retry logic ----------
-    // Wallets register asynchronously via the Wallet Standard;
-    // retry at increasing intervals (matching the staking page pattern).
+    // ---------- Error handling ----------
     function handleError(err) {
+      hideWalletPicker();
+      hideAccountPicker();
       setStatus(`&#x274C; Error: ${err?.message || err}`);
       showRetry();
     }
 
+    connectBtn.addEventListener('click', () => verify().catch(handleError));
     retryBtn.addEventListener('click', () => verify().catch(handleError));
 
     initWalletStandard();
-
-    let verified = false;
-    function attemptVerify() {
-      if (verified) return;
-      verified = true;
-      verify().catch(handleError);
-    }
-
-    const WALLET_RETRY_DELAYS = [800, 2500, 5000];
-
-    WALLET_RETRY_DELAYS.forEach(delay => {
-      setTimeout(() => {
-        if (!verified && discoverWallets().length > 0) attemptVerify();
-      }, delay);
-    });
-
-    // Immediate attempt in case wallet is already registered
-    if (discoverWallets().length > 0) {
-      attemptVerify();
-    } else {
-      // Final fallback: try after longest delay regardless
-      setTimeout(() => { if (!verified) attemptVerify(); }, WALLET_RETRY_DELAYS[WALLET_RETRY_DELAYS.length - 1]);
-    }
   </script>
 </body>
 </html>
