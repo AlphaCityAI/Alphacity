@@ -91,7 +91,7 @@
 <body>
   <div class="card">
     <h2>GuildSafe Wallet Verification</h2>
-    <p>Select your Sui wallet to verify token holdings.</p>
+    <p>Connect your Sui wallet and sign a challenge to verify ownership.</p>
 
     <div>
       <span class="pill" id="ctxGroup">group: -</span>
@@ -124,6 +124,8 @@
     function showRetry() { retryBtn.style.display = 'block'; }
 
     // ---------- Helpers ----------
+    const enc = new TextEncoder();
+
     function detectProvider() {
       const candidates = [
         { name: 'slush', obj: window.slush?.sui || window.slush },
@@ -139,6 +141,43 @@
 
     function isValidSuiAddress(a) {
       return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim());
+    }
+
+    function makeChallenge(addr) {
+      const nonce = crypto.randomUUID
+        ? crypto.randomUUID()
+        : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+      const ts = Date.now();
+      return {
+        nonce,
+        ts,
+        text:
+`GuildSafe Wallet Verification
+Group: ${groupId}
+TelegramUser: ${tgUserId}
+Wallet: ${addr}
+Nonce: ${nonce}
+Timestamp: ${ts}`
+      };
+    }
+
+    function bytesToB64(bytes) {
+      try {
+        const arr = Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+        return btoa(String.fromCharCode(...arr));
+      } catch {
+        return null;
+      }
+    }
+
+    function normalizeSigResult(r) {
+      return {
+        signature: r?.signature || r?.signatureBase64 || r?.signedMessage || null,
+        bytes: r?.bytes || r?.messageBytes || null,
+        publicKey: r?.publicKey || r?.pubKey || null,
+        scheme: r?.signatureScheme || r?.scheme || null,
+        raw: r
+      };
     }
 
     // ---------- Main verification flow ----------
@@ -160,7 +199,7 @@
         await walletProvider.connect();
       }
 
-      // 2. Get wallet address
+      // 2. Get wallet address from provider
       let addr = null;
       if (typeof walletProvider.getAccounts === 'function') {
         const accts = await walletProvider.getAccounts();
@@ -183,20 +222,47 @@
       walletAddressEl.textContent = address;
       walletAddressEl.style.display = 'block';
 
-      // 3. Submit wallet address to Telegram bot for token-balance verification
+      // 3. Sign challenge to prove wallet ownership
+      setStatus('<span class="spinner"></span> Signing verification challenge&hellip;');
+
+      const c = makeChallenge(address);
+      const challenge = c.text;
+      const msgBytes = enc.encode(challenge);
+      let res = null;
+
+      if (typeof walletProvider.signPersonalMessage === 'function') {
+        res = await walletProvider.signPersonalMessage({ message: msgBytes });
+      } else if (typeof walletProvider.signMessage === 'function') {
+        res = await walletProvider.signMessage({ message: challenge });
+      } else {
+        setStatus('&#x26A0;&#xFE0F; This wallet does not support message signing.');
+        showRetry();
+        return;
+      }
+
+      const norm = normalizeSigResult(res);
+
+      // 4. Submit signed payload to Telegram bot
       setStatus('<span class="spinner"></span> Submitting for verification&hellip;');
 
-      const payload = JSON.stringify({
+      const signaturePayload = {
         wallet_address: address,
         group_id: groupId,
         tg_user_id: tgUserId,
         provider: found.name,
-        verified_at: Date.now()
-      });
+        challenge,
+        signature: norm.signature || null,
+        signature_bytes_b64: norm.bytes ? bytesToB64(norm.bytes) : null,
+        public_key: norm.publicKey || null,
+        signature_scheme: norm.scheme || null,
+        signed_at: Date.now()
+      };
+
+      const payload = JSON.stringify(signaturePayload);
 
       if (tg?.sendData) {
         tg.sendData(payload);
-        setStatus('&#x2705; Wallet submitted! Returning to Telegram&hellip;');
+        setStatus('&#x2705; Wallet verified! Returning to Telegram&hellip;');
         tg.close();
       } else {
         navigator.clipboard?.writeText(payload);
