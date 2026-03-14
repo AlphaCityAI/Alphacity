@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Analyzer - Alpha City</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        // Configure Tailwind CSS — same tokens as staking/index.html
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-primary': tailwind.colors.blue[500],
+                        'brand-primary-hover': tailwind.colors.blue[400],
+                        'brand-secondary': tailwind.colors.yellow[400],
+                        'brand-secondary-hover': tailwind.colors.yellow[300],
+                        'dark-bg': '#111827',
+                        'dark-card': '#1F2937',
+                        'dark-text': '#E5E7EB',
+                        'dark-text-secondary': '#9CA3AF',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* AI response markdown styling */
+        .ai-response h3 {
+            color: #FCD34D;
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-top: 1.1rem;
+            margin-bottom: 0.4rem;
+            letter-spacing: 0.01em;
+        }
+        .ai-response p {
+            color: #9CA3AF;
+            margin-bottom: 0.6rem;
+            line-height: 1.7;
+        }
+        .ai-response ul {
+            list-style-type: disc;
+            padding-left: 1.4rem;
+            margin-bottom: 0.6rem;
+        }
+        .ai-response li {
+            color: #9CA3AF;
+            margin-bottom: 0.3rem;
+            line-height: 1.6;
+        }
+        .ai-response strong {
+            color: #E5E7EB;
+            font-weight: 600;
+        }
+        .ai-response code {
+            background: #1F2937;
+            color: #FCD34D;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+        .ai-response a {
+            color: #60A5FA;
+            text-decoration: underline;
+        }
+        .ai-response a:hover { color: #93C5FD; }
+
+        /* Animated thinking dots */
+        @keyframes bounce-dot {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-8px); }
+        }
+        .thinking-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #FCD34D;
+            animation: bounce-dot 1.4s infinite ease-in-out;
+        }
+        .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+        .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- ===================== NAVIGATION ===================== -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="/" class="text-2xl font-bold text-white flex items-center gap-2 group">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                    <div class="flex flex-col items-start">
+                        <span class="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded border border-blue-500/30 uppercase tracking-wide font-bold ml-2">AI Analyzer</span>
+                    </div>
+                </a>
+
+                <!-- Right Side Actions -->
+                <div class="flex items-center gap-4">
+                    <a href="/" class="hidden md:block text-dark-text-secondary hover:text-white transition-colors">Back to Home</a>
+                    <button id="connect-wallet-btn"
+                        class="bg-brand-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd"/>
+                        </svg>
+                        <span id="wallet-text">Connect Wallet</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ===================== MAIN ===================== -->
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <!-- Page Hero -->
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 text-sm px-4 py-2 rounded-full border border-blue-500/20 mb-5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.344.346a3.5 3.5 0 00-1.028 2.471v.144a2 2 0 01-2 2h-1a2 2 0 01-2-2v-.144c0-.928-.372-1.816-1.028-2.47l-.344-.346z"/>
+                </svg>
+                Powered by GPT-4o-mini &amp; SUI Mainnet
+            </div>
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                Alpha <span class="text-brand-secondary">Analyzer</span>
+            </h1>
+            <p class="text-dark-text-secondary text-lg max-w-2xl mx-auto">
+                Connect your SUI wallet and let our AI scan your entire on-chain portfolio — token holdings, NFTs, and yield opportunities — then deliver actionable alpha.
+            </p>
+        </div>
+
+        <!-- API Key Setup -->
+        <div class="max-w-2xl mx-auto mb-10">
+            <div class="glass-panel p-5 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-white font-semibold flex items-center gap-2">
+                        <svg class="w-5 h-5 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                        OpenAI API Key
+                    </h3>
+                    <span id="api-key-status" class="text-xs text-red-400">Not set</span>
+                </div>
+                <div class="flex gap-3">
+                    <input type="password" id="api-key-input" placeholder="sk-..."
+                        class="flex-1 bg-dark-bg border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 outline-none focus:border-brand-primary transition-colors placeholder-gray-600">
+                    <button id="save-api-key-btn"
+                        class="bg-brand-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-primary-hover transition-colors whitespace-nowrap">
+                        Save Key
+                    </button>
+                </div>
+                <p class="text-xs text-dark-text-secondary mt-2">
+                    Your key is stored only in your browser's local storage and is sent directly to OpenAI — never to our servers.
+                    Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">platform.openai.com</a>.
+                </p>
+            </div>
+        </div>
+
+        <!-- Two-column layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- ===== LEFT COLUMN: Portfolio data ===== -->
+            <div class="lg:col-span-1 space-y-5">
+
+                <!-- Connect prompt (shown before wallet connect) -->
+                <div id="connect-prompt" class="glass-panel p-8 rounded-xl text-center">
+                    <svg class="w-12 h-12 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    <p class="text-dark-text-secondary text-sm leading-relaxed">
+                        Connect your SUI wallet using the button above to scan your portfolio.
+                    </p>
+                </div>
+
+                <!-- Portfolio summary (shown after wallet connect) -->
+                <div id="portfolio-panel" class="hidden space-y-5">
+
+                    <!-- Wallet card -->
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-dark-text-secondary text-xs font-medium uppercase tracking-wider mb-3">Connected Wallet</h3>
+                        <p class="text-white font-mono text-xs break-all leading-relaxed" id="connected-address">—</p>
+                        <div class="mt-3 pt-3 border-t border-gray-800 flex justify-between text-sm">
+                            <span class="text-dark-text-secondary">Network</span>
+                            <span class="text-green-400 font-medium flex items-center gap-1">
+                                <span class="animate-pulse-slow w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                                Mainnet
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Token Balances -->
+                    <div class="glass-panel p-5 rounded-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-dark-text-secondary text-xs font-medium uppercase tracking-wider">Token Holdings</h3>
+                            <span id="balances-spinner" class="hidden">
+                                <svg class="w-4 h-4 text-brand-primary animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div id="token-list" class="space-y-1">
+                            <p class="text-xs text-gray-600">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Object / NFT Summary -->
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-dark-text-secondary text-xs font-medium uppercase tracking-wider mb-3">On-Chain Objects</h3>
+                        <div id="nft-summary">
+                            <p class="text-xs text-gray-600">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Analyze Button -->
+                    <button id="analyze-btn" disabled
+                        class="w-full py-4 bg-gray-700 text-gray-400 font-bold text-base rounded-xl cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.344.346a3.5 3.5 0 00-1.028 2.471v.144a2 2 0 01-2 2h-1a2 2 0 01-2-2v-.144c0-.928-.372-1.816-1.028-2.47l-.344-.346z"/>
+                        </svg>
+                        Analyze Portfolio
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- ===== RIGHT COLUMN: AI Results ===== -->
+            <div class="lg:col-span-2 space-y-6">
+
+                <!-- Default / idle state -->
+                <div id="ai-idle" class="glass-panel p-10 rounded-xl text-center">
+                    <div class="w-16 h-16 rounded-full bg-brand-secondary/10 border border-brand-secondary/20 flex items-center justify-center mx-auto mb-5">
+                        <svg class="w-8 h-8 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-white mb-3">Ready for Alpha</h2>
+                    <p class="text-dark-text-secondary max-w-sm mx-auto text-sm leading-relaxed">
+                        Connect your wallet, set your OpenAI API key, then click
+                        <strong class="text-white">Analyze Portfolio</strong> for a full AI-powered breakdown.
+                    </p>
+                    <div class="mt-6 grid grid-cols-3 gap-3 text-xs text-dark-text-secondary">
+                        <div class="bg-dark-bg rounded-lg p-3 border border-gray-800">
+                            <div class="text-brand-secondary font-bold text-base mb-1">📊</div>
+                            Portfolio Breakdown
+                        </div>
+                        <div class="bg-dark-bg rounded-lg p-3 border border-gray-800">
+                            <div class="text-brand-secondary font-bold text-base mb-1">💰</div>
+                            Yield Suggestions
+                        </div>
+                        <div class="bg-dark-bg rounded-lg p-3 border border-gray-800">
+                            <div class="text-brand-secondary font-bold text-base mb-1">⚡</div>
+                            Risk Analysis
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thinking / loading state -->
+                <div id="ai-thinking" class="hidden glass-panel p-10 rounded-xl text-center">
+                    <div class="flex justify-center gap-3 mb-6">
+                        <span class="thinking-dot"></span>
+                        <span class="thinking-dot"></span>
+                        <span class="thinking-dot"></span>
+                    </div>
+                    <p class="text-white font-semibold text-lg mb-2">Analyzing your portfolio&hellip;</p>
+                    <p class="text-dark-text-secondary text-sm" id="thinking-status">Fetching on-chain data</p>
+                </div>
+
+                <!-- AI Results -->
+                <div id="ai-results" class="hidden space-y-6">
+
+                    <!-- Portfolio Analysis -->
+                    <div class="glass-panel p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-5">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                Portfolio Analysis
+                            </h2>
+                            <span class="text-xs text-dark-text-secondary bg-dark-bg px-2 py-1 rounded border border-gray-800" id="analysis-timestamp">—</span>
+                        </div>
+                        <div id="ai-analysis-content" class="ai-response text-sm"></div>
+                    </div>
+
+                    <!-- Yield Opportunities -->
+                    <div class="glass-panel p-6 rounded-xl">
+                        <h2 class="text-lg font-bold text-white mb-5 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                            Yield Opportunities
+                        </h2>
+                        <div id="ai-yield-content" class="ai-response text-sm"></div>
+                    </div>
+
+                    <!-- Re-analyze -->
+                    <button id="reanalyze-btn"
+                        class="w-full py-3 border border-brand-primary/40 text-brand-primary rounded-xl font-medium hover:bg-brand-primary/10 transition-all text-sm">
+                        ↻ Re-analyze
+                    </button>
+                </div>
+
+                <!-- Error state -->
+                <div id="ai-error" class="hidden glass-panel p-10 rounded-xl text-center">
+                    <div class="text-4xl mb-4">⚠️</div>
+                    <p class="text-white font-semibold mb-2">Analysis Failed</p>
+                    <p class="text-dark-text-secondary text-sm mb-5" id="ai-error-msg">An unexpected error occurred.</p>
+                    <button id="error-retry-btn"
+                        class="px-6 py-2 bg-dark-card border border-gray-700 text-white rounded-lg text-sm hover:border-brand-primary transition-colors">
+                        Try Again
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- ===================== FOOTER ===================== -->
+    <footer class="bg-dark-bg border-t border-gray-800 py-8 mt-auto">
+        <div class="container mx-auto px-4 text-center text-dark-text-secondary text-sm">
+            &copy; 2024 Alpha City. All rights reserved.
+        </div>
+    </footer>
+
+    <script>
+    // =========================================================
+    // WALLET STANDARD DISCOVERY
+    // (same pattern as verify/index.html)
+    // =========================================================
+    const registeredWallets = new Set();
+    let walletListCache;
+
+    function registerWallet(w) {
+        walletListCache = undefined;
+        registeredWallets.add(w);
+    }
+    function getRegisteredWallets() {
+        if (!walletListCache) walletListCache = [...registeredWallets];
+        return walletListCache;
+    }
+
+    class WalletStandardEvent extends Event {
+        #api;
+        get detail() { return this.#api; }
+        get type() { return 'wallet-standard:app-ready'; }
+        constructor(api) {
+            super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+            this.#api = api;
+        }
+    }
+
+    function initWalletStandard() {
+        const appApi = Object.freeze({ register: (...ws) => ws.forEach(registerWallet) });
+        try { window.addEventListener('wallet-standard:register-wallet', e => e.detail(appApi)); } catch (_) {}
+        try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
+    }
+
+    function discoverWallets() {
+        const found = [], seen = new Set();
+        for (const w of getRegisteredWallets()) {
+            if (w.features?.['standard:connect'] && !seen.has(w.name)) {
+                seen.add(w.name);
+                found.push({ source: 'standard', name: w.name, wallet: w });
+            }
+        }
+        const legacy = [
+            { name: 'Slush',      obj: window.slush?.sui || window.slush },
+            { name: 'Sui Wallet', obj: window.suiWallet },
+            { name: 'Sui',        obj: window.sui },
+            { name: 'Martian',    obj: window.martian?.sui || window.martian },
+            { name: 'Ethos',      obj: window.ethos?.sui || window.ethos },
+        ];
+        for (const c of legacy) {
+            if (c.obj && !seen.has(c.name)) {
+                seen.add(c.name);
+                found.push({ source: 'legacy', name: c.name, provider: c.obj });
+            }
+        }
+        return found;
+    }
+
+    function isValidSuiAddress(a) {
+        return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim());
+    }
+    function shortAddr(a) {
+        return (!a || a.length < 11) ? a : a.slice(0, 6) + '...' + a.slice(-4);
+    }
+
+    // =========================================================
+    // CONSTANTS
+    // =========================================================
+    const MAX_OBJECTS_TO_FETCH   = 50;   // max owned objects to retrieve per RPC call
+    const PRICE_FETCH_TIMEOUT_MS = 5000; // ms before giving up on the CoinGecko price request
+    const MAX_AI_RESPONSE_TOKENS = 1400; // OpenAI max_tokens for the analysis response
+    // OpenAI keys begin with "sk-" and are at least 40 chars long
+    const MIN_API_KEY_LENGTH     = 40;
+
+    // =========================================================
+    // APPLICATION STATE
+    // =========================================================
+    let connectedAddress = null;
+    let portfolioData    = null;
+    let apiKey = localStorage.getItem('ac_openai_key') || '';
+
+    // =========================================================
+    // API KEY MANAGEMENT
+    // =========================================================
+    const apiKeyInput   = document.getElementById('api-key-input');
+    const apiKeyStatus  = document.getElementById('api-key-status');
+    const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+
+    function refreshApiKeyUI() {
+        if (apiKey) {
+            apiKeyStatus.textContent = 'Set ✓';
+            apiKeyStatus.className   = 'text-xs text-green-400';
+            apiKeyInput.placeholder  = '••••••••••••••••••';
+        } else {
+            apiKeyStatus.textContent = 'Not set';
+            apiKeyStatus.className   = 'text-xs text-red-400';
+            apiKeyInput.placeholder  = 'sk-...';
+        }
+        refreshAnalyzeBtn();
+    }
+
+    saveApiKeyBtn.addEventListener('click', () => {
+        const val = apiKeyInput.value.trim();
+        if (val.startsWith('sk-') && val.length >= MIN_API_KEY_LENGTH) {
+            apiKey = val;
+            localStorage.setItem('ac_openai_key', val);
+            apiKeyInput.value = '';
+            refreshApiKeyUI();
+        } else {
+            apiKeyInput.classList.add('border-red-500');
+            setTimeout(() => apiKeyInput.classList.remove('border-red-500'), 1500);
+        }
+    });
+
+    // Allow pressing Enter in the key field to save
+    apiKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveApiKeyBtn.click(); });
+
+    refreshApiKeyUI();
+
+    // =========================================================
+    // WALLET CONNECTION
+    // =========================================================
+    const connectBtn  = document.getElementById('connect-wallet-btn');
+    const walletLabel = document.getElementById('wallet-text');
+
+    connectBtn.addEventListener('click', () => {
+        if (connectedAddress) {
+            disconnectWallet();
+        } else {
+            connectWallet().catch(err => showError('Wallet connection failed: ' + (err?.message || err)));
+        }
+    });
+
+    function disconnectWallet() {
+        connectedAddress = null;
+        portfolioData    = null;
+        walletLabel.textContent = 'Connect Wallet';
+        connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
+        connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
+        hide('portfolio-panel');
+        show('connect-prompt');
+        show('ai-idle');
+        hide('ai-results');
+        hide('ai-error');
+        refreshAnalyzeBtn();
+    }
+
+    async function connectWallet() {
+        const wallets = discoverWallets();
+        if (!wallets.length) {
+            throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
+        }
+
+        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
+        if (!entry) return; // user cancelled
+
+        walletLabel.textContent = 'Connecting…';
+        connectBtn.disabled = true;
+
+        try {
+            let accounts;
+            if (entry.source === 'standard') {
+                const r = await entry.wallet.features['standard:connect'].connect();
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+            const all = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) throw new Error('Wallet provided no accounts.');
+
+            const account = all.length === 1 ? all[0] : await pickAccount(all);
+            const address = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
+
+            connectedAddress = address;
+            walletLabel.textContent = shortAddr(address);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            hide('connect-prompt');
+            show('portfolio-panel');
+            document.getElementById('connected-address').textContent = address;
+
+            await loadPortfolioData(address);
+        } finally {
+            connectBtn.disabled = false;
+        }
+    }
+
+    // =========================================================
+    // WALLET PICKER MODAL
+    // =========================================================
+    function pickWallet(wallets) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Select Wallet</h3>
+                    <div id="_wp_list" class="space-y-2"></div>
+                    <button id="_wp_cancel" class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">Cancel</button>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            wallets.forEach(entry => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
+                btn.textContent = entry.name;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(entry); });
+                document.getElementById('_wp_list').appendChild(btn);
+            });
+            document.getElementById('_wp_cancel').addEventListener('click', () => {
+                document.body.removeChild(overlay); resolve(null);
+            });
+        });
+    }
+
+    function pickAccount(accounts) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Select Account</h3>
+                    <div id="_ap_list" class="space-y-2"></div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            accounts.forEach(account => {
+                const addr = account?.address || account;
+                const btn  = document.createElement('button');
+                btn.type      = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
+                btn.textContent = shortAddr(addr);
+                btn.title = addr;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(account); });
+                document.getElementById('_ap_list').appendChild(btn);
+            });
+        });
+    }
+
+    function makeOverlay() {
+        const d = document.createElement('div');
+        d.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
+        return d;
+    }
+
+    // =========================================================
+    // SUI RPC HELPERS
+    // =========================================================
+    const SUI_RPC   = 'https://fullnode.mainnet.sui.io';
+    const CITY_TYPE = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
+
+    async function rpc(method, params) {
+        const res = await fetch(SUI_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+        });
+        if (!res.ok) throw new Error(`SUI RPC HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(`SUI RPC: ${data.error.message}`);
+        return data.result;
+    }
+
+    function fmtBalance(raw, decimals) {
+        const n = BigInt(raw || '0');
+        const d = BigInt(10) ** BigInt(decimals);
+        const whole = n / d;
+        const frac  = n % d;
+        if (frac === 0n) return whole.toLocaleString();
+        const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '').slice(0, 4);
+        return `${whole.toLocaleString()}.${fracStr}`;
+    }
+
+    function coinDecimals(coinType) {
+        if (coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI') return 9;
+        if (coinType === CITY_TYPE) return 9;
+        return 6; // reasonable default for unknown coins
+    }
+
+    function coinSymbol(coinType) {
+        if (coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI') return 'SUI';
+        if (coinType === CITY_TYPE) return 'CITY';
+        return (coinType.split('::').pop() || coinType).slice(0, 10);
+    }
+
+    // =========================================================
+    // PORTFOLIO DATA LOADING
+    // =========================================================
+    async function loadPortfolioData(address) {
+        show('balances-spinner');
+        document.getElementById('token-list').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>';
+        document.getElementById('nft-summary').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>';
+
+        try {
+            const [balances, allObjects] = await Promise.all([
+                rpc('suix_getAllBalances', [address]).catch(() => []),
+                rpc('suix_getOwnedObjects', [address, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+            ]);
+
+            portfolioData = { address, balances: balances || [], allObjects };
+            renderTokenList(balances || []);
+            renderObjectSummary(allObjects, balances || []);
+        } catch (err) {
+            document.getElementById('token-list').innerHTML =
+                `<p class="text-xs text-red-400">Failed to load: ${err?.message || err}</p>`;
+            document.getElementById('nft-summary').innerHTML =
+                `<p class="text-xs text-red-400">Failed to load</p>`;
+        } finally {
+            hide('balances-spinner');
+            refreshAnalyzeBtn();
+        }
+    }
+
+    function renderTokenList(balances) {
+        const el = document.getElementById('token-list');
+        if (!balances.length) {
+            el.innerHTML = '<p class="text-xs text-gray-500">No token balances found.</p>';
+            return;
+        }
+        const sorted = [...balances].sort((a, b) => {
+            // SUI first, then by balance descending
+            const aIsSui = a.coinType.includes('::sui::SUI');
+            const bIsSui = b.coinType.includes('::sui::SUI');
+            if (aIsSui && !bIsSui) return -1;
+            if (bIsSui && !aIsSui) return 1;
+            const diff = BigInt(b.totalBalance || '0') - BigInt(a.totalBalance || '0');
+            return diff > 0n ? 1 : diff < 0n ? -1 : 0;
+        });
+        el.innerHTML = sorted.map(b => {
+            const sym = coinSymbol(b.coinType);
+            const dec = coinDecimals(b.coinType);
+            const amt = fmtBalance(b.totalBalance, dec);
+            const isCity = b.coinType === CITY_TYPE;
+            return `
+                <div class="flex justify-between items-center text-xs py-1.5 border-b border-gray-800/60 last:border-0">
+                    <span class="font-medium ${isCity ? 'text-brand-secondary' : 'text-dark-text-secondary'}">${sym}</span>
+                    <span class="text-white font-mono">${amt}</span>
+                </div>`;
+        }).join('');
+    }
+
+    function renderObjectSummary(allObjects, balances) {
+        const el = document.getElementById('nft-summary');
+        const total = allObjects?.data?.length || 0;
+        const coinTypes = balances.length;
+        el.innerHTML = `
+            <div class="flex justify-between text-xs py-1.5 border-b border-gray-800/60">
+                <span class="text-dark-text-secondary">Total objects</span>
+                <span class="text-white font-mono">${total}</span>
+            </div>
+            <div class="flex justify-between text-xs py-1.5">
+                <span class="text-dark-text-secondary">Coin types held</span>
+                <span class="text-white font-mono">${coinTypes}</span>
+            </div>`;
+    }
+
+    // =========================================================
+    // UI HELPERS
+    // =========================================================
+    function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+    function refreshAnalyzeBtn() {
+        const btn = document.getElementById('analyze-btn');
+        const ready = !!(connectedAddress && apiKey && portfolioData);
+        btn.disabled = !ready;
+        if (ready) {
+            btn.className = btn.className
+                .replace('bg-gray-700', 'bg-brand-primary')
+                .replace('text-gray-400', 'text-white')
+                .replace('cursor-not-allowed', 'cursor-pointer hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20');
+        }
+    }
+
+    function showError(msg) {
+        hide('ai-idle');
+        hide('ai-thinking');
+        hide('ai-results');
+        show('ai-error');
+        document.getElementById('ai-error-msg').textContent = msg;
+    }
+
+    // =========================================================
+    // AI ANALYSIS
+    // =========================================================
+    document.getElementById('analyze-btn').addEventListener('click', runAnalysis);
+    document.getElementById('reanalyze-btn').addEventListener('click', runAnalysis);
+    document.getElementById('error-retry-btn').addEventListener('click', runAnalysis);
+
+    async function runAnalysis() {
+        if (!connectedAddress || !apiKey) return;
+
+        hide('ai-idle');
+        hide('ai-results');
+        hide('ai-error');
+        show('ai-thinking');
+
+        try {
+            // 1. Refresh on-chain data
+            setThinkingStatus('Fetching on-chain data…');
+            const [balances, allObjects] = await Promise.all([
+                rpc('suix_getAllBalances', [connectedAddress]).catch(() => []),
+                rpc('suix_getOwnedObjects', [connectedAddress, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+            ]);
+            const freshData = { address: connectedAddress, balances: balances || [], allObjects };
+
+            // Update sidebar with latest data
+            renderTokenList(freshData.balances);
+            renderObjectSummary(freshData.allObjects, freshData.balances);
+            portfolioData = freshData;
+
+            // 2. Fetch SUI price (best-effort)
+            setThinkingStatus('Fetching market data…');
+            let suiPriceUsd = null;
+            try {
+                const pr = await fetch(
+                    'https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd',
+                    { signal: AbortSignal.timeout(PRICE_FETCH_TIMEOUT_MS) }
+                );
+                const pj = await pr.json();
+                suiPriceUsd = pj?.sui?.usd ?? null;
+            } catch (_) { /* non-critical */ }
+
+            // 3. Call OpenAI
+            setThinkingStatus('Generating AI analysis…');
+            const result = await callOpenAI(freshData, suiPriceUsd);
+
+            // 4. Render
+            hide('ai-thinking');
+            show('ai-results');
+            document.getElementById('analysis-timestamp').textContent =
+                new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('ai-analysis-content').innerHTML = mdToHtml(result.portfolio || '');
+            document.getElementById('ai-yield-content').innerHTML    = mdToHtml(result.yield || '');
+
+        } catch (err) {
+            hide('ai-thinking');
+            showError(err?.message || String(err));
+        }
+    }
+
+    function setThinkingStatus(msg) {
+        document.getElementById('thinking-status').textContent = msg;
+    }
+
+    // =========================================================
+    // OPENAI API CALL
+    // =========================================================
+    async function callOpenAI(data, suiPrice) {
+        const summary = buildPortfolioSummary(data, suiPrice);
+
+        const systemPrompt =
+`You are Alpha City's AI Portfolio Analyst — an expert in the SUI blockchain ecosystem, DeFi strategies, and crypto portfolio management.
+You have deep knowledge of SUI ecosystem protocols including:
+- Navi Protocol (lending/borrowing, ~4-12% supply APY)
+- Scallop Finance (lending/borrowing, ~3-10% supply APY)
+- Aftermath Finance (DEX, liquid staking afSUI ~4-7% APY)
+- Cetus Protocol (concentrated liquidity AMM, pools ~5-40% APY)
+- Turbos Finance (AMM)
+- FlowX Finance (AMM)
+- Alpha City staking ($CITY token: Citizen Credits with lock-duration multipliers 1x/1.5x/2x; Citizens NFTs boost yield)
+- SUI native validator staking (~3-5% APY baseline)
+Your tone is sharp, direct, and technically credible — like a seasoned on-chain analyst. Keep responses focused and impactful.
+Format using markdown: ### for section headers, **bold** for key terms, bullet lists for recommendations.`;
+
+        const userPrompt =
+`Analyze this SUI wallet and provide exactly two sections as valid JSON.
+
+PORTFOLIO DATA:
+${summary}
+${suiPrice ? `Current SUI price: $${suiPrice} USD` : 'SUI price: unavailable'}
+
+Return ONLY a valid JSON object with two string keys:
+{
+  "portfolio": "<markdown: portfolio composition analysis, concentration risks, notable positions, strategic observations>",
+  "yield": "<markdown: 4-6 specific yield strategies tailored to these holdings — include protocol, strategy, estimated APY, risk level (Low/Medium/High), and one action item each. Always mention Alpha City $CITY staking if they hold SUI or CITY. Include native SUI staking as a baseline.>"
+}`;
+
+        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user',   content: userPrompt },
+                ],
+                temperature: 0.65,
+                max_tokens: MAX_AI_RESPONSE_TOKENS,
+                response_format: { type: 'json_object' },
+            }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            const msg = err?.error?.message || `OpenAI HTTP ${resp.status}`;
+            if (resp.status === 401) throw new Error('Invalid OpenAI API key. Please update your key and try again.');
+            if (resp.status === 429) throw new Error('OpenAI rate limit reached. Please wait a moment and try again.');
+            throw new Error(msg);
+        }
+
+        const json    = await resp.json();
+        const content = json?.choices?.[0]?.message?.content;
+        if (!content) throw new Error('OpenAI returned an empty response.');
+
+        try {
+            return JSON.parse(content);
+        } catch (_) {
+            return { portfolio: content, yield: '' };
+        }
+    }
+
+    function buildPortfolioSummary(data, suiPrice) {
+        const lines = [`Wallet address: ${data.address}`];
+
+        if (data.balances?.length) {
+            lines.push('\nTOKEN BALANCES:');
+            const sorted = [...data.balances].sort((a, b) => {
+                if (a.coinType.includes('::sui::SUI')) return -1;
+                if (b.coinType.includes('::sui::SUI')) return 1;
+                return 0;
+            });
+            sorted.forEach(b => {
+                const sym = coinSymbol(b.coinType);
+                const dec = coinDecimals(b.coinType);
+                const amt = fmtBalance(b.totalBalance, dec);
+                let line = `- ${sym}: ${amt}`;
+                if (sym === 'SUI' && suiPrice) {
+                    const usd = (parseFloat(amt.replace(/,/g, '')) * suiPrice).toFixed(2);
+                    line += ` (~$${usd} USD)`;
+                }
+                if (b.coinType === CITY_TYPE) line += ' (Alpha City $CITY token)';
+                lines.push(line);
+            });
+        } else {
+            lines.push('\nTOKEN BALANCES: None detected');
+        }
+
+        const totalObjs = data.allObjects?.data?.length || 0;
+        lines.push(`\nON-CHAIN OBJECTS: ${totalObjs} total owned objects`);
+
+        if (data.allObjects?.data?.length > 0) {
+            const typeCount = {};
+            data.allObjects.data.forEach(obj => {
+                const t = (obj?.data?.type || 'Unknown').split('::').slice(-2).join('::');
+                typeCount[t] = (typeCount[t] || 0) + 1;
+            });
+            lines.push('Object breakdown:');
+            Object.entries(typeCount).slice(0, 10).forEach(([t, n]) => lines.push(`  - ${t}: ${n}`));
+        }
+
+        return lines.join('\n');
+    }
+
+    // =========================================================
+    // SIMPLE MARKDOWN → HTML
+    // =========================================================
+    function mdToHtml(md) {
+        if (!md) return '';
+
+        // 1. Escape HTML entities
+        let s = md
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        // 2. Bold before line processing
+        s = s.replace(/\*\*(.+?)\*\*/g, '\x02BOLD\x02$1\x02/BOLD\x02');
+        // Inline code
+        s = s.replace(/`(.+?)`/g, '\x02CODE\x02$1\x02/CODE\x02');
+
+        // 3. Process line by line
+        const output = [];
+        let inList = false;
+
+        for (const line of s.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                if (inList) { output.push('</ul>'); inList = false; }
+                continue;
+            }
+            if (/^#{1,3}\s/.test(trimmed)) {
+                if (inList) { output.push('</ul>'); inList = false; }
+                output.push('<h3>' + trimmed.replace(/^#{1,3}\s+/, '') + '</h3>');
+            } else if (/^[-*]\s/.test(trimmed)) {
+                if (!inList) { output.push('<ul>'); inList = true; }
+                output.push('<li>' + trimmed.replace(/^[-*]\s+/, '') + '</li>');
+            } else {
+                if (inList) { output.push('</ul>'); inList = false; }
+                output.push('<p>' + trimmed + '</p>');
+            }
+        }
+        if (inList) output.push('</ul>');
+
+        // 4. Restore inline elements
+        return output.join('')
+            .replace(/\x02BOLD\x02/g,   '<strong>')
+            .replace(/\x02\/BOLD\x02/g, '</strong>')
+            .replace(/\x02CODE\x02/g,   '<code>')
+            .replace(/\x02\/CODE\x02/g, '</code>');
+    }
+
+    // =========================================================
+    // INIT
+    // =========================================================
+    initWalletStandard();
+    </script>
+</body>
+</html>
