@@ -258,6 +258,27 @@
                     </button>
                 </div>
 
+                <!-- Access required / locked state -->
+                <div id="ai-locked" class="hidden glass-panel p-10 rounded-xl text-center">
+                    <div class="text-4xl mb-5">🔒</div>
+                    <h2 class="text-xl font-bold text-white mb-3">Members Only</h2>
+                    <p class="text-dark-text-secondary max-w-sm mx-auto text-sm leading-relaxed mb-6">
+                        Alpha Analyzer requires <strong class="text-brand-secondary">1,000,000 $CITY</strong>
+                        in your wallet or staked to unlock AI-powered portfolio analysis.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <a href="https://app.cetus.zone/swap?from=0x2::sui::SUI&to=0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY"
+                            target="_blank" rel="noopener noreferrer"
+                            class="px-5 py-2 bg-brand-secondary text-dark-bg font-semibold rounded-lg text-sm hover:bg-brand-secondary-hover transition-colors">
+                            Buy $CITY
+                        </a>
+                        <a href="/staking/"
+                            class="px-5 py-2 bg-dark-card border border-gray-700 text-white rounded-lg text-sm hover:border-brand-primary transition-colors">
+                            Stake $CITY
+                        </a>
+                    </div>
+                </div>
+
                 <!-- Thinking / loading state -->
                 <div id="ai-thinking" class="hidden glass-panel p-10 rounded-xl text-center">
                     <div class="flex justify-center gap-3 mb-6">
@@ -435,6 +456,7 @@
         hide('portfolio-panel');
         show('connect-prompt');
         show('ai-idle');
+        hide('ai-locked');
         hide('ai-results');
         hide('ai-error');
         refreshAnalyzeBtn();
@@ -555,6 +577,8 @@
     // =========================================================
     const SUI_RPC   = 'https://fullnode.mainnet.sui.io';
     const CITY_TYPE = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
+    const CITY_STAKING_TYPE = '0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9::city_staking::UserStake<0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY>';
+    const CITY_ACCESS_MIN   = 1_000_000n * 10n ** 9n; // 1M CITY × 10^9 decimals
 
     async function rpc(method, params) {
         const res = await fetch(SUI_RPC, {
@@ -594,6 +618,25 @@
         return (coinType.split('::').pop() || coinType).slice(0, 10);
     }
 
+    async function fetchStakedCity(address) {
+        try {
+            const result = await rpc('suix_getOwnedObjects', [
+                address,
+                { filter: { StructType: CITY_STAKING_TYPE }, options: { showContent: true } },
+                null,
+                MAX_OBJECTS_TO_FETCH
+            ]);
+            let total = 0n;
+            for (const obj of (result?.data || [])) {
+                const amt = obj?.data?.content?.fields?.staked_amount;
+                if (amt) total += BigInt(amt);
+            }
+            return total;
+        } catch (_) {
+            return 0n;
+        }
+    }
+
     // =========================================================
     // PORTFOLIO DATA LOADING
     // =========================================================
@@ -603,12 +646,13 @@
         document.getElementById('nft-summary').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>';
 
         try {
-            const [balances, allObjects] = await Promise.all([
+            const [balances, allObjects, stakedCity] = await Promise.all([
                 rpc('suix_getAllBalances', [address]).catch(() => []),
                 rpc('suix_getOwnedObjects', [address, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+                fetchStakedCity(address),
             ]);
 
-            portfolioData = { address, balances: balances || [], allObjects };
+            portfolioData = { address, balances: balances || [], allObjects, stakedCity };
             renderTokenList(balances || []);
             renderObjectSummary(allObjects, balances || []);
         } catch (err) {
@@ -619,6 +663,7 @@
         } finally {
             hide('balances-spinner');
             refreshAnalyzeBtn();
+            updateAccessState();
         }
     }
 
@@ -685,6 +730,25 @@
         }
     }
 
+    function checkCityAccess() {
+        if (!portfolioData) return false;
+        const cityBal = (portfolioData.balances || []).find(b => b.coinType === CITY_TYPE);
+        const liquid  = BigInt(cityBal?.totalBalance || '0');
+        const staked  = portfolioData.stakedCity || 0n;
+        return liquid >= CITY_ACCESS_MIN || staked >= CITY_ACCESS_MIN;
+    }
+
+    function updateAccessState() {
+        if (!portfolioData) return;
+        if (checkCityAccess()) {
+            show('ai-idle');
+            hide('ai-locked');
+        } else {
+            hide('ai-idle');
+            show('ai-locked');
+        }
+    }
+
     function showError(msg) {
         hide('ai-idle');
         hide('ai-thinking');
@@ -702,6 +766,10 @@
 
     async function runAnalysis() {
         if (!connectedAddress) return;
+        if (!checkCityAccess()) {
+            updateAccessState();
+            return;
+        }
         if (!isKeyConfigured) {
             showError('The AI service is not configured yet. This page must be deployed via GitHub Actions for the AI features to work.');
             return;
