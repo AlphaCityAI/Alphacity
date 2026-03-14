@@ -419,7 +419,7 @@
 
     // Detect if the placeholder was never replaced (e.g. running from source without
     // going through the deploy workflow, or the OPENAI_API_KEY secret was not set).
-    const API_KEY_PLACEHOLDER = '__OPENAI_API_KEY__';
+    const API_KEY_PLACEHOLDER = '__OPENAI_API' + '_KEY__';
     const isKeyConfigured = apiKey !== API_KEY_PLACEHOLDER && apiKey.length > 0;
 
     // =========================================================
