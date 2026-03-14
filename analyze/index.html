@@ -159,33 +159,6 @@
             </p>
         </div>
 
-        <!-- API Key Setup -->
-        <div class="max-w-2xl mx-auto mb-10">
-            <div class="glass-panel p-5 rounded-xl">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-white font-semibold flex items-center gap-2">
-                        <svg class="w-5 h-5 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                        </svg>
-                        OpenAI API Key
-                    </h3>
-                    <span id="api-key-status" class="text-xs text-red-400">Not set</span>
-                </div>
-                <div class="flex gap-3">
-                    <input type="password" id="api-key-input" placeholder="sk-..."
-                        class="flex-1 bg-dark-bg border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 outline-none focus:border-brand-primary transition-colors placeholder-gray-600">
-                    <button id="save-api-key-btn"
-                        class="bg-brand-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-primary-hover transition-colors whitespace-nowrap">
-                        Save Key
-                    </button>
-                </div>
-                <p class="text-xs text-dark-text-secondary mt-2">
-                    Your key is stored only in your browser's local storage and is sent directly to OpenAI — never to our servers.
-                    Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">platform.openai.com</a>.
-                </p>
-            </div>
-        </div>
-
         <!-- Two-column layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -266,7 +239,7 @@
                     </div>
                     <h2 class="text-xl font-bold text-white mb-3">Ready for Alpha</h2>
                     <p class="text-dark-text-secondary max-w-sm mx-auto text-sm leading-relaxed">
-                        Connect your wallet, set your OpenAI API key, then click
+                        Connect your wallet, then click
                         <strong class="text-white">Analyze Portfolio</strong> for a full AI-powered breakdown.
                     </p>
                     <div class="mt-6 grid grid-cols-3 gap-3 text-xs text-dark-text-secondary">
@@ -423,53 +396,21 @@
     const MAX_OBJECTS_TO_FETCH   = 50;   // max owned objects to retrieve per RPC call
     const PRICE_FETCH_TIMEOUT_MS = 5000; // ms before giving up on the CoinGecko price request
     const MAX_AI_RESPONSE_TOKENS = 1400; // OpenAI max_tokens for the analysis response
-    // OpenAI keys begin with "sk-" and are at least 40 chars long
-    const MIN_API_KEY_LENGTH     = 40;
+
+    // API key is injected at deploy time by the GitHub Actions workflow.
+    // It is not user-configurable and is not stored in localStorage.
+    const apiKey = '__OPENAI_API_KEY__';
+
+    // Detect if the placeholder was never replaced (e.g. running from source without
+    // going through the deploy workflow, or the OPENAI_API_KEY secret was not set).
+    const API_KEY_PLACEHOLDER = '__OPENAI_API_KEY__';
+    const isKeyConfigured = apiKey !== API_KEY_PLACEHOLDER && apiKey.length > 0;
 
     // =========================================================
     // APPLICATION STATE
     // =========================================================
     let connectedAddress = null;
     let portfolioData    = null;
-    let apiKey = localStorage.getItem('ac_openai_key') || '';
-
-    // =========================================================
-    // API KEY MANAGEMENT
-    // =========================================================
-    const apiKeyInput   = document.getElementById('api-key-input');
-    const apiKeyStatus  = document.getElementById('api-key-status');
-    const saveApiKeyBtn = document.getElementById('save-api-key-btn');
-
-    function refreshApiKeyUI() {
-        if (apiKey) {
-            apiKeyStatus.textContent = 'Set ✓';
-            apiKeyStatus.className   = 'text-xs text-green-400';
-            apiKeyInput.placeholder  = '••••••••••••••••••';
-        } else {
-            apiKeyStatus.textContent = 'Not set';
-            apiKeyStatus.className   = 'text-xs text-red-400';
-            apiKeyInput.placeholder  = 'sk-...';
-        }
-        refreshAnalyzeBtn();
-    }
-
-    saveApiKeyBtn.addEventListener('click', () => {
-        const val = apiKeyInput.value.trim();
-        if (val.startsWith('sk-') && val.length >= MIN_API_KEY_LENGTH) {
-            apiKey = val;
-            localStorage.setItem('ac_openai_key', val);
-            apiKeyInput.value = '';
-            refreshApiKeyUI();
-        } else {
-            apiKeyInput.classList.add('border-red-500');
-            setTimeout(() => apiKeyInput.classList.remove('border-red-500'), 1500);
-        }
-    });
-
-    // Allow pressing Enter in the key field to save
-    apiKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveApiKeyBtn.click(); });
-
-    refreshApiKeyUI();
 
     // =========================================================
     // WALLET CONNECTION
@@ -728,7 +669,7 @@
 
     function refreshAnalyzeBtn() {
         const btn = document.getElementById('analyze-btn');
-        const ready = !!(connectedAddress && apiKey && portfolioData);
+        const ready = !!(connectedAddress && portfolioData && isKeyConfigured);
         btn.disabled = !ready;
         if (ready) {
             btn.className = btn.className
@@ -754,7 +695,11 @@
     document.getElementById('error-retry-btn').addEventListener('click', runAnalysis);
 
     async function runAnalysis() {
-        if (!connectedAddress || !apiKey) return;
+        if (!connectedAddress) return;
+        if (!isKeyConfigured) {
+            showError('The AI service is not configured yet. This page must be deployed via GitHub Actions for the AI features to work.');
+            return;
+        }
 
         hide('ai-idle');
         hide('ai-results');
@@ -863,7 +808,7 @@ Return ONLY a valid JSON object with two string keys:
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
             const msg = err?.error?.message || `OpenAI HTTP ${resp.status}`;
-            if (resp.status === 401) throw new Error('Invalid OpenAI API key. Please update your key and try again.');
+            if (resp.status === 401) throw new Error('AI service authentication error. Please try again later.');
             if (resp.status === 429) throw new Error('OpenAI rate limit reached. Please wait a moment and try again.');
             throw new Error(msg);
         }
