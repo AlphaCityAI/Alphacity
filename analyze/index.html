@@ -418,9 +418,11 @@
     // =========================================================
     // CONSTANTS
     // =========================================================
-    const MAX_OBJECTS_TO_FETCH   = 50;   // max owned objects to retrieve per RPC call
-    const PRICE_FETCH_TIMEOUT_MS = 5000; // ms before giving up on the CoinGecko price request
-    const MAX_AI_RESPONSE_TOKENS = 1400; // OpenAI max_tokens for the analysis response
+    const MAX_OBJECTS_TO_FETCH        = 50;    // max owned objects to retrieve per RPC call
+    const PRICE_FETCH_TIMEOUT_MS      = 5000;  // ms before giving up on the CoinGecko price request
+    const MAX_AI_RESPONSE_TOKENS      = 1400;  // OpenAI max_tokens for the analysis response
+    const MIN_HOLDING_VALUE_USD       = 0.25;  // minimum tracked holding value when market data is available
+    const MIN_TRACKED_TOKEN_BALANCE   = 100n;  // fallback minimum token count when no price is available
 
     // API key is injected at deploy time by the GitHub Actions workflow.
     // It is not user-configurable and is not stored in localStorage.
@@ -436,6 +438,7 @@
     // =========================================================
     let connectedAddress = null;
     let portfolioData    = null;
+    let latestSuiPriceUsd = null;
     let connectedWalletEntry = null; // track the active wallet entry for disconnect
 
     // =========================================================
@@ -507,6 +510,7 @@
     function disconnectWallet() {
         connectedAddress     = null;
         portfolioData        = null;
+        latestSuiPriceUsd    = null;
         connectedWalletEntry = null;
         walletLabel.textContent = 'Connect Wallet';
         connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
@@ -666,8 +670,8 @@
         return `${whole.toLocaleString()}.${fracStr}`;
     }
 
-    function hasMinimumBalance(totalBalance, decimals) {
-        return BigInt(totalBalance || '0') >= BigInt(10) ** BigInt(decimals);
+    function hasMinimumTokenCount(totalBalance, decimals, minTokens = MIN_TRACKED_TOKEN_BALANCE) {
+        return BigInt(totalBalance || '0') >= minTokens * (BigInt(10) ** BigInt(decimals));
     }
 
     // Cache for coin metadata fetched from RPC
@@ -700,6 +704,35 @@
         return (coinType.split('::').pop() || coinType).slice(0, 10);
     }
 
+    async function fetchSuiPriceUsd() {
+        try {
+            const pr = await fetch(
+                'https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd',
+                { signal: AbortSignal.timeout(PRICE_FETCH_TIMEOUT_MS) }
+            );
+            const pj = await pr.json();
+            latestSuiPriceUsd = (typeof pj?.sui?.usd === 'number') ? pj.sui.usd : null;
+        } catch (_) {
+            latestSuiPriceUsd = null;
+        }
+        return latestSuiPriceUsd;
+    }
+
+    function holdingUsdValue(balance, suiPrice) {
+        if (!balance || typeof suiPrice !== 'number') return null;
+        const coinType = balance.coinType || '';
+        if (!(coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI')) return null;
+        const amount = parseFloat(fmtBalance(balance.totalBalance, coinDecimals(coinType)).replace(/,/g, ''));
+        return Number.isFinite(amount) ? amount * suiPrice : null;
+    }
+
+    function shouldTrackHolding(balance, suiPrice = latestSuiPriceUsd) {
+        const dec = coinDecimals(balance?.coinType || '');
+        const usdValue = holdingUsdValue(balance, suiPrice);
+        if (usdValue !== null) return usdValue >= MIN_HOLDING_VALUE_USD;
+        return hasMinimumTokenCount(balance?.totalBalance, dec);
+    }
+
     async function fetchStakedCity(address) {
         try {
             const result = await rpc('suix_getOwnedObjects', [
@@ -728,10 +761,11 @@
         document.getElementById('nft-summary').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>';
 
         try {
-            const [balances, allObjects, stakedCity] = await Promise.all([
+            const [balances, allObjects, stakedCity, suiPriceUsd] = await Promise.all([
                 rpc('suix_getAllBalances', [address]).catch(() => []),
                 rpc('suix_getOwnedObjects', [address, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
                 fetchStakedCity(address),
+                fetchSuiPriceUsd(),
             ]);
 
             portfolioData = { address, balances: balances || [], allObjects, stakedCity };
@@ -740,7 +774,7 @@
             const coinTypes = (balances || []).map(b => b.coinType).filter(Boolean);
             await Promise.all(coinTypes.map(ct => fetchCoinDecimals(ct)));
 
-            renderTokenList(balances || []);
+            renderTokenList(balances || [], suiPriceUsd);
             renderObjectSummary(allObjects, balances || []);
         } catch (err) {
             document.getElementById('token-list').innerHTML =
@@ -754,10 +788,9 @@
         }
     }
 
-    function renderTokenList(balances) {
+    function renderTokenList(balances, suiPrice = latestSuiPriceUsd) {
         const el = document.getElementById('token-list');
-        // Filter out tokens with less than 1 whole coin
-        const filtered = (balances || []).filter(b => hasMinimumBalance(b.totalBalance, coinDecimals(b.coinType)));
+        const filtered = (balances || []).filter(b => shouldTrackHolding(b, suiPrice));
         if (!filtered.length) {
             el.innerHTML = '<p class="text-xs text-gray-500">No token balances found.</p>';
             return;
@@ -881,21 +914,12 @@
             await Promise.all(coinTypes.map(ct => fetchCoinDecimals(ct)));
 
             // Update sidebar with latest data
-            renderTokenList(freshData.balances);
+            setThinkingStatus('Fetching market data…');
+            const suiPriceUsd = await fetchSuiPriceUsd();
+
+            renderTokenList(freshData.balances, suiPriceUsd);
             renderObjectSummary(freshData.allObjects, freshData.balances);
             portfolioData = freshData;
-
-            // 2. Fetch SUI price (best-effort)
-            setThinkingStatus('Fetching market data…');
-            let suiPriceUsd = null;
-            try {
-                const pr = await fetch(
-                    'https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd',
-                    { signal: AbortSignal.timeout(PRICE_FETCH_TIMEOUT_MS) }
-                );
-                const pj = await pr.json();
-                suiPriceUsd = pj?.sui?.usd ?? null;
-            } catch (_) { /* non-critical */ }
 
             // 3. Call OpenAI
             setThinkingStatus('Generating AI analysis…');
@@ -995,7 +1019,7 @@ Return ONLY a valid JSON object with two string keys:
         if (data.balances?.length) {
             lines.push('\nTOKEN BALANCES:');
             const sorted = [...data.balances]
-                .filter(b => hasMinimumBalance(b.totalBalance, coinDecimals(b.coinType)))
+                .filter(b => shouldTrackHolding(b, suiPrice))
                 .sort((a, b) => {
                 if (a.coinType.includes('::sui::SUI')) return -1;
                 if (b.coinType.includes('::sui::SUI')) return 1;
