@@ -147,7 +147,7 @@
         <div class="text-center mb-10">
 
             <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-                Alpha <span class="text-brand-secondary">Analyzer</span>
+                Portfolio <span class="text-brand-secondary">Analyzer</span>
             </h1>
             <p class="text-dark-text-secondary text-lg max-w-2xl mx-auto">
                 Connect your SUI wallet and let our AI scan your entire on-chain portfolio — token holdings, NFTs, and yield opportunities — then deliver actionable alpha.
@@ -1026,11 +1026,10 @@ Format using markdown: ### for section headers, **bold** for key terms, bullet l
 
 PORTFOLIO DATA:
 ${summary}
-${suiPrice ? `Current SUI price: $${suiPrice} USD` : 'SUI price: unavailable'}
 
 Return ONLY a valid JSON object with two string keys:
 {
-  "portfolio": "<markdown: portfolio composition analysis, concentration risks, notable positions, strategic observations>",
+  "portfolio": "<markdown: portfolio composition analysis, concentration risks, notable positions, strategic observations — do NOT estimate or state a total portfolio value>",
   "yield": "<markdown: 4-6 specific yield strategies tailored to these holdings — include protocol, strategy, estimated APY, risk level (Low/Medium/High), and one action item each. Always mention Alpha City $CITY staking if they hold SUI or CITY. Include native SUI staking as a baseline.>"
 }`;
 
@@ -1090,10 +1089,6 @@ Return ONLY a valid JSON object with two string keys:
                 const dec = coinDecimals(b.coinType);
                 const amt = fmtBalance(b.totalBalance, dec);
                 let line = `- ${sym}: ${amt}`;
-                if (sym === 'SUI' && suiPrice) {
-                    const usd = (parseFloat(amt.replace(/,/g, '')) * suiPrice).toFixed(2);
-                    line += ` (~$${usd} USD)`;
-                }
                 if (b.coinType === CITY_TYPE) line += ' (Alpha City $CITY token)';
                 lines.push(line);
             });
