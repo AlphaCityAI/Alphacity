@@ -422,7 +422,8 @@
     const PRICE_FETCH_TIMEOUT_MS      = 5000;  // ms before giving up on the CoinGecko price request
     const MAX_AI_RESPONSE_TOKENS      = 1400;  // OpenAI max_tokens for the analysis response
     const MIN_HOLDING_VALUE_USD       = 0.25;  // minimum tracked holding value when market data is available
-    const MIN_TRACKED_TOKEN_BALANCE   = 100n;  // fallback minimum token count when no price is available
+    const MIN_TRACKED_TOKEN_BALANCE   = 100;   // fallback minimum token count when no price is available
+    const MAX_BALANCE_FRACTION_DIGITS = 6;     // fractional precision used for numeric balance calculations
 
     // API key is injected at deploy time by the GitHub Actions workflow.
     // It is not user-configurable and is not stored in localStorage.
@@ -660,9 +661,18 @@
         return data.result;
     }
 
+    const coinUnitCache = {};
+
+    function coinUnit(decimals) {
+        if (!(decimals in coinUnitCache)) {
+            coinUnitCache[decimals] = BigInt(10) ** BigInt(decimals);
+        }
+        return coinUnitCache[decimals];
+    }
+
     function fmtBalance(raw, decimals) {
         const n = BigInt(raw || '0');
-        const d = BigInt(10) ** BigInt(decimals);
+        const d = coinUnit(decimals);
         const whole = n / d;
         const frac  = n % d;
         if (frac === 0n) return whole.toLocaleString();
@@ -670,8 +680,17 @@
         return `${whole.toLocaleString()}.${fracStr}`;
     }
 
+    function balanceAmountNumber(raw, decimals) {
+        const n = BigInt(raw || '0');
+        const d = coinUnit(decimals);
+        const whole = n / d;
+        const frac  = n % d;
+        const truncatedFracStr = frac.toString().padStart(decimals, '0').slice(0, MAX_BALANCE_FRACTION_DIGITS).replace(/0+$/, '');
+        return parseFloat(truncatedFracStr ? `${whole.toString()}.${truncatedFracStr}` : whole.toString());
+    }
+
     function hasMinimumTokenCount(totalBalance, decimals, minTokens = MIN_TRACKED_TOKEN_BALANCE) {
-        return BigInt(totalBalance || '0') >= minTokens * (BigInt(10) ** BigInt(decimals));
+        return BigInt(totalBalance || '0') >= BigInt(minTokens) * coinUnit(decimals);
     }
 
     // Cache for coin metadata fetched from RPC
@@ -719,10 +738,12 @@
     }
 
     function holdingUsdValue(balance, suiPrice) {
-        if (!balance || typeof suiPrice !== 'number') return null;
-        const coinType = balance.coinType || '';
+        if (!balance?.coinType || balance?.totalBalance === undefined || balance?.totalBalance === null || typeof suiPrice !== 'number') return null;
+        const coinType = balance.coinType;
+        // We currently fetch market data only for SUI, so returning null for other
+        // tokens intentionally triggers the token-count fallback in shouldTrackHolding.
         if (!(coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI')) return null;
-        const amount = parseFloat(fmtBalance(balance.totalBalance, coinDecimals(coinType)).replace(/,/g, ''));
+        const amount = balanceAmountNumber(balance.totalBalance, coinDecimals(coinType));
         return Number.isFinite(amount) ? amount * suiPrice : null;
     }
 
