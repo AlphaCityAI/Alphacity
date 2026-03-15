@@ -443,7 +443,7 @@
     let connectedWalletEntry = null; // track the active wallet entry for disconnect
 
     // =========================================================
-    // SESSION PERSISTENCE (mirrors staking page behaviour)
+    // SESSION PERSISTENCE (mirrors staking page behavior)
     // =========================================================
     const STORAGE_KEY_PROVIDER = 'ac_analyze_provider';
     const STORAGE_KEY_ACCOUNT  = 'ac_analyze_account';
@@ -1170,7 +1170,7 @@ Return ONLY a valid JSON object with two string keys:
     // =========================================================
     initWalletStandard();
 
-    // Auto-reconnect from persisted session (mirrors staking page behaviour)
+    // Auto-reconnect from persisted session (mirrors staking page behavior)
     (async function autoReconnect() {
         const session = loadPersistedSession();
         if (!session) return;
