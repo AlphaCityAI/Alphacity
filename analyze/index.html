@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpha Analyzer - Alpha City</title>
+    <title>Portfolio Analyzer - Alpha City</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -258,7 +258,7 @@
                     <div class="text-4xl mb-5">🔒</div>
                     <h2 class="text-xl font-bold text-white mb-3">Members Only</h2>
                     <p class="text-dark-text-secondary max-w-sm mx-auto text-sm leading-relaxed mb-6">
-                        Alpha Analyzer requires <strong class="text-brand-secondary">1,000,000 $CITY</strong>
+                        Portfolio Analyzer requires <strong class="text-brand-secondary">1,000,000 $CITY</strong>
                         in your wallet or staked to unlock AI-powered portfolio analysis.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
@@ -443,6 +443,34 @@
     let connectedWalletEntry = null; // track the active wallet entry for disconnect
 
     // =========================================================
+    // SESSION PERSISTENCE (mirrors staking page behaviour)
+    // =========================================================
+    const STORAGE_KEY_PROVIDER = 'ac_analyze_provider';
+    const STORAGE_KEY_ACCOUNT  = 'ac_analyze_account';
+
+    function persistSession(providerName, accountAddress) {
+        try {
+            if (providerName) window.localStorage.setItem(STORAGE_KEY_PROVIDER, providerName);
+            if (accountAddress) window.localStorage.setItem(STORAGE_KEY_ACCOUNT, accountAddress);
+        } catch (_) {}
+    }
+
+    function loadPersistedSession() {
+        try {
+            const providerName  = window.localStorage.getItem(STORAGE_KEY_PROVIDER) || '';
+            const accountAddress = window.localStorage.getItem(STORAGE_KEY_ACCOUNT) || '';
+            return providerName ? { providerName, accountAddress } : null;
+        } catch (_) { return null; }
+    }
+
+    function clearPersistedSession() {
+        try {
+            window.localStorage.removeItem(STORAGE_KEY_PROVIDER);
+            window.localStorage.removeItem(STORAGE_KEY_ACCOUNT);
+        } catch (_) {}
+    }
+
+    // =========================================================
     // WALLET CONNECTION
     // =========================================================
     const connectBtn  = document.getElementById('connect-wallet-btn');
@@ -513,6 +541,7 @@
         portfolioData        = null;
         latestSuiPriceUsd    = null;
         connectedWalletEntry = null;
+        clearPersistedSession();
         walletLabel.textContent = 'Connect Wallet';
         connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
         connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
@@ -570,6 +599,7 @@
 
             connectedAddress     = address;
             connectedWalletEntry = entry;
+            persistSession(entry.name, address);
             walletLabel.textContent = shortAddr(address);
             connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
             connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
@@ -649,6 +679,12 @@
     const CITY_STAKING_TYPE = '0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9::city_staking::UserStake<0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY>';
     const CITY_ACCESS_MIN   = 1_000_000n * 10n ** 9n; // 1M CITY × 10^9 decimals
 
+    // Canonical SUI coin type (short and full-length forms)
+    function isSuiCoinType(coinType) {
+        return coinType === '0x2::sui::SUI' ||
+               coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI';
+    }
+
     async function rpc(method, params) {
         const res = await fetch(SUI_RPC, {
             method: 'POST',
@@ -710,7 +746,7 @@
     }
 
     function coinDecimals(coinType) {
-        if (coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI') return 9;
+        if (isSuiCoinType(coinType)) return 9;
         if (coinType === CITY_TYPE) return 9;
         // Return cached value if available, otherwise default to 9
         if (coinType in coinMetadataCache) return coinMetadataCache[coinType];
@@ -718,7 +754,7 @@
     }
 
     function coinSymbol(coinType) {
-        if (coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI') return 'SUI';
+        if (isSuiCoinType(coinType)) return 'SUI';
         if (coinType === CITY_TYPE) return 'CITY';
         return (coinType.split('::').pop() || coinType).slice(0, 10);
     }
@@ -742,7 +778,7 @@
         const coinType = balance.coinType;
         // We currently fetch market data only for SUI, so returning null for other
         // tokens intentionally triggers the token-count fallback in shouldTrackHolding.
-        if (!(coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI')) return null;
+        if (!isSuiCoinType(coinType)) return null;
         const amount = balanceAmountNumber(balance.totalBalance, coinDecimals(coinType));
         return Number.isFinite(amount) ? amount * suiPrice : null;
     }
@@ -817,13 +853,14 @@
             return;
         }
         const sorted = [...filtered].sort((a, b) => {
-            // SUI first, then by balance descending
-            const aIsSui = a.coinType.includes('::sui::SUI');
-            const bIsSui = b.coinType.includes('::sui::SUI');
+            // Real SUI first, then by token count descending
+            const aIsSui = isSuiCoinType(a.coinType);
+            const bIsSui = isSuiCoinType(b.coinType);
             if (aIsSui && !bIsSui) return -1;
             if (bIsSui && !aIsSui) return 1;
-            const diff = BigInt(b.totalBalance || '0') - BigInt(a.totalBalance || '0');
-            return diff > 0n ? 1 : diff < 0n ? -1 : 0;
+            const aAmt = balanceAmountNumber(a.totalBalance, coinDecimals(a.coinType));
+            const bAmt = balanceAmountNumber(b.totalBalance, coinDecimals(b.coinType));
+            return bAmt - aAmt;
         });
         el.innerHTML = sorted.map(b => {
             const sym = coinSymbol(b.coinType);
@@ -1042,9 +1079,11 @@ Return ONLY a valid JSON object with two string keys:
             const sorted = [...data.balances]
                 .filter(b => shouldTrackHolding(b, suiPrice))
                 .sort((a, b) => {
-                if (a.coinType.includes('::sui::SUI')) return -1;
-                if (b.coinType.includes('::sui::SUI')) return 1;
-                return 0;
+                if (isSuiCoinType(a.coinType)) return -1;
+                if (isSuiCoinType(b.coinType)) return 1;
+                const aAmt = balanceAmountNumber(a.totalBalance, coinDecimals(a.coinType));
+                const bAmt = balanceAmountNumber(b.totalBalance, coinDecimals(b.coinType));
+                return bAmt - aAmt;
             });
             sorted.forEach(b => {
                 const sym = coinSymbol(b.coinType);
@@ -1130,6 +1169,57 @@ Return ONLY a valid JSON object with two string keys:
     // INIT
     // =========================================================
     initWalletStandard();
+
+    // Auto-reconnect from persisted session (mirrors staking page behaviour)
+    (async function autoReconnect() {
+        const session = loadPersistedSession();
+        if (!session) return;
+
+        // Give wallets a moment to register via wallet-standard events
+        await new Promise(r => setTimeout(r, 300));
+
+        const wallets = discoverWallets();
+        const entry = wallets.find(w => w.name === session.providerName);
+        if (!entry) { clearPersistedSession(); return; }
+
+        try {
+            let accounts;
+            if (entry.source === 'standard') {
+                const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const address = session.accountAddress ||
+                            String(accounts?.[0]?.address || accounts?.[0] || '').trim();
+            if (!isValidSuiAddress(address)) { clearPersistedSession(); return; }
+
+            connectedAddress     = address;
+            connectedWalletEntry = entry;
+            persistSession(entry.name, address);
+            walletLabel.textContent = shortAddr(address);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            hide('connect-prompt');
+            show('portfolio-panel');
+            document.getElementById('connected-address').textContent = address;
+
+            await loadPortfolioData(address);
+        } catch (_) {
+            clearPersistedSession();
+        }
+    })();
     </script>
 </body>
 </html>
