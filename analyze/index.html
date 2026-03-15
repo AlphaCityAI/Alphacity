@@ -876,6 +876,10 @@
             ]);
             const freshData = { address: connectedAddress, balances: balances || [], allObjects };
 
+            // Fetch coin metadata (decimals) for any new coin types
+            const coinTypes = (freshData.balances).map(b => b.coinType).filter(Boolean);
+            await Promise.all(coinTypes.map(ct => fetchCoinDecimals(ct)));
+
             // Update sidebar with latest data
             renderTokenList(freshData.balances);
             renderObjectSummary(freshData.allObjects, freshData.balances);
