@@ -944,7 +944,7 @@
 
             // 3. Call OpenAI
             setThinkingStatus('Generating AI analysis…');
-            const result = await callOpenAI(freshData, suiPriceUsd);
+            const result = await callOpenAI(freshData);
 
             // 4. Render
             hide('ai-thinking');
@@ -967,8 +967,8 @@
     // =========================================================
     // OPENAI API CALL
     // =========================================================
-    async function callOpenAI(data, suiPrice) {
-        const summary = buildPortfolioSummary(data, suiPrice);
+    async function callOpenAI(data) {
+        const summary = buildPortfolioSummary(data);
 
         const systemPrompt =
 `You are Alpha City's AI Portfolio Analyst — an expert in the SUI blockchain ecosystem, DeFi strategies, and crypto portfolio management.
@@ -989,7 +989,6 @@ Format using markdown: ### for section headers, **bold** for key terms, bullet l
 
 PORTFOLIO DATA:
 ${summary}
-${suiPrice ? `Current SUI price: $${suiPrice} USD` : 'SUI price: unavailable'}
 
 Return ONLY a valid JSON object with two string keys:
 {
@@ -1034,13 +1033,13 @@ Return ONLY a valid JSON object with two string keys:
         }
     }
 
-    function buildPortfolioSummary(data, suiPrice) {
+    function buildPortfolioSummary(data) {
         const lines = [`Wallet address: ${data.address}`];
 
         if (data.balances?.length) {
             lines.push('\nTOKEN BALANCES:');
             const sorted = [...data.balances]
-                .filter(b => shouldTrackHolding(b, suiPrice))
+                .filter(b => shouldTrackHolding(b))
                 .sort((a, b) => {
                 if (a.coinType.includes('::sui::SUI')) return -1;
                 if (b.coinType.includes('::sui::SUI')) return 1;
@@ -1051,10 +1050,6 @@ Return ONLY a valid JSON object with two string keys:
                 const dec = coinDecimals(b.coinType);
                 const amt = fmtBalance(b.totalBalance, dec);
                 let line = `- ${sym}: ${amt}`;
-                if (sym === 'SUI' && suiPrice) {
-                    const usd = (parseFloat(amt.replace(/,/g, '')) * suiPrice).toFixed(2);
-                    line += ` (~$${usd} USD)`;
-                }
                 if (b.coinType === CITY_TYPE) line += ' (Alpha City $CITY token)';
                 lines.push(line);
             });
