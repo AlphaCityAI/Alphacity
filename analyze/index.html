@@ -375,10 +375,19 @@
         try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
     }
 
+    function isSuiWallet(w) {
+        // Require standard:connect feature
+        if (!w.features?.['standard:connect']) return false;
+        // Accept if wallet declares sui:mainnet support or has no chain restrictions
+        const chains = w.chains || [];
+        if (chains.length === 0) return true;
+        return chains.some(c => typeof c === 'string' && c.startsWith('sui:'));
+    }
+
     function discoverWallets() {
         const found = [], seen = new Set();
         for (const w of getRegisteredWallets()) {
-            if (w.features?.['standard:connect'] && !seen.has(w.name)) {
+            if (isSuiWallet(w) && !seen.has(w.name)) {
                 seen.add(w.name);
                 found.push({ source: 'standard', name: w.name, wallet: w });
             }
@@ -427,6 +436,7 @@
     // =========================================================
     let connectedAddress = null;
     let portfolioData    = null;
+    let connectedWalletEntry = null; // track the active wallet entry for disconnect
 
     // =========================================================
     // WALLET CONNECTION
@@ -436,15 +446,68 @@
 
     connectBtn.addEventListener('click', () => {
         if (connectedAddress) {
-            disconnectWallet();
+            showWalletOptions();
         } else {
             connectWallet().catch(err => showError('Wallet connection failed: ' + (err?.message || err)));
         }
     });
 
+    function showWalletOptions() {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Wallet Options</h3>
+                    <div class="space-y-2">
+                        <button id="_wo_switch" class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm">Switch Wallet</button>
+                        <button id="_wo_disconnect" class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-red-500 text-red-400 rounded-lg transition-colors font-medium text-sm">Disconnect</button>
+                    </div>
+                    <button id="_wo_cancel" class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">Cancel</button>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            document.getElementById('_wo_switch').addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                connectWallet().catch(err => showError('Wallet connection failed: ' + (err?.message || err)));
+                resolve('switch');
+            });
+            document.getElementById('_wo_disconnect').addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                resolve('disconnect');
+            });
+            document.getElementById('_wo_cancel').addEventListener('click', () => {
+                document.body.removeChild(overlay);
+                resolve(null);
+            });
+        });
+    }
+
+    async function performDisconnect() {
+        // Call standard:disconnect on the current wallet to clear cached permissions
+        if (connectedWalletEntry?.source === 'standard') {
+            try {
+                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
+                if (disc?.disconnect) await disc.disconnect();
+            } catch (_) {}
+        } else if (connectedWalletEntry?.source === 'legacy') {
+            try {
+                if (typeof connectedWalletEntry.provider?.disconnect === 'function')
+                    await connectedWalletEntry.provider.disconnect();
+            } catch (_) {}
+        }
+        // Also try legacy global disconnect methods
+        try { if (window.slush?.sui?.disconnect) await window.slush.sui.disconnect(); } catch (_) {}
+        try { if (window.suiWallet?.disconnect) await window.suiWallet.disconnect(); } catch (_) {}
+
+        disconnectWallet();
+    }
+
     function disconnectWallet() {
-        connectedAddress = null;
-        portfolioData    = null;
+        connectedAddress     = null;
+        portfolioData        = null;
+        connectedWalletEntry = null;
         walletLabel.textContent = 'Connect Wallet';
         connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
         connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
@@ -472,6 +535,11 @@
         try {
             let accounts;
             if (entry.source === 'standard') {
+                // Disconnect first to clear cached permissions (ensures fresh wallet selection)
+                try {
+                    const disc = entry.wallet.features?.['standard:disconnect'];
+                    if (disc?.disconnect) await disc.disconnect();
+                } catch (_) {}
                 const r = await entry.wallet.features['standard:connect'].connect();
                 accounts = r?.accounts || entry.wallet.accounts || [];
             } else {
@@ -495,7 +563,8 @@
             const address = String(account?.address || account || '').trim();
             if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
 
-            connectedAddress = address;
+            connectedAddress     = address;
+            connectedWalletEntry = entry;
             walletLabel.textContent = shortAddr(address);
             connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
             connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
@@ -601,10 +670,28 @@
         return BigInt(totalBalance || '0') >= BigInt(10) ** BigInt(decimals);
     }
 
+    // Cache for coin metadata fetched from RPC
+    const coinMetadataCache = {};
+
+    async function fetchCoinDecimals(coinType) {
+        if (coinType in coinMetadataCache) return coinMetadataCache[coinType];
+        try {
+            const meta = await rpc('suix_getCoinMetadata', [coinType]);
+            const dec = (meta && typeof meta.decimals === 'number') ? meta.decimals : 9;
+            coinMetadataCache[coinType] = dec;
+            return dec;
+        } catch (_) {
+            coinMetadataCache[coinType] = 9;
+            return 9;
+        }
+    }
+
     function coinDecimals(coinType) {
         if (coinType.includes('::sui::SUI') || coinType === '0x2::sui::SUI') return 9;
         if (coinType === CITY_TYPE) return 9;
-        return 6; // reasonable default for unknown coins
+        // Return cached value if available, otherwise default to 9
+        if (coinType in coinMetadataCache) return coinMetadataCache[coinType];
+        return 9;
     }
 
     function coinSymbol(coinType) {
@@ -648,6 +735,11 @@
             ]);
 
             portfolioData = { address, balances: balances || [], allObjects, stakedCity };
+
+            // Pre-fetch coin metadata (decimals) for all coin types
+            const coinTypes = (balances || []).map(b => b.coinType).filter(Boolean);
+            await Promise.all(coinTypes.map(ct => fetchCoinDecimals(ct)));
+
             renderTokenList(balances || []);
             renderObjectSummary(allObjects, balances || []);
         } catch (err) {
@@ -783,6 +875,10 @@
                 rpc('suix_getOwnedObjects', [connectedAddress, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
             ]);
             const freshData = { address: connectedAddress, balances: balances || [], allObjects };
+
+            // Fetch coin metadata (decimals) for any new coin types
+            const coinTypes = (freshData.balances).map(b => b.coinType).filter(Boolean);
+            await Promise.all(coinTypes.map(ct => fetchCoinDecimals(ct)));
 
             // Update sidebar with latest data
             renderTokenList(freshData.balances);
