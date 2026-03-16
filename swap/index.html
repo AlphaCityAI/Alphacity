@@ -262,7 +262,7 @@
                             d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     DEX Quote Comparison
-                    <span class="text-xs text-dark-text-secondary font-normal ml-1">(for 1 SUI)</span>
+                    <span id="dex-comparison-amount" class="text-xs text-dark-text-secondary font-normal ml-1"></span>
                 </h2>
                 <div class="space-y-2" id="dex-table">
                     <!-- Cetus -->
@@ -375,7 +375,7 @@
     // accessors (swapInfo.coinX.type / assetIn / getTypeParams) rather than
     // directly reading pool.allTokens[n].address, which crashes when the API
     // returns pools with incomplete allTokens data (e.g. springsui, stsui).
-    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,suiswap,bluemove,kriya,kriya_v3';
+    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx';
     const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
     const AGG_COMMISSION_BPS = 0;
 
@@ -751,6 +751,9 @@
         document.getElementById('route-label').textContent      = 'Querying DEX aggregator…';
         document.getElementById('price-impact-label').textContent = '';
         resetDexRows('Querying…');
+        // Update the comparison header to reflect the actual user-entered amount
+        const displayAmt = amtSui % 1 === 0 ? amtSui.toFixed(0) : amtSui.toLocaleString('en-US', { maximumFractionDigits: 4 });
+        document.getElementById('dex-comparison-amount').textContent = `(for ${displayAmt} SUI)`;
         showStatus('Fetching best price across Cetus, Turbos, FlowX, Aftermath…', 'info');
         currentQuote = null;
         updateSwapBtn();
@@ -997,6 +1000,7 @@
                 document.getElementById('route-label').textContent      = 'Best route via aggregator';
                 document.getElementById('price-impact-label').textContent = '';
                 resetDexRows('Enter amount');
+                document.getElementById('dex-comparison-amount').textContent = '';
                 // Refresh SUI balance
                 fetchSuiBalance(connectedAddress)
                     .then(b => { suiBalance = b; updateBalanceDisplay(); })
