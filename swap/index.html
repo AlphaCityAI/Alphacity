@@ -86,8 +86,9 @@
             import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk'),
             import('https://esm.sh/@mysten/sui/client'),
         ]).then(([sdkModule, suiModule]) => {
-            const sdk    = sdkModule.default || sdkModule;
+            const sdk       = sdkModule.default || sdkModule;
             const SuiClient = suiModule.SuiClient || suiModule.default?.SuiClient;
+            if (!SuiClient) throw new Error('SuiClient export not found in @mysten/sui/client');
             const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io' });
             sdk.Config.setSuiClient(client);
             window._bluefin7kBuildTx = sdk.buildTx;
@@ -645,10 +646,10 @@
             sources: source,
         });
         const res  = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(10000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`${source}: HTTP ${res.status}`);
         const data = await res.json();
         const rawOut = data?.returnAmountWithDecimal ?? data?.returnAmount ?? '0';
-        if (!rawOut || rawOut === '0') throw new Error('No route');
+        if (!rawOut || rawOut === '0') throw new Error(`${source}: no route`);
         return BigInt(String(rawOut));
     }
 
@@ -735,11 +736,18 @@
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-brand-secondary';
 
                 // Route labels (Bluefin7k format: routes[].hops[].pool.type)
+                const dexDisplayNames = {
+                    cetus: 'Cetus', turbos: 'Turbos', aftermath: 'Aftermath',
+                    flowx: 'FlowX', flowx_v3: 'FlowX V3', deepbook_v3: 'DeepBook',
+                    bluefin: 'Bluefin', bluefinx: 'BluefinX', springsui: 'SpringSui',
+                    suiswap: 'SuiSwap', bluemove: 'BlueMove', kriya: 'Kriya',
+                    kriya_v3: 'Kriya V3',
+                };
                 const routeNames = (currentQuote?.routes ?? [])
                     .flatMap(r => r?.hops ?? r?.marketInfos ?? [r])
                     .map(h => h?.pool?.type ?? h?.amm ?? h?.provider ?? '')
                     .filter(Boolean)
-                    .map(n => n.charAt(0).toUpperCase() + n.slice(1));
+                    .map(n => dexDisplayNames[n] || n.charAt(0).toUpperCase() + n.slice(1));
                 const uniqueRoutes = [...new Set(routeNames)];
                 document.getElementById('route-label').textContent =
                     uniqueRoutes.length ? `Route via ${uniqueRoutes.join(' → ')}` : 'Aggregated best route';
