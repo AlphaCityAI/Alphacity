@@ -68,38 +68,18 @@
     </style>
 
     <!--
-        Import map — must appear before any <script type="module">.
-        Maps node:buffer to a browser-compatible polyfill so that
-        @pythnetwork/pyth-sui-js (a peer dep of the Bluefin7k SDK) loads
-        correctly in browsers.  Its ESM files contain
-        `import { Buffer } from "node:buffer"` which browsers reject unless
-        the specifier is remapped here.
-    -->
-    <script type="importmap">
-    {
-        "imports": {
-            "node:buffer": "https://esm.sh/buffer@6.0.3"
-        }
-    }
-    </script>
-
-    <!--
-        Pre-load Bluefin7k aggregator SDK from CDN.
-        Stored on `window` for use by the swap execution logic.
-        The SDK already initialises its own SuiClient pointing to mainnet
-        so no external client setup is needed here.
+        Pre-load @mysten/sui Transaction class from CDN.
+        Used to deserialize server-built transactions from the Aftermath
+        router API so they can be signed by the user's wallet.
     -->
     <script type="module">
-        window._bluefin7kReady = import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk@5.5.1')
-            .then(sdkModule => {
-                // SDK exports both a default object and named exports; prefer named.
-                const buildTx = sdkModule.buildTx ?? sdkModule.default?.buildTx;
-                if (!buildTx) throw new Error('buildTx not found in Bluefin7k SDK module — may be an incompatible version');
-                window._bluefin7kBuildTx = buildTx;
-                return sdkModule;
+        window._suiTxReady = import('https://esm.sh/@mysten/sui@1.25.0/transactions')
+            .then(mod => {
+                window._SuiTransaction = mod.Transaction;
+                return mod;
             })
             .catch(err => {
-                console.warn('[swap] Could not load Bluefin7k SDK from CDN:', err);
+                console.warn('[swap] Could not load @mysten/sui Transaction:', err);
                 return null;
             });
     </script>
@@ -369,15 +349,14 @@
     const SUI_TYPE   = '0x2::sui::SUI';
     const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
 
-    // Bluefin7k aggregator (formerly 7k.ag) — routes through Cetus, Turbos, FlowX, Aftermath, and more
+    // Bluefin7k aggregator — used for quote display and price comparison
     const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v3/quote';
-    // Only include sources whose SDK protocol handlers use safe token-type
-    // accessors (swapInfo.coinX.type / assetIn / getTypeParams) rather than
-    // directly reading pool.allTokens[n].address, which crashes when the API
-    // returns pools with incomplete allTokens data (e.g. springsui, stsui).
     const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx';
-    const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
-    const AGG_COMMISSION_BPS = 0;
+
+    // Aftermath Finance REST API — used for server-side transaction building.
+    // This bypasses the client-side Bluefin7k SDK's buildTx which crashes
+    // when the aggregator returns pools with incomplete allTokens data.
+    const AFTERMATH_API = 'https://aftermath.finance/api/router';
 
     // ================================================================
     // STATE
@@ -404,61 +383,12 @@
         return d;
     }
 
-    // Pool types whose SDK protocol handlers use SAFE accessors
-    // (swapInfo.coinX.type, swapInfo.assetIn, getTypeParams()).
-    // Handlers for other pool types destructure pool.allTokens directly
-    // as [coinX, coinY] and access coinX.address / coinY.address,
-    // crashing when allTokens is incomplete.
-    const SAFE_POOL_TYPES = new Set(['cetus', 'aftermath', 'turbos', 'flowx']);
-
-    /**
-     * Verify a quote is safe to pass to the SDK's buildTx:
-     *  1. routes must be a non-empty array with at least one hop
-     *  2. every hop pool.type must be in SAFE_POOL_TYPES
-     *  3. every hop pool must have ≥ 2 allTokens, each with a valid .address
-     *  4. swaps must be a non-empty array
-     *  5. every swap.poolId must map to a pool already seen in routes
-     */
-    function isQuoteSafeForBuildTx(quote) {
-        if (!Array.isArray(quote?.routes) || quote.routes.length === 0) return false;
-        if (!Array.isArray(quote?.swaps)  || quote.swaps.length  === 0) return false;
-
-        const poolMap = Object.create(null);
-        for (const route of quote.routes) {
-            for (const hop of (route.hops || [])) {
-                const pool   = hop.pool;
-                const ptype  = pool?.type;
-                // Reject pool types whose protocol handlers unsafely access
-                // pool.allTokens[n].address (fullsail, steamm, magma, etc.)
-                if (!ptype || !SAFE_POOL_TYPES.has(ptype)) return false;
-                const tokens = pool?.allTokens;
-                if (!Array.isArray(tokens) || tokens.length < 2) return false;
-                if (tokens.some(t => !t?.address)) return false;
-                poolMap[hop.poolId] = pool;
-            }
-        }
-
-        for (const swap of quote.swaps) {
-            if (!poolMap[swap.poolId]) return false;
-        }
-
-        return true;
-    }
-
     /** AbortSignal with timeout — falls back gracefully for older browsers */
     function timeoutSignal(ms) {
         if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
         const c = new AbortController();
         setTimeout(() => c.abort(), ms);
         return c.signal;
-    }
-
-    /** Decode base64 → Uint8Array */
-    function b64ToBytes(b64) {
-        const bin = atob(b64);
-        const out = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-        return out;
     }
 
     // ================================================================
@@ -732,26 +662,6 @@
         return res.json();
     }
 
-    /**
-     * Fetch a full quote from a single DEX source.
-     * Returns the complete quote response (routes, swaps, etc.)
-     * suitable for passing to the SDK's buildTx.
-     */
-    async function fetchSingleSourceQuote(amountInMist, source) {
-        const params = new URLSearchParams({
-            from:    SUI_TYPE,
-            to:      CITY_TYPE,
-            amount:  amountInMist.toString(),
-            sources: source,
-        });
-        const res = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(12000) });
-        if (!res.ok) throw new Error(`${source}: HTTP ${res.status}`);
-        const data = await res.json();
-        const rawOut = data?.returnAmountWithDecimal ?? data?.returnAmount ?? '0';
-        if (!rawOut || rawOut === '0') throw new Error(`${source}: no route`);
-        return data;
-    }
-
     // ================================================================
     // GET QUOTE (main action)
     // ================================================================
@@ -900,87 +810,61 @@
         const swapBtn        = document.getElementById('swap-btn');
         swapBtn.disabled     = true;
         swapBtn.textContent  = 'Building transaction…';
-        showStatus('Building transaction…', 'info');
+        showStatus('Finding best route via Aftermath…', 'info');
 
         try {
-            // 1. Build transaction using Bluefin7k aggregator SDK (loaded from CDN)
-            let buildTx = window._bluefin7kBuildTx;
-            if (!buildTx && window._bluefin7kReady) {
-                const sdkModule = await window._bluefin7kReady;
-                buildTx = sdkModule?.buildTx ?? sdkModule?.default?.buildTx ?? null;
-            }
-            if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
-
-            // Snapshot the quote to a local variable so a concurrent
-            // getQuote() call cannot mutate it between validation and use.
-            let quote = currentQuote;
             const amountInMist = BigInt(Math.round(amtSui * 1e9));
 
-            const buildTxOpts = () => ({
-                quoteResponse:  quote,
-                accountAddress: connectedAddress,
-                slippage:       currentSlippage / 100,
-                commission: {
-                    partner:       AGG_PARTNER,
-                    commissionBps: AGG_COMMISSION_BPS,
-                },
+            // 1. Get optimal trade route from the Aftermath REST API.
+            //    The router finds the best path across multiple DEXes
+            //    server-side (no client SDK needed).
+            const routeRes = await fetch(AFTERMATH_API + '/trade-route', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    coinInType:   SUI_TYPE,
+                    coinOutType:  CITY_TYPE,
+                    coinInAmount: amountInMist.toString(),
+                }),
+                signal:  timeoutSignal(15000),
             });
-
-            // Try to build the transaction.
-            // Strategy:
-            //  1. Try the aggregated multi-source quote first (best price).
-            //  2. If it fails validation or buildTx crashes, fall back to
-            //     individual single-source quotes (simpler routes that only
-            //     go through safe pool types).
-            let tx;
-
-            // ── Attempt 1: aggregated quote ─────────────────────────
-            let aggregatedOk = false;
-            if (isQuoteSafeForBuildTx(quote)) {
-                try {
-                    ({ tx } = await buildTx(buildTxOpts()));
-                    aggregatedOk = true;
-                } catch (buildErr) {
-                    console.warn('[swap] buildTx with aggregated quote failed:', buildErr);
-                }
-            } else {
-                console.warn('[swap] Aggregated quote failed safety check, skipping to single-source fallback');
+            if (!routeRes.ok) {
+                const errText = await routeRes.text().catch(() => '');
+                throw new Error(`Route API error (HTTP ${routeRes.status})${errText ? ': ' + errText : ''}`);
             }
+            const completeRoute = await routeRes.json();
 
-            // ── Attempt 2: single-source fallback ───────────────────
-            if (!aggregatedOk) {
-                showStatus('Simplifying swap route…', 'info');
-                const sources = ['cetus', 'aftermath', 'turbos', 'flowx'];
-                let fallbackOk = false;
-
-                for (const source of sources) {
-                    try {
-                        showStatus(`Trying ${source} route…`, 'info');
-                        const singleQuote = await fetchSingleSourceQuote(amountInMist, source);
-                        if (!isQuoteSafeForBuildTx(singleQuote)) {
-                            console.warn(`[swap] ${source} quote failed safety check, skipping`);
-                            continue;
-                        }
-                        quote = singleQuote;
-                        currentQuote = singleQuote;
-                        ({ tx } = await buildTx(buildTxOpts()));
-                        fallbackOk = true;
-                        break;
-                    } catch (e) {
-                        console.warn(`[swap] ${source} single-source buildTx failed:`, e);
-                        continue;
-                    }
-                }
-
-                if (!fallbackOk) {
-                    throw new Error(
-                        'No DEX route could be built for this swap. ' +
-                        'Please try a different amount or try again later.'
-                    );
-                }
+            // 2. Build the transaction server-side via Aftermath API.
+            //    Returns a serialized Transaction that we deserialize locally.
+            showStatus('Building transaction…', 'info');
+            const tradeRes = await fetch(AFTERMATH_API + '/transactions/trade', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    walletAddress: connectedAddress,
+                    completeRoute,
+                    slippage:      currentSlippage / 100,
+                }),
+                signal:  timeoutSignal(15000),
+            });
+            if (!tradeRes.ok) {
+                const errText = await tradeRes.text().catch(() => '');
+                throw new Error(`Trade API error (HTTP ${tradeRes.status})${errText ? ': ' + errText : ''}`);
             }
+            const serializedTx = await tradeRes.json();
 
-            // 2. Sign and execute via wallet
+            // 3. Deserialize into a Transaction object
+            let Transaction = window._SuiTransaction;
+            if (!Transaction && window._suiTxReady) {
+                const mod = await window._suiTxReady;
+                Transaction = mod?.Transaction;
+            }
+            if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
+
+            const tx = Transaction.from(serializedTx);
+            tx.setSender(connectedAddress);
+
+            // 4. Sign and execute via wallet
             showStatus('Please confirm in your wallet…', 'info');
 
             const wallet = connectedWalletEntry;
@@ -989,9 +873,7 @@
             let txResult;
 
             if (wallet.source === 'standard') {
-                // Try new wallet-standard API first (sui:signAndExecuteTransaction)
-                const newFeature = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
-                // Legacy API (sui:signAndExecuteTransactionBlock) as fallback
+                const newFeature    = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
                 const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
 
                 if (newFeature) {
@@ -1023,14 +905,13 @@
                 }
             }
 
-            // 3. Extract digest from result
+            // 5. Extract digest from result
             const digest = txResult?.digest
                         ?? txResult?.certificate?.transactionDigest
                         ?? txResult?.effects?.transactionDigest;
 
             if (digest) {
                 showStatus(`✅ Swap successful! Digest: ${digest.slice(0, 14)}…`, 'success');
-                // Clear stale quote state
                 currentQuote = null;
                 document.getElementById('amount-out-value').textContent = '—';
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
@@ -1038,7 +919,6 @@
                 document.getElementById('price-impact-label').textContent = '';
                 resetDexRows('Enter amount');
                 document.getElementById('dex-comparison-amount').textContent = '';
-                // Refresh SUI balance
                 fetchSuiBalance(connectedAddress)
                     .then(b => { suiBalance = b; updateBalanceDisplay(); })
                     .catch(() => {});
