@@ -371,7 +371,11 @@
 
     // Bluefin7k aggregator (formerly 7k.ag) — routes through Cetus, Turbos, FlowX, Aftermath, and more
     const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v3/quote';
-    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,flowx_v3,deepbook_v3,bluefin,suiswap,bluemove,kriya,kriya_v3';
+    // Only include sources whose SDK protocol handlers use safe token-type
+    // accessors (swapInfo.coinX.type / assetIn / getTypeParams) rather than
+    // directly reading pool.allTokens[n].address, which crashes when the API
+    // returns pools with incomplete allTokens data (e.g. springsui, stsui).
+    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,suiswap,bluemove,kriya,kriya_v3';
     const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
     const AGG_COMMISSION_BPS = 0;
 
@@ -398,6 +402,25 @@
         const d = document.createElement('div');
         d.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
         return d;
+    }
+
+    /**
+     * Verify every route hop in a quote has a pool with ≥ 2 allTokens
+     * entries that each carry an `.address`. The Bluefin7k SDK protocol
+     * handlers read pool.allTokens[n].address *without* optional-chaining,
+     * so incomplete data crashes with "Cannot read properties of undefined
+     * (reading 'address')".
+     */
+    function isQuoteSafeForBuildTx(quote) {
+        if (!quote?.routes) return false;
+        for (const route of quote.routes) {
+            for (const hop of (route.hops || [])) {
+                const tokens = hop.pool?.allTokens;
+                if (!Array.isArray(tokens) || tokens.length < 2) return false;
+                if (tokens.some(t => !t?.address)) return false;
+            }
+        }
+        return true;
     }
 
     /** AbortSignal with timeout — falls back gracefully for older browsers */
@@ -671,7 +694,7 @@
     }
 
     async function fetchFlowXQuote(amountInMist) {
-        return fetchDexQuoteViaAggregator(amountInMist, 'flowx,flowx_v3');
+        return fetchDexQuoteViaAggregator(amountInMist, 'flowx');
     }
 
     /** Bluefin7k aggregator quote (formerly 7k.ag) */
@@ -842,6 +865,15 @@
                 buildTx = sdkModule?.buildTx ?? sdkModule?.default?.buildTx ?? null;
             }
             if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
+
+            // Guard: verify the quote has complete pool data so the SDK
+            // won't crash reading pool.allTokens[n].address.
+            if (!isQuoteSafeForBuildTx(currentQuote)) {
+                throw new Error(
+                    'The best route includes a pool with incomplete data. ' +
+                    'Please try a different amount or try again shortly.'
+                );
+            }
 
             const { tx } = await buildTx({
                 quoteResponse:  currentQuote,
