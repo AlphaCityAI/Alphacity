@@ -363,6 +363,9 @@
 
     // Bluefin7k aggregator (formerly 7k.ag) — routes through Cetus, Turbos, FlowX, Aftermath, and more
     const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v2/quote';
+    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,flowx_v3,deepbook_v3,bluefin,springsui,suiswap,bluemove,kriya,kriya_v3';
+    const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    const AGG_COMMISSION_BPS = 0;
 
     // Individual DEX quote endpoints for the comparison table
     const CETUS_API    = 'https://api-sui.cetus.zone/router_v2/find_routes';
@@ -714,7 +717,7 @@
             from:    SUI_TYPE,
             to:      CITY_TYPE,
             amount:  amountInMist.toString(),
-            sources: 'cetus,aftermath,turbos,flowx,flowx_v3,deepbook_v3,bluefin,springsui,suiswap,bluemove,kriya,kriya_v3',
+            sources: AGG_SOURCES,
         });
         const res  = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(12000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -871,8 +874,8 @@
                 accountAddress: connectedAddress,
                 slippage:       currentSlippage / 100,
                 commission: {
-                    partner:       '0x0000000000000000000000000000000000000000000000000000000000000000',
-                    commissionBps: 0,
+                    partner:       AGG_PARTNER,
+                    commissionBps: AGG_COMMISSION_BPS,
                 },
             });
 
