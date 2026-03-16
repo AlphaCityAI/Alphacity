@@ -94,7 +94,7 @@
             .then(sdkModule => {
                 // SDK exports both a default object and named exports; prefer named.
                 const buildTx = sdkModule.buildTx ?? sdkModule.default?.buildTx;
-                if (!buildTx) throw new Error('buildTx not found in Bluefin7k SDK module');
+                if (!buildTx) throw new Error('buildTx not found in Bluefin7k SDK module — may be an incompatible version');
                 window._bluefin7kBuildTx = buildTx;
                 return sdkModule;
             })
