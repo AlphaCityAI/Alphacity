@@ -752,7 +752,7 @@
         document.getElementById('price-impact-label').textContent = '';
         resetDexRows('Querying…');
         // Update the comparison header to reflect the actual user-entered amount
-        const displayAmt = amtSui % 1 === 0 ? amtSui.toFixed(0) : amtSui.toLocaleString('en-US', { maximumFractionDigits: 4 });
+        const displayAmt = Number.isInteger(amtSui) ? amtSui.toFixed(0) : amtSui.toLocaleString('en-US', { maximumFractionDigits: 4 });
         document.getElementById('dex-comparison-amount').textContent = `(for ${displayAmt} SUI)`;
         showStatus('Fetching best price across Cetus, Turbos, FlowX, Aftermath…', 'info');
         currentQuote = null;
