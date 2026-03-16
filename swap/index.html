@@ -890,13 +890,20 @@
             // Snapshot the quote to a local variable so a concurrent
             // getQuote() call cannot mutate it between validation and use.
             let quote = currentQuote;
+            const amountInMist = BigInt(Math.round(amtSui * 1e9));
 
-            // Guard: verify the quote has complete pool data so the SDK
-            // won't crash reading pool.allTokens[n].address.
-            // If the first quote fails validation, re-fetch once and retry.
-            if (!isQuoteSafeForBuildTx(quote)) {
-                showStatus('Route data incomplete — refreshing quote…', 'info');
-                const amountInMist = BigInt(Math.round(amtSui * 1e9));
+            const buildTxOpts = () => ({
+                quoteResponse:  quote,
+                accountAddress: connectedAddress,
+                slippage:       currentSlippage / 100,
+                commission: {
+                    partner:       AGG_PARTNER,
+                    commissionBps: AGG_COMMISSION_BPS,
+                },
+            });
+
+            /** Re-fetch quote from the aggregator and validate it. */
+            async function refetchQuote() {
                 quote = await fetch7kQuote(amountInMist);
                 if (!isQuoteSafeForBuildTx(quote)) {
                     throw new Error(
@@ -907,43 +914,27 @@
                 currentQuote = quote;
             }
 
+            // Guard: verify the quote has complete pool data so the SDK
+            // won't crash reading pool.allTokens[n].address.
+            // If the first quote fails validation, re-fetch once and retry.
+            if (!isQuoteSafeForBuildTx(quote)) {
+                showStatus('Route data incomplete — refreshing quote…', 'info');
+                await refetchQuote();
+            }
+
             // Attempt to build the transaction. If the SDK still crashes
             // (e.g. the API sneaked in a pool type we didn't filter), catch
             // the specific error, re-fetch a fresh quote, and retry once.
             let tx;
             try {
-                ({ tx } = await buildTx({
-                    quoteResponse:  quote,
-                    accountAddress: connectedAddress,
-                    slippage:       currentSlippage / 100,
-                    commission: {
-                        partner:       AGG_PARTNER,
-                        commissionBps: AGG_COMMISSION_BPS,
-                    },
-                }));
+                ({ tx } = await buildTx(buildTxOpts()));
             } catch (buildErr) {
                 const msg = buildErr?.message || '';
                 if (msg.includes('address') || msg.includes('allTokens') || msg.includes('undefined')) {
                     console.warn('[swap] buildTx failed, retrying with fresh quote:', buildErr);
                     showStatus('Route error — retrying with a fresh quote…', 'info');
-                    const amountInMist = BigInt(Math.round(amtSui * 1e9));
-                    quote = await fetch7kQuote(amountInMist);
-                    if (!isQuoteSafeForBuildTx(quote)) {
-                        throw new Error(
-                            'The best route includes a pool with incomplete data. ' +
-                            'Please try a different amount or try again shortly.'
-                        );
-                    }
-                    currentQuote = quote;
-                    ({ tx } = await buildTx({
-                        quoteResponse:  quote,
-                        accountAddress: connectedAddress,
-                        slippage:       currentSlippage / 100,
-                        commission: {
-                            partner:       AGG_PARTNER,
-                            commissionBps: AGG_COMMISSION_BPS,
-                        },
-                    }));
+                    await refetchQuote();
+                    ({ tx } = await buildTx(buildTxOpts()));
                 } else {
                     throw buildErr;
                 }
