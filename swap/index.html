@@ -405,21 +405,42 @@
     }
 
     /**
-     * Verify every route hop in a quote has a pool with ≥ 2 allTokens
-     * entries that each carry an `.address`. The Bluefin7k SDK protocol
-     * handlers read pool.allTokens[n].address *without* optional-chaining,
-     * so incomplete data crashes with "Cannot read properties of undefined
-     * (reading 'address')".
+     * Verify a quote is safe to pass to the SDK's buildTx:
+     *  1. routes must be a non-empty array with at least one hop
+     *  2. every hop pool must have ≥ 2 allTokens, each with a valid .address
+     *  3. swaps must be a non-empty array
+     *  4. every swap.poolId must map to a pool already seen in routes
+     *
+     * The Bluefin7k SDK protocol handlers read
+     * pool.allTokens[n].address *without* optional-chaining, so
+     * incomplete or missing pool data crashes with "Cannot read
+     * properties of undefined (reading 'address')".
      */
     function isQuoteSafeForBuildTx(quote) {
-        if (!quote?.routes) return false;
+        if (!Array.isArray(quote?.routes) || quote.routes.length === 0) return false;
+        if (!Array.isArray(quote?.swaps)  || quote.swaps.length  === 0) return false;
+
+        // Build the same poolId → pool mapping that the SDK's
+        // groupSwapRoutes / mapPoolIdsToDetails builds, while
+        // validating each pool's allTokens data.
+        const poolMap = Object.create(null);
         for (const route of quote.routes) {
             for (const hop of (route.hops || [])) {
-                const tokens = hop.pool?.allTokens;
+                const pool   = hop.pool;
+                const tokens = pool?.allTokens;
                 if (!Array.isArray(tokens) || tokens.length < 2) return false;
                 if (tokens.some(t => !t?.address)) return false;
+                poolMap[hop.poolId] = pool;
             }
         }
+
+        // Every swap must reference a pool that exists in the routes.
+        // If a swap's poolId is missing from poolMap the SDK will set
+        // pool = undefined and crash on pool.type or pool.allTokens.
+        for (const swap of quote.swaps) {
+            if (!poolMap[swap.poolId]) return false;
+        }
+
         return true;
     }
 
@@ -866,24 +887,67 @@
             }
             if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
 
+            // Snapshot the quote to a local variable so a concurrent
+            // getQuote() call cannot mutate it between validation and use.
+            let quote = currentQuote;
+
             // Guard: verify the quote has complete pool data so the SDK
             // won't crash reading pool.allTokens[n].address.
-            if (!isQuoteSafeForBuildTx(currentQuote)) {
-                throw new Error(
-                    'The best route includes a pool with incomplete data. ' +
-                    'Please try a different amount or try again shortly.'
-                );
+            // If the first quote fails validation, re-fetch once and retry.
+            if (!isQuoteSafeForBuildTx(quote)) {
+                showStatus('Route data incomplete — refreshing quote…', 'info');
+                const amountInMist = BigInt(Math.round(amtSui * 1e9));
+                quote = await fetch7kQuote(amountInMist);
+                if (!isQuoteSafeForBuildTx(quote)) {
+                    throw new Error(
+                        'The best route includes a pool with incomplete data. ' +
+                        'Please try a different amount or try again shortly.'
+                    );
+                }
+                currentQuote = quote;
             }
 
-            const { tx } = await buildTx({
-                quoteResponse:  currentQuote,
-                accountAddress: connectedAddress,
-                slippage:       currentSlippage / 100,
-                commission: {
-                    partner:       AGG_PARTNER,
-                    commissionBps: AGG_COMMISSION_BPS,
-                },
-            });
+            // Attempt to build the transaction. If the SDK still crashes
+            // (e.g. the API sneaked in a pool type we didn't filter), catch
+            // the specific error, re-fetch a fresh quote, and retry once.
+            let tx;
+            try {
+                ({ tx } = await buildTx({
+                    quoteResponse:  quote,
+                    accountAddress: connectedAddress,
+                    slippage:       currentSlippage / 100,
+                    commission: {
+                        partner:       AGG_PARTNER,
+                        commissionBps: AGG_COMMISSION_BPS,
+                    },
+                }));
+            } catch (buildErr) {
+                const msg = buildErr?.message || '';
+                if (msg.includes('address') || msg.includes('allTokens') || msg.includes('undefined')) {
+                    console.warn('[swap] buildTx failed, retrying with fresh quote:', buildErr);
+                    showStatus('Route error — retrying with a fresh quote…', 'info');
+                    const amountInMist = BigInt(Math.round(amtSui * 1e9));
+                    quote = await fetch7kQuote(amountInMist);
+                    if (!isQuoteSafeForBuildTx(quote)) {
+                        throw new Error(
+                            'The best route includes a pool with incomplete data. ' +
+                            'Please try a different amount or try again shortly.'
+                        );
+                    }
+                    currentQuote = quote;
+                    ({ tx } = await buildTx({
+                        quoteResponse:  quote,
+                        accountAddress: connectedAddress,
+                        slippage:       currentSlippage / 100,
+                        commission: {
+                            partner:       AGG_PARTNER,
+                            commissionBps: AGG_COMMISSION_BPS,
+                        },
+                    }));
+                } else {
+                    throw buildErr;
+                }
+            }
 
             // 2. Sign and execute via wallet
             showStatus('Please confirm in your wallet…', 'info');
