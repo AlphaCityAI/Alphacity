@@ -85,7 +85,9 @@
         window._bluefin7kReady = Promise.all([
             import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk'),
             import('https://esm.sh/@mysten/sui/client'),
-        ]).then(([sdk, { SuiClient }]) => {
+        ]).then(([sdkModule, suiModule]) => {
+            const sdk    = sdkModule.default || sdkModule;
+            const SuiClient = suiModule.SuiClient || suiModule.default?.SuiClient;
             const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io' });
             sdk.Config.setSuiClient(client);
             window._bluefin7kBuildTx = sdk.buildTx;
@@ -367,12 +369,6 @@
     const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
     const AGG_COMMISSION_BPS = 0;
 
-    // Individual DEX quote endpoints for the comparison table
-    const CETUS_API    = 'https://api-sui.cetus.zone/router_v2/find_routes';
-    const AFTERMATH_API= 'https://aftermath.finance/api/router/trade-route';
-    const TURBOS_API   = 'https://api.turbos.finance/v1/swap/coin-to-coin-route';
-    const FLOWX_API    = 'https://api.flowx.finance/flowx/v3/price-v2';
-
     // ================================================================
     // STATE
     // ================================================================
@@ -637,78 +633,39 @@
     }
 
     // ================================================================
-    // QUOTE FETCHERS — individual DEXes
+    // QUOTE FETCHERS — individual DEXes (routed via aggregator)
     // ================================================================
 
-    /** Cetus Router V2 */
+    /** Fetch a single-source quote via the Bluefin7k aggregator to avoid CORS issues with direct DEX APIs */
+    async function fetchDexQuoteViaAggregator(amountInMist, source) {
+        const params = new URLSearchParams({
+            from:    SUI_TYPE,
+            to:      CITY_TYPE,
+            amount:  amountInMist.toString(),
+            sources: source,
+        });
+        const res  = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(10000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const rawOut = data?.returnAmountWithDecimal ?? data?.returnAmount ?? '0';
+        if (!rawOut || rawOut === '0') throw new Error('No route');
+        return BigInt(String(rawOut));
+    }
+
     async function fetchCetusQuote(amountInMist) {
-        const params = new URLSearchParams({
-            from:       SUI_TYPE,
-            target:     CITY_TYPE,
-            amount:     amountInMist.toString(),
-            byAmountIn: 'true',
-            depth:      '3',
-            splitCount: '1',
-            providers:  'CETUS',
-        });
-        const res  = await fetch(`${CETUS_API}?${params}`, { signal: timeoutSignal(8000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const out  = data?.data?.routes?.[0]?.amount_out;
-        if (!out) throw new Error('No route');
-        return BigInt(out);
+        return fetchDexQuoteViaAggregator(amountInMist, 'cetus');
     }
 
-    /** Aftermath Finance */
     async function fetchAftermathQuote(amountInMist) {
-        const params = new URLSearchParams({
-            coinIn:       SUI_TYPE,
-            coinOut:      CITY_TYPE,
-            coinInAmount: amountInMist.toString(),
-        });
-        const res  = await fetch(`${AFTERMATH_API}?${params}`, { signal: timeoutSignal(8000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const out  = data?.coinOut?.amount
-                  || data?.routes?.[0]?.coinOut?.amount
-                  || data?.data?.amountOut;
-        if (!out) throw new Error('No route');
-        return BigInt(out);
+        return fetchDexQuoteViaAggregator(amountInMist, 'aftermath');
     }
 
-    /** Turbos Finance */
     async function fetchTurbosQuote(amountInMist) {
-        const params = new URLSearchParams({
-            coinTypeA: SUI_TYPE,
-            coinTypeB: CITY_TYPE,
-            amountIn:  amountInMist.toString(),
-        });
-        const res  = await fetch(`${TURBOS_API}?${params}`, { signal: timeoutSignal(8000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const out  = data?.data?.amountOut || data?.amountOut;
-        if (!out) throw new Error('No route');
-        return BigInt(out);
+        return fetchDexQuoteViaAggregator(amountInMist, 'turbos');
     }
 
-    /** FlowX Finance */
     async function fetchFlowXQuote(amountInMist) {
-        const res  = await fetch(FLOWX_API, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                tokenInType:  SUI_TYPE,
-                tokenOutType: CITY_TYPE,
-                amountIn:     amountInMist.toString(),
-                slippage:     currentSlippage / 100,
-            }),
-            signal: timeoutSignal(8000),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const out  = data?.data?.amountOut || data?.amountOut;
-        if (!out) throw new Error('No route');
-        return BigInt(out);
+        return fetchDexQuoteViaAggregator(amountInMist, 'flowx,flowx_v3');
     }
 
     /** Bluefin7k aggregator quote (formerly 7k.ag) */
@@ -781,15 +738,16 @@
                 const routeNames = (currentQuote?.routes ?? [])
                     .flatMap(r => r?.hops ?? r?.marketInfos ?? [r])
                     .map(h => h?.pool?.type ?? h?.amm ?? h?.provider ?? '')
-                    .filter(Boolean);
+                    .filter(Boolean)
+                    .map(n => n.charAt(0).toUpperCase() + n.slice(1));
                 const uniqueRoutes = [...new Set(routeNames)];
                 document.getElementById('route-label').textContent =
-                    uniqueRoutes.length ? `Route: ${uniqueRoutes.join(' → ')}` : 'Aggregated best route';
+                    uniqueRoutes.length ? `Route via ${uniqueRoutes.join(' → ')}` : 'Aggregated best route';
 
-                // Price impact
+                // Price impact — API returns percentage value directly (e.g. 1.5 = 1.5%)
                 const impact = currentQuote?.priceImpact ?? currentQuote?.price_impact;
                 if (impact != null) {
-                    const pct = (parseFloat(impact) * 100).toFixed(2);
+                    const pct = parseFloat(impact).toFixed(2);
                     const el  = document.getElementById('price-impact-label');
                     el.textContent = `Price Impact: ${pct}%`;
                     el.className   = parseFloat(pct) > 2 ? 'text-xs text-red-400' : 'text-xs text-dark-text-secondary';
@@ -865,8 +823,12 @@
 
         try {
             // 1. Build transaction using Bluefin7k aggregator SDK (loaded from CDN)
-            const buildTx = window._bluefin7kBuildTx
-                || (window._bluefin7kReady ? (await window._bluefin7kReady)?.buildTx : null);
+            let buildTx = window._bluefin7kBuildTx;
+            if (!buildTx && window._bluefin7kReady) {
+                const sdk = await window._bluefin7kReady;
+                const mod = sdk?.default || sdk;
+                buildTx = mod?.buildTx ?? null;
+            }
             if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
 
             const { tx } = await buildTx({
