@@ -68,8 +68,8 @@
     </style>
 
     <!--
-        Pre-load @mysten/sui Transaction class from CDN.
-        Stored at window._SuiTransaction for use by the swap execution logic.
+        Pre-load @mysten/sui Transaction class and Bluefin7k aggregator SDK
+        from CDN.  Stored on `window` for use by the swap execution logic.
     -->
     <script type="module">
         window._suiSdkReady = import('https://esm.sh/@mysten/sui/transactions')
@@ -81,6 +81,19 @@
                 console.warn('[swap] Could not load @mysten/sui SDK from CDN:', err);
                 return null;
             });
+
+        window._bluefin7kReady = Promise.all([
+            import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk'),
+            import('https://esm.sh/@mysten/sui/client'),
+        ]).then(([sdk, { SuiClient }]) => {
+            const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io' });
+            sdk.Config.setSuiClient(client);
+            window._bluefin7kBuildTx = sdk.buildTx;
+            return sdk;
+        }).catch(err => {
+            console.warn('[swap] Could not load Bluefin7k SDK from CDN:', err);
+            return null;
+        });
     </script>
 </head>
 <body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
@@ -348,9 +361,11 @@
     const SUI_TYPE   = '0x2::sui::SUI';
     const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
 
-    // 7k.ag aggregator — internally routes through Cetus, Turbos, FlowX, Aftermath
-    const AGG_QUOTE_URL = 'https://quote.7k.ag/quote';
-    const AGG_SWAP_URL  = 'https://quote.7k.ag/swap';
+    // Bluefin7k aggregator (formerly 7k.ag) — routes through Cetus, Turbos, FlowX, Aftermath, and more
+    const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v2/quote';
+    const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,flowx_v3,deepbook_v3,bluefin,springsui,suiswap,bluemove,kriya,kriya_v3';
+    const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    const AGG_COMMISSION_BPS = 0;
 
     // Individual DEX quote endpoints for the comparison table
     const CETUS_API    = 'https://api-sui.cetus.zone/router_v2/find_routes';
@@ -696,13 +711,13 @@
         return BigInt(out);
     }
 
-    /** 7k.ag aggregator quote */
+    /** Bluefin7k aggregator quote (formerly 7k.ag) */
     async function fetch7kQuote(amountInMist) {
         const params = new URLSearchParams({
-            tokenIn:  SUI_TYPE,
-            tokenOut: CITY_TYPE,
-            amountIn: amountInMist.toString(),
-            slippage: (currentSlippage / 100).toString(),
+            from:    SUI_TYPE,
+            to:      CITY_TYPE,
+            amount:  amountInMist.toString(),
+            sources: AGG_SOURCES,
         });
         const res  = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(12000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -752,22 +767,20 @@
                 currentQuote = r7k.value;
 
                 // Extract output amount — handle multiple possible response shapes:
-                //   returnAmount  — used by 7k.ag ≥v2
-                //   outAmount     — used by 7k.ag v1 / some aggregator forks
-                //   routes[0].amount_out — Cetus-style nested response
-                const rawOut = currentQuote?.returnAmount
-                            ?? currentQuote?.outAmount
-                            ?? currentQuote?.routes?.[0]?.amount_out
+                //   returnAmountWithDecimal — Bluefin7k aggregator (in smallest unit)
+                //   returnAmount            — fallback (may be human-readable or smallest unit)
+                const rawOut = currentQuote?.returnAmountWithDecimal
+                            ?? currentQuote?.returnAmount
                             ?? '0';
                 const cityOut = Number(BigInt(String(rawOut))) / 1e9;
 
                 document.getElementById('amount-out-value').textContent = cityOut.toLocaleString('en-US', { maximumFractionDigits: 4 });
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-brand-secondary';
 
-                // Route labels
+                // Route labels (Bluefin7k format: routes[].hops[].pool.type)
                 const routeNames = (currentQuote?.routes ?? [])
-                    .flatMap(r => r?.marketInfos ?? [r])
-                    .map(m => m?.amm ?? m?.provider ?? '')
+                    .flatMap(r => r?.hops ?? r?.marketInfos ?? [r])
+                    .map(h => h?.pool?.type ?? h?.amm ?? h?.provider ?? '')
                     .filter(Boolean);
                 const uniqueRoutes = [...new Set(routeNames)];
                 document.getElementById('route-label').textContent =
@@ -851,28 +864,22 @@
         showStatus('Building transaction…', 'info');
 
         try {
-            // 1. Get serialized transaction bytes from 7k.ag aggregator
-            const swapRes = await fetch(AGG_SWAP_URL, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    quoteResponse:  currentQuote,
-                    accountAddress: connectedAddress,
-                    slippage:       currentSlippage / 100,
-                }),
-                signal: timeoutSignal(20000),
+            // 1. Build transaction using Bluefin7k aggregator SDK (loaded from CDN)
+            const buildTx = window._bluefin7kBuildTx
+                || (window._bluefin7kReady ? (await window._bluefin7kReady)?.buildTx : null);
+            if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
+
+            const { tx } = await buildTx({
+                quoteResponse:  currentQuote,
+                accountAddress: connectedAddress,
+                slippage:       currentSlippage / 100,
+                commission: {
+                    partner:       AGG_PARTNER,
+                    commissionBps: AGG_COMMISSION_BPS,
+                },
             });
-            if (!swapRes.ok) throw new Error(`Swap API HTTP ${swapRes.status}`);
-            const swapData = await swapRes.json();
 
-            // Handle multiple possible response shapes from the aggregator
-            const txBase64 = swapData?.txBytes
-                          ?? swapData?.tx
-                          ?? swapData?.data?.tx
-                          ?? swapData?.data?.txBytes;
-            if (!txBase64) throw new Error('No transaction data returned from aggregator');
-
-            // 2. Reconstruct Transaction object (needs @mysten/sui SDK)
+            // 2. Sign and execute via wallet
             showStatus('Please confirm in your wallet…', 'info');
 
             const wallet = connectedWalletEntry;
@@ -887,43 +894,13 @@
                 const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
 
                 if (newFeature) {
-                    // Attempt to reconstruct a proper Transaction using the CDN-loaded SDK
-                    const SuiTransaction = window._SuiTransaction
-                        || (window._suiSdkReady ? await window._suiSdkReady : null);
-
-                    if (SuiTransaction) {
-                        const txBytes = b64ToBytes(txBase64);
-                        let tx;
-                        try {
-                            tx = SuiTransaction.from(txBytes);
-                        } catch (parseErr) {
-                            throw new Error(
-                                'Transaction data from the aggregator could not be parsed. ' +
-                                'Please refresh and try again. (' + parseErr.message + ')'
-                            );
-                        }
-                        txResult = await newFeature.signAndExecuteTransaction({
-                            transaction: tx,
-                            chain: 'sui:mainnet',
-                        });
-                    } else {
-                        // @mysten/sui SDK not loaded from CDN.
-                        // Fall back to a minimal duck-typed object; tested to work with
-                        // Slush Wallet ≥1.x and Sui Wallet ≥0.25 which serialize the
-                        // transaction themselves using the `kind`/'bytes' hints.
-                        console.warn('[swap] @mysten/sui SDK unavailable — using duck-typed tx fallback');
-                        txResult = await newFeature.signAndExecuteTransaction({
-                            transaction: {
-                                kind:   'bytes',
-                                toJSON: async () => txBase64,
-                            },
-                            chain: 'sui:mainnet',
-                        });
-                    }
+                    txResult = await newFeature.signAndExecuteTransaction({
+                        transaction: tx,
+                        chain: 'sui:mainnet',
+                    });
                 } else if (legacyFeature) {
-                    // Legacy API expects `serialize()` to return a Uint8Array of BCS bytes.
                     txResult = await legacyFeature.signAndExecuteTransactionBlock({
-                        transactionBlock: { serialize: () => b64ToBytes(txBase64) },
+                        transactionBlock: tx,
                         chain: 'sui:mainnet',
                         options: { showEffects: true },
                     });
@@ -935,11 +912,11 @@
                 const p = wallet.provider;
                 if (typeof p.signAndExecuteTransactionBlock === 'function') {
                     txResult = await p.signAndExecuteTransactionBlock({
-                        transactionBlock: txBase64,
+                        transactionBlock: tx,
                         options: { showEffects: true },
                     });
                 } else if (typeof p.signAndExecuteTransaction === 'function') {
-                    txResult = await p.signAndExecuteTransaction({ transaction: txBase64 });
+                    txResult = await p.signAndExecuteTransaction({ transaction: tx });
                 } else {
                     throw new Error('Legacy wallet does not support transaction signing');
                 }
