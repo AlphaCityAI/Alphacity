@@ -68,35 +68,40 @@
     </style>
 
     <!--
-        Pre-load @mysten/sui Transaction class and Bluefin7k aggregator SDK
-        from CDN.  Stored on `window` for use by the swap execution logic.
+        Import map — must appear before any <script type="module">.
+        Maps node:buffer to a browser-compatible polyfill so that
+        @pythnetwork/pyth-sui-js (a peer dep of the Bluefin7k SDK) loads
+        correctly in browsers.  Its ESM files contain
+        `import { Buffer } from "node:buffer"` which browsers reject unless
+        the specifier is remapped here.
+    -->
+    <script type="importmap">
+    {
+        "imports": {
+            "node:buffer": "https://esm.sh/buffer@6.0.3"
+        }
+    }
+    </script>
+
+    <!--
+        Pre-load Bluefin7k aggregator SDK from CDN.
+        Stored on `window` for use by the swap execution logic.
+        The SDK already initialises its own SuiClient pointing to mainnet
+        so no external client setup is needed here.
     -->
     <script type="module">
-        window._suiSdkReady = import('https://esm.sh/@mysten/sui/transactions')
-            .then(({ Transaction }) => {
-                window._SuiTransaction = Transaction;
-                return Transaction;
+        window._bluefin7kReady = import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk@5.5.1')
+            .then(sdkModule => {
+                // SDK exports both a default object and named exports; prefer named.
+                const buildTx = sdkModule.buildTx ?? sdkModule.default?.buildTx;
+                if (!buildTx) throw new Error('buildTx not found in Bluefin7k SDK module');
+                window._bluefin7kBuildTx = buildTx;
+                return sdkModule;
             })
             .catch(err => {
-                console.warn('[swap] Could not load @mysten/sui SDK from CDN:', err);
+                console.warn('[swap] Could not load Bluefin7k SDK from CDN:', err);
                 return null;
             });
-
-        window._bluefin7kReady = Promise.all([
-            import('https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk'),
-            import('https://esm.sh/@mysten/sui/client'),
-        ]).then(([sdkModule, suiModule]) => {
-            const sdk       = sdkModule.default || sdkModule;
-            const SuiClient = suiModule.SuiClient || suiModule.default?.SuiClient;
-            if (!SuiClient) throw new Error('SuiClient export not found in @mysten/sui/client');
-            const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io' });
-            sdk.Config.setSuiClient(client);
-            window._bluefin7kBuildTx = sdk.buildTx;
-            return sdk;
-        }).catch(err => {
-            console.warn('[swap] Could not load Bluefin7k SDK from CDN:', err);
-            return null;
-        });
     </script>
 </head>
 <body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
@@ -365,7 +370,7 @@
     const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
 
     // Bluefin7k aggregator (formerly 7k.ag) — routes through Cetus, Turbos, FlowX, Aftermath, and more
-    const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v2/quote';
+    const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v3/quote';
     const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx,flowx_v3,deepbook_v3,bluefin,springsui,suiswap,bluemove,kriya,kriya_v3';
     const AGG_PARTNER   = '0x0000000000000000000000000000000000000000000000000000000000000000';
     const AGG_COMMISSION_BPS = 0;
@@ -833,9 +838,8 @@
             // 1. Build transaction using Bluefin7k aggregator SDK (loaded from CDN)
             let buildTx = window._bluefin7kBuildTx;
             if (!buildTx && window._bluefin7kReady) {
-                const sdk = await window._bluefin7kReady;
-                const mod = sdk?.default || sdk;
-                buildTx = mod?.buildTx ?? null;
+                const sdkModule = await window._bluefin7kReady;
+                buildTx = sdkModule?.buildTx ?? sdkModule?.default?.buildTx ?? null;
             }
             if (!buildTx) throw new Error('Aggregator SDK not loaded — please refresh and try again');
 
