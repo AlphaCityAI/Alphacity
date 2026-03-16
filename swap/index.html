@@ -957,8 +957,12 @@
                     try {
                         showStatus(`Trying ${source} route…`, 'info');
                         const singleQuote = await fetchSingleSourceQuote(amountInMist, source);
-                        if (!isQuoteSafeForBuildTx(singleQuote)) continue;
+                        if (!isQuoteSafeForBuildTx(singleQuote)) {
+                            console.warn(`[swap] ${source} quote failed safety check, skipping`);
+                            continue;
+                        }
                         quote = singleQuote;
+                        currentQuote = singleQuote;
                         ({ tx } = await buildTx(buildTxOpts()));
                         fallbackOk = true;
                         break;
