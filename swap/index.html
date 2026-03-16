@@ -417,7 +417,7 @@
             for (const hop of (route.hops || [])) {
                 const tokens = hop.pool?.allTokens;
                 if (!Array.isArray(tokens) || tokens.length < 2) return false;
-                if (!tokens[0]?.address || !tokens[1]?.address) return false;
+                if (tokens.some(t => !t?.address)) return false;
             }
         }
         return true;
