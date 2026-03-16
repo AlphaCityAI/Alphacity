@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buy $CITY - Alpha City DEX Aggregator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fix for SUI SDK globals -->
+    <script>window.global = window;</script>
+
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'brand-primary':          tailwind.colors.blue[500],
+                        'brand-primary-hover':    tailwind.colors.blue[400],
+                        'brand-secondary':        tailwind.colors.yellow[400],
+                        'brand-secondary-hover':  tailwind.colors.yellow[300],
+                        'dark-bg':                '#111827',
+                        'dark-card':              '#1F2937',
+                        'dark-text':              '#E5E7EB',
+                        'dark-text-secondary':    '#9CA3AF',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Remove number input spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+
+        /* Spinning loader */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+    </style>
+
+    <!--
+        Pre-load @mysten/sui Transaction class from CDN.
+        Stored at window._SuiTransaction for use by the swap execution logic.
+    -->
+    <script type="module">
+        window._suiSdkReady = import('https://esm.sh/@mysten/sui/transactions')
+            .then(({ Transaction }) => {
+                window._SuiTransaction = Transaction;
+                return Transaction;
+            })
+            .catch(err => {
+                console.warn('[swap] Could not load @mysten/sui SDK from CDN:', err);
+                return null;
+            });
+    </script>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- ============================================================
+         Navigation
+         ============================================================ -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="/" class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="/" class="hidden md:block text-dark-text-secondary hover:text-white transition-colors text-sm">
+                        ← Back to Home
+                    </a>
+                    <button id="connect-wallet-btn"
+                        class="bg-brand-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="wallet-text">Connect Wallet</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ============================================================
+         Main
+         ============================================================ -->
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div class="max-w-lg mx-auto">
+
+            <!-- Page title -->
+            <div class="text-center mb-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                    Buy <span class="text-brand-secondary">$CITY</span>
+                </h1>
+                <p class="text-dark-text-secondary">
+                    Best price across SUI DEXes — swap SUI for $CITY instantly.
+                </p>
+            </div>
+
+            <!-- ================================================
+                 Swap Widget
+                 ================================================ -->
+            <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-6 mb-6">
+
+                <!-- You Pay -->
+                <div class="mb-3">
+                    <label class="text-xs font-medium text-dark-text-secondary uppercase tracking-wider mb-2 block">
+                        You Pay
+                    </label>
+                    <div class="bg-dark-bg rounded-xl border border-gray-700 p-4 focus-within:border-brand-primary transition-colors">
+                        <div class="flex items-center gap-3">
+                            <input
+                                type="number"
+                                id="amount-in"
+                                placeholder="0.0"
+                                min="0"
+                                step="any"
+                                class="bg-transparent text-2xl font-bold text-white flex-1 outline-none placeholder-gray-600 min-w-0"
+                            >
+                            <!-- SUI token badge -->
+                            <div class="flex items-center gap-2 bg-dark-card px-3 py-2 rounded-lg border border-gray-700 shrink-0">
+                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shrink-0">
+                                    <span class="text-white text-[10px] font-bold leading-none">SUI</span>
+                                </div>
+                                <span class="text-white font-semibold text-sm">SUI</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-dark-text-secondary" id="usd-value-in">≈ $0.00</span>
+                            <span class="text-xs text-dark-text-secondary">
+                                Balance:&nbsp;<span id="sui-balance" class="text-white font-medium">—</span>
+                                <button id="btn-max-sui"
+                                    class="ml-2 text-brand-primary font-semibold text-xs hover:text-brand-primary-hover hidden">
+                                    MAX
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow separator -->
+                <div class="flex justify-center my-2">
+                    <div class="bg-dark-bg rounded-lg p-2 border border-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-dark-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- You Receive -->
+                <div class="mb-5">
+                    <label class="text-xs font-medium text-dark-text-secondary uppercase tracking-wider mb-2 block">
+                        You Receive
+                    </label>
+                    <div class="bg-dark-bg rounded-xl border border-gray-700 p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 min-w-0">
+                                <span id="amount-out-value" class="text-2xl font-bold text-gray-600">—</span>
+                            </div>
+                            <!-- CITY token badge -->
+                            <div class="flex items-center gap-2 bg-dark-card px-3 py-2 rounded-lg border border-gray-700 shrink-0">
+                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0">
+                                    <span class="text-gray-900 text-[9px] font-bold leading-none">$C</span>
+                                </div>
+                                <span class="text-white font-semibold text-sm">CITY</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-dark-text-secondary" id="route-label">Best route via aggregator</span>
+                            <span class="text-xs" id="price-impact-label"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slippage controls -->
+                <div class="flex items-center justify-between mb-5 text-sm">
+                    <span class="text-dark-text-secondary text-xs">Slippage Tolerance</span>
+                    <div class="flex items-center gap-1" id="slippage-btns">
+                        <button class="slippage-btn px-3 py-1 rounded-md text-xs font-medium border border-brand-primary text-brand-primary bg-brand-primary/10"
+                            data-slippage="0.5">0.5%</button>
+                        <button class="slippage-btn px-3 py-1 rounded-md text-xs font-medium border border-gray-700 text-dark-text-secondary hover:border-gray-500"
+                            data-slippage="1">1%</button>
+                        <button class="slippage-btn px-3 py-1 rounded-md text-xs font-medium border border-gray-700 text-dark-text-secondary hover:border-gray-500"
+                            data-slippage="2">2%</button>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="space-y-3">
+                    <button id="quote-btn"
+                        class="w-full py-3 bg-dark-bg border border-gray-700 text-white font-semibold rounded-xl hover:border-brand-primary transition-all text-sm">
+                        Get Quote
+                    </button>
+                    <button id="swap-btn"
+                        class="w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg"
+                        disabled>
+                        Connect Wallet to Swap
+                    </button>
+                </div>
+
+                <!-- Status message -->
+                <div id="swap-status" class="hidden mt-4 p-3 rounded-lg text-sm text-center"></div>
+            </div>
+
+            <!-- ================================================
+                 DEX Comparison Table
+                 ================================================ -->
+            <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-6 mb-6">
+                <h2 class="text-white font-bold mb-4 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4 text-brand-secondary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    DEX Quote Comparison
+                    <span class="text-xs text-dark-text-secondary font-normal ml-1">(for 1 SUI)</span>
+                </h2>
+                <div class="space-y-2" id="dex-table">
+                    <!-- Cetus -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
+                        id="row-cetus">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-[11px] text-blue-400 font-bold shrink-0">C</div>
+                            <div>
+                                <span class="text-white font-medium">Cetus</span>
+                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
+                            </div>
+                        </div>
+                        <span class="text-dark-text-secondary text-xs" id="quote-cetus">Enter amount</span>
+                    </div>
+                    <!-- Turbos -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
+                        id="row-turbos">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-[11px] text-purple-400 font-bold shrink-0">T</div>
+                            <div>
+                                <span class="text-white font-medium">Turbos</span>
+                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
+                            </div>
+                        </div>
+                        <span class="text-dark-text-secondary text-xs" id="quote-turbos">Enter amount</span>
+                    </div>
+                    <!-- FlowX -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
+                        id="row-flowx">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-[11px] text-green-400 font-bold shrink-0">F</div>
+                            <div>
+                                <span class="text-white font-medium">FlowX</span>
+                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
+                            </div>
+                        </div>
+                        <span class="text-dark-text-secondary text-xs" id="quote-flowx">Enter amount</span>
+                    </div>
+                    <!-- Aftermath -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
+                        id="row-aftermath">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-[11px] text-orange-400 font-bold shrink-0">A</div>
+                            <div>
+                                <span class="text-white font-medium">Aftermath</span>
+                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
+                            </div>
+                        </div>
+                        <span class="text-dark-text-secondary text-xs" id="quote-aftermath">Enter amount</span>
+                    </div>
+                    <!-- 7k.ag (aggregated best) -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-brand-secondary/30 text-sm mt-3"
+                        id="row-7k">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-[11px] text-yellow-400 font-bold shrink-0">7K</div>
+                            <div>
+                                <span class="text-brand-secondary font-semibold">7k.ag</span>
+                                <span class="ml-2 text-[10px] text-dark-text-secondary">Aggregated Best</span>
+                            </div>
+                        </div>
+                        <span class="text-dark-text-secondary text-xs" id="quote-7k">Enter amount</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info card -->
+            <div class="bg-dark-bg rounded-xl border border-gray-800 p-5 text-sm text-dark-text-secondary">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand-secondary shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                        <p class="text-white font-medium mb-1">How it works</p>
+                        <p class="leading-relaxed">
+                            This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
+                            best swap rate for $CITY. The optimal route is automatically selected by the 7k.ag
+                            aggregator and executed via a Programmable Transaction Block (PTB) on SUI Mainnet.
+                            You only need a SUI wallet — no manual DEX navigation required.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /max-w-lg -->
+    </main>
+
+    <footer class="bg-dark-bg border-t border-gray-800 py-8 mt-auto">
+        <div class="container mx-auto px-4 text-center text-dark-text-secondary text-sm">
+            &copy; <span id="current-year"></span> Alpha City. All rights reserved.
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         JavaScript
+         ============================================================ -->
+    <script>
+    'use strict';
+
+    // ================================================================
+    // CONSTANTS
+    // ================================================================
+    const SUI_RPC    = 'https://fullnode.mainnet.sui.io';
+    const SUI_TYPE   = '0x2::sui::SUI';
+    const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
+
+    // 7k.ag aggregator — internally routes through Cetus, Turbos, FlowX, Aftermath
+    const AGG_QUOTE_URL = 'https://quote.7k.ag/quote';
+    const AGG_SWAP_URL  = 'https://quote.7k.ag/swap';
+
+    // Individual DEX quote endpoints for the comparison table
+    const CETUS_API    = 'https://api-sui.cetus.zone/router_v2/find_routes';
+    const AFTERMATH_API= 'https://aftermath.finance/api/router/trade-route';
+    const TURBOS_API   = 'https://api.turbos.finance/v1/swap/coin-to-coin-route';
+    const FLOWX_API    = 'https://api.flowx.finance/flowx/v3/price-v2';
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    // Stored as a percentage (e.g., 0.5 means 0.5%). Converted to decimal (÷100) when passed to APIs.
+    let currentSlippage     = 0.5;
+    let currentQuote        = null;  // 7k.ag quote response (used for swap)
+    let connectedAddress    = null;
+    let connectedWalletEntry= null;
+    let suiBalance          = null;  // BigInt, in MIST
+    let suiPriceUsd         = null;
+
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    function isValidSuiAddress(a) { return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim()); }
+    function shortAddr(a) { return (!a || a.length < 11) ? a : a.slice(0, 6) + '...' + a.slice(-4); }
+
+    function makeOverlay() {
+        const d = document.createElement('div');
+        d.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
+        return d;
+    }
+
+    /** AbortSignal with timeout — falls back gracefully for older browsers */
+    function timeoutSignal(ms) {
+        if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+        const c = new AbortController();
+        setTimeout(() => c.abort(), ms);
+        return c.signal;
+    }
+
+    /** Decode base64 → Uint8Array */
+    function b64ToBytes(b64) {
+        const bin = atob(b64);
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+    }
+
+    // ================================================================
+    // WALLET-STANDARD DISCOVERY  (same pattern as analyze page)
+    // ================================================================
+    const registeredWallets = new Set();
+    let walletListCache;
+
+    function registerWallet(w) { walletListCache = undefined; registeredWallets.add(w); }
+    function getRegisteredWallets() {
+        if (!walletListCache) walletListCache = [...registeredWallets];
+        return walletListCache;
+    }
+
+    class WalletStandardEvent extends Event {
+        #api;
+        get detail() { return this.#api; }
+        get type() { return 'wallet-standard:app-ready'; }
+        constructor(api) {
+            super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+            this.#api = api;
+        }
+    }
+
+    function initWalletStandard() {
+        const appApi = Object.freeze({ register: (...ws) => ws.forEach(registerWallet) });
+        try { window.addEventListener('wallet-standard:register-wallet', e => e.detail(appApi)); } catch (_) {}
+        try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
+    }
+
+    function isSuiWallet(w) {
+        if (!w.features?.['standard:connect']) return false;
+        const chains = w.chains || [];
+        if (chains.length === 0) return true;
+        return chains.some(c => typeof c === 'string' && c.startsWith('sui:'));
+    }
+
+    function discoverWallets() {
+        const found = [], seen = new Set();
+        for (const w of getRegisteredWallets()) {
+            if (isSuiWallet(w) && !seen.has(w.name)) {
+                seen.add(w.name);
+                found.push({ source: 'standard', name: w.name, wallet: w });
+            }
+        }
+        const legacy = [
+            { name: 'Slush',      obj: window.slush?.sui || window.slush },
+            { name: 'Sui Wallet', obj: window.suiWallet },
+            { name: 'Sui',        obj: window.sui },
+            { name: 'Martian',    obj: window.martian?.sui || window.martian },
+            { name: 'Ethos',      obj: window.ethos?.sui || window.ethos },
+        ];
+        for (const c of legacy) {
+            if (c.obj && !seen.has(c.name)) {
+                seen.add(c.name);
+                found.push({ source: 'legacy', name: c.name, provider: c.obj });
+            }
+        }
+        return found;
+    }
+
+    // ================================================================
+    // SUI RPC
+    // ================================================================
+    async function rpc(method, params) {
+        const res = await fetch(SUI_RPC, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+        if (!res.ok) throw new Error(`SUI RPC HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(`SUI RPC: ${data.error.message}`);
+        return data.result;
+    }
+
+    async function fetchSuiBalance(address) {
+        const r = await rpc('suix_getBalance', [address, SUI_TYPE]);
+        return BigInt(r.totalBalance || '0');
+    }
+
+    /** Fetch SUI price from Pyth Network */
+    async function fetchSuiPrice() {
+        try {
+            const res = await fetch(
+                'https://hermes.pyth.network/v2/updates/price/latest' +
+                '?ids[]=0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
+                { signal: timeoutSignal(8000) }
+            );
+            const data = await res.json();
+            const p = data?.parsed?.[0]?.price;
+            if (p) return parseFloat(p.price) * Math.pow(10, p.expo);
+        } catch (_) {}
+        return null;
+    }
+
+    // ================================================================
+    // SLIPPAGE SELECTOR
+    // ================================================================
+    document.querySelectorAll('.slippage-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.slippage-btn').forEach(b => {
+                b.classList.remove('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+                b.classList.add('border-gray-700', 'text-dark-text-secondary');
+            });
+            btn.classList.add('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+            btn.classList.remove('border-gray-700', 'text-dark-text-secondary');
+            currentSlippage = parseFloat(btn.dataset.slippage);
+            // Refresh quote if one exists
+            if (currentQuote) getQuote();
+        });
+    });
+
+    // ================================================================
+    // MAX BUTTON
+    // ================================================================
+    document.getElementById('btn-max-sui').addEventListener('click', () => {
+        if (suiBalance === null) return;
+        // Reserve 0.05 SUI (50,000,000 MIST) for gas fees.
+        // A typical PTB swap costs ~0.01–0.02 SUI; 0.05 SUI gives a comfortable buffer.
+        const gasReserve = BigInt(50_000_000);
+        const usable     = suiBalance > gasReserve ? suiBalance - gasReserve : 0n;
+        const suiAmt     = Number(usable) / 1e9;
+        document.getElementById('amount-in').value = suiAmt.toFixed(6);
+        document.getElementById('amount-in').dispatchEvent(new Event('input'));
+    });
+
+    // ================================================================
+    // AMOUNT INPUT — live USD estimate
+    // ================================================================
+    document.getElementById('amount-in').addEventListener('input', () => {
+        const amt = parseFloat(document.getElementById('amount-in').value) || 0;
+        if (suiPriceUsd && amt > 0) {
+            document.getElementById('usd-value-in').textContent = `≈ $${(amt * suiPriceUsd).toFixed(2)}`;
+        } else {
+            document.getElementById('usd-value-in').textContent = '≈ $0.00';
+        }
+        // Invalidate stale quote
+        if (currentQuote) {
+            currentQuote = null;
+            document.getElementById('amount-out-value').textContent = '—';
+            document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
+            document.getElementById('route-label').textContent      = 'Best route via aggregator';
+            document.getElementById('price-impact-label').textContent = '';
+            updateSwapBtn();
+        }
+    });
+
+    // ================================================================
+    // STATUS BANNER
+    // ================================================================
+    function showStatus(msg, type = 'info') {
+        const el = document.getElementById('swap-status');
+        const base = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in ';
+        el.className = base + ({
+            success: 'bg-green-900/40 border border-green-700 text-green-300',
+            error:   'bg-red-900/40 border border-red-700 text-red-300',
+        }[type] || 'bg-dark-bg border border-gray-700 text-dark-text-secondary');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+    function hideStatus() { document.getElementById('swap-status').classList.add('hidden'); }
+
+    // ================================================================
+    // SWAP BUTTON STATE
+    // ================================================================
+    function updateSwapBtn() {
+        const btn = document.getElementById('swap-btn');
+        const amt = parseFloat(document.getElementById('amount-in').value) || 0;
+
+        if (!connectedAddress) {
+            btn.disabled   = true;
+            btn.textContent = 'Connect Wallet to Swap';
+            btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else if (amt <= 0) {
+            btn.disabled   = true;
+            btn.textContent = 'Enter an Amount';
+            btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else if (!currentQuote) {
+            btn.disabled   = true;
+            btn.textContent = 'Get Quote First';
+            btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else {
+            btn.disabled   = false;
+            btn.textContent = `Swap ${amt.toFixed(4)} SUI → CITY`;
+            btn.className  = 'w-full py-4 bg-brand-secondary text-gray-900 font-bold text-lg rounded-xl hover:bg-brand-secondary-hover transition-all shadow-lg shadow-yellow-500/20 hover:-translate-y-0.5';
+        }
+    }
+
+    // ================================================================
+    // DEX COMPARISON TABLE
+    // ================================================================
+    function setDexRow(id, text, isBest = false) {
+        const row     = document.getElementById('row-' + id);
+        const quoteEl = document.getElementById('quote-' + id);
+        quoteEl.textContent = text;
+
+        const isLoading     = text === 'Querying…';
+        const isUnavailable = text === 'Unavailable' || text === 'N/A';
+
+        quoteEl.className = isBest          ? 'text-green-400 font-semibold text-xs' :
+                            isLoading       ? 'text-dark-text-secondary text-xs animate-pulse' :
+                            isUnavailable   ? 'text-gray-600 text-xs' :
+                                              'text-white text-xs';
+
+        if (isBest) {
+            row.classList.add('border-green-500/30', 'bg-green-900/10');
+            row.classList.remove('border-gray-700/50', 'bg-dark-bg');
+        } else {
+            row.classList.remove('border-green-500/30', 'bg-green-900/10');
+            row.classList.add('border-gray-700/50', 'bg-dark-bg');
+        }
+    }
+
+    function resetDexRows(text) {
+        ['cetus', 'turbos', 'flowx', 'aftermath'].forEach(id => setDexRow(id, text));
+        // 7k row reset (no isBest styling)
+        const quoteEl7k = document.getElementById('quote-7k');
+        const row7k     = document.getElementById('row-7k');
+        quoteEl7k.textContent = text;
+        quoteEl7k.className   = text === 'Querying…' ? 'text-dark-text-secondary text-xs animate-pulse' : 'text-dark-text-secondary text-xs';
+        row7k.classList.remove('border-green-500/30', 'bg-green-900/10');
+    }
+
+    // ================================================================
+    // QUOTE FETCHERS — individual DEXes
+    // ================================================================
+
+    /** Cetus Router V2 */
+    async function fetchCetusQuote(amountInMist) {
+        const params = new URLSearchParams({
+            from:       SUI_TYPE,
+            target:     CITY_TYPE,
+            amount:     amountInMist.toString(),
+            byAmountIn: 'true',
+            depth:      '3',
+            splitCount: '1',
+            providers:  'CETUS',
+        });
+        const res  = await fetch(`${CETUS_API}?${params}`, { signal: timeoutSignal(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const out  = data?.data?.routes?.[0]?.amount_out;
+        if (!out) throw new Error('No route');
+        return BigInt(out);
+    }
+
+    /** Aftermath Finance */
+    async function fetchAftermathQuote(amountInMist) {
+        const params = new URLSearchParams({
+            coinIn:       SUI_TYPE,
+            coinOut:      CITY_TYPE,
+            coinInAmount: amountInMist.toString(),
+        });
+        const res  = await fetch(`${AFTERMATH_API}?${params}`, { signal: timeoutSignal(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const out  = data?.coinOut?.amount
+                  || data?.routes?.[0]?.coinOut?.amount
+                  || data?.data?.amountOut;
+        if (!out) throw new Error('No route');
+        return BigInt(out);
+    }
+
+    /** Turbos Finance */
+    async function fetchTurbosQuote(amountInMist) {
+        const params = new URLSearchParams({
+            coinTypeA: SUI_TYPE,
+            coinTypeB: CITY_TYPE,
+            amountIn:  amountInMist.toString(),
+        });
+        const res  = await fetch(`${TURBOS_API}?${params}`, { signal: timeoutSignal(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const out  = data?.data?.amountOut || data?.amountOut;
+        if (!out) throw new Error('No route');
+        return BigInt(out);
+    }
+
+    /** FlowX Finance */
+    async function fetchFlowXQuote(amountInMist) {
+        const res  = await fetch(FLOWX_API, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                tokenInType:  SUI_TYPE,
+                tokenOutType: CITY_TYPE,
+                amountIn:     amountInMist.toString(),
+                slippage:     currentSlippage / 100,
+            }),
+            signal: timeoutSignal(8000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const out  = data?.data?.amountOut || data?.amountOut;
+        if (!out) throw new Error('No route');
+        return BigInt(out);
+    }
+
+    /** 7k.ag aggregator quote */
+    async function fetch7kQuote(amountInMist) {
+        const params = new URLSearchParams({
+            tokenIn:  SUI_TYPE,
+            tokenOut: CITY_TYPE,
+            amountIn: amountInMist.toString(),
+            slippage: (currentSlippage / 100).toString(),
+        });
+        const res  = await fetch(`${AGG_QUOTE_URL}?${params}`, { signal: timeoutSignal(12000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+
+    // ================================================================
+    // GET QUOTE (main action)
+    // ================================================================
+    async function getQuote() {
+        const amtSui = parseFloat(document.getElementById('amount-in').value);
+        if (!amtSui || amtSui <= 0) {
+            showStatus('Please enter a valid SUI amount.', 'error');
+            return;
+        }
+
+        // NOTE: float precision is sufficient here — SUI values entered by users
+        // are well within the 15-digit safe integer range.
+        const amountInMist = BigInt(Math.round(amtSui * 1e9));
+
+        // Reset UI
+        document.getElementById('amount-out-value').textContent = 'Fetching…';
+        document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-dark-text-secondary animate-pulse';
+        document.getElementById('route-label').textContent      = 'Querying DEX aggregator…';
+        document.getElementById('price-impact-label').textContent = '';
+        resetDexRows('Querying…');
+        showStatus('Fetching best price across Cetus, Turbos, FlowX, Aftermath…', 'info');
+        currentQuote = null;
+        updateSwapBtn();
+
+        const quoteBtn       = document.getElementById('quote-btn');
+        quoteBtn.disabled    = true;
+        quoteBtn.textContent = 'Fetching…';
+
+        try {
+            // Fire all requests in parallel
+            const [r7k, rCetus, rAftermath, rTurbos, rFlowX] = await Promise.allSettled([
+                fetch7kQuote(amountInMist),
+                fetchCetusQuote(amountInMist),
+                fetchAftermathQuote(amountInMist),
+                fetchTurbosQuote(amountInMist),
+                fetchFlowXQuote(amountInMist),
+            ]);
+
+            // ── 7k.ag aggregated result (primary) ──────────────────
+            if (r7k.status === 'fulfilled') {
+                currentQuote = r7k.value;
+
+                // Extract output amount — handle multiple possible response shapes:
+                //   returnAmount  — used by 7k.ag ≥v2
+                //   outAmount     — used by 7k.ag v1 / some aggregator forks
+                //   routes[0].amount_out — Cetus-style nested response
+                const rawOut = currentQuote?.returnAmount
+                            ?? currentQuote?.outAmount
+                            ?? currentQuote?.routes?.[0]?.amount_out
+                            ?? '0';
+                const cityOut = Number(BigInt(String(rawOut))) / 1e9;
+
+                document.getElementById('amount-out-value').textContent = cityOut.toLocaleString('en-US', { maximumFractionDigits: 4 });
+                document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-brand-secondary';
+
+                // Route labels
+                const routeNames = (currentQuote?.routes ?? [])
+                    .flatMap(r => r?.marketInfos ?? [r])
+                    .map(m => m?.amm ?? m?.provider ?? '')
+                    .filter(Boolean);
+                const uniqueRoutes = [...new Set(routeNames)];
+                document.getElementById('route-label').textContent =
+                    uniqueRoutes.length ? `Route: ${uniqueRoutes.join(' → ')}` : 'Aggregated best route';
+
+                // Price impact
+                const impact = currentQuote?.priceImpact ?? currentQuote?.price_impact;
+                if (impact != null) {
+                    const pct = (parseFloat(impact) * 100).toFixed(2);
+                    const el  = document.getElementById('price-impact-label');
+                    el.textContent = `Price Impact: ${pct}%`;
+                    el.className   = parseFloat(pct) > 2 ? 'text-xs text-red-400' : 'text-xs text-dark-text-secondary';
+                }
+
+                // 7k row in table
+                const el7k = document.getElementById('quote-7k');
+                el7k.textContent = `${cityOut.toLocaleString('en-US', { maximumFractionDigits: 4 })} CITY ✓`;
+                el7k.className   = 'text-brand-secondary font-semibold text-xs';
+
+                hideStatus();
+            } else {
+                console.warn('[swap] 7k.ag quote failed:', r7k.reason);
+                showStatus('Aggregator unavailable — see individual DEX quotes below.', 'error');
+                document.getElementById('amount-out-value').textContent = '—';
+                document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
+                document.getElementById('route-label').textContent      = 'Best route via aggregator';
+                setDexRow('7k', 'Unavailable');
+            }
+
+            // ── Individual DEX results ──────────────────────────────
+            const indivResults = {
+                cetus:     rCetus,
+                aftermath: rAftermath,
+                turbos:    rTurbos,
+                flowx:     rFlowX,
+            };
+
+            // Determine best individual DEX
+            let bestId = null, bestAmt = 0n;
+            for (const [id, r] of Object.entries(indivResults)) {
+                if (r.status === 'fulfilled' && r.value > bestAmt) { bestAmt = r.value; bestId = id; }
+            }
+
+            for (const [id, r] of Object.entries(indivResults)) {
+                if (r.status === 'fulfilled') {
+                    const cityAmt = (Number(r.value) / 1e9).toLocaleString('en-US', { maximumFractionDigits: 4 });
+                    setDexRow(id, `${cityAmt} CITY`, id === bestId);
+                } else {
+                    console.warn(`[swap] ${id} quote failed:`, r.reason);
+                    setDexRow(id, 'Unavailable');
+                }
+            }
+
+        } catch (err) {
+            showStatus('Failed to fetch quotes: ' + err.message, 'error');
+            document.getElementById('amount-out-value').textContent = '—';
+            document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
+            resetDexRows('Error');
+        } finally {
+            quoteBtn.disabled    = false;
+            quoteBtn.textContent = 'Refresh Quote';
+            updateSwapBtn();
+        }
+    }
+
+    document.getElementById('quote-btn').addEventListener('click', getQuote);
+
+    // ================================================================
+    // EXECUTE SWAP
+    // ================================================================
+    document.getElementById('swap-btn').addEventListener('click', executeSwap);
+
+    async function executeSwap() {
+        if (!connectedAddress || !currentQuote) return;
+        const amtSui = parseFloat(document.getElementById('amount-in').value) || 0;
+        if (amtSui <= 0) return;
+
+        const swapBtn        = document.getElementById('swap-btn');
+        swapBtn.disabled     = true;
+        swapBtn.textContent  = 'Building transaction…';
+        showStatus('Building transaction…', 'info');
+
+        try {
+            // 1. Get serialized transaction bytes from 7k.ag aggregator
+            const swapRes = await fetch(AGG_SWAP_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    quoteResponse:  currentQuote,
+                    accountAddress: connectedAddress,
+                    slippage:       currentSlippage / 100,
+                }),
+                signal: timeoutSignal(20000),
+            });
+            if (!swapRes.ok) throw new Error(`Swap API HTTP ${swapRes.status}`);
+            const swapData = await swapRes.json();
+
+            // Handle multiple possible response shapes from the aggregator
+            const txBase64 = swapData?.txBytes
+                          ?? swapData?.tx
+                          ?? swapData?.data?.tx
+                          ?? swapData?.data?.txBytes;
+            if (!txBase64) throw new Error('No transaction data returned from aggregator');
+
+            // 2. Reconstruct Transaction object (needs @mysten/sui SDK)
+            showStatus('Please confirm in your wallet…', 'info');
+
+            const wallet = connectedWalletEntry;
+            if (!wallet) throw new Error('Wallet disconnected');
+
+            let txResult;
+
+            if (wallet.source === 'standard') {
+                // Try new wallet-standard API first (sui:signAndExecuteTransaction)
+                const newFeature = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
+                // Legacy API (sui:signAndExecuteTransactionBlock) as fallback
+                const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
+
+                if (newFeature) {
+                    // Attempt to reconstruct a proper Transaction using the CDN-loaded SDK
+                    const SuiTransaction = window._SuiTransaction
+                        || (window._suiSdkReady ? await window._suiSdkReady : null);
+
+                    if (SuiTransaction) {
+                        const txBytes = b64ToBytes(txBase64);
+                        let tx;
+                        try {
+                            tx = SuiTransaction.from(txBytes);
+                        } catch (parseErr) {
+                            throw new Error(
+                                'Transaction data from the aggregator could not be parsed. ' +
+                                'Please refresh and try again. (' + parseErr.message + ')'
+                            );
+                        }
+                        txResult = await newFeature.signAndExecuteTransaction({
+                            transaction: tx,
+                            chain: 'sui:mainnet',
+                        });
+                    } else {
+                        // @mysten/sui SDK not loaded from CDN.
+                        // Fall back to a minimal duck-typed object; tested to work with
+                        // Slush Wallet ≥1.x and Sui Wallet ≥0.25 which serialize the
+                        // transaction themselves using the `kind`/'bytes' hints.
+                        console.warn('[swap] @mysten/sui SDK unavailable — using duck-typed tx fallback');
+                        txResult = await newFeature.signAndExecuteTransaction({
+                            transaction: {
+                                kind:   'bytes',
+                                toJSON: async () => txBase64,
+                            },
+                            chain: 'sui:mainnet',
+                        });
+                    }
+                } else if (legacyFeature) {
+                    // Legacy API expects `serialize()` to return a Uint8Array of BCS bytes.
+                    txResult = await legacyFeature.signAndExecuteTransactionBlock({
+                        transactionBlock: { serialize: () => b64ToBytes(txBase64) },
+                        chain: 'sui:mainnet',
+                        options: { showEffects: true },
+                    });
+                } else {
+                    throw new Error('Wallet does not support transaction signing');
+                }
+
+            } else if (wallet.source === 'legacy') {
+                const p = wallet.provider;
+                if (typeof p.signAndExecuteTransactionBlock === 'function') {
+                    txResult = await p.signAndExecuteTransactionBlock({
+                        transactionBlock: txBase64,
+                        options: { showEffects: true },
+                    });
+                } else if (typeof p.signAndExecuteTransaction === 'function') {
+                    txResult = await p.signAndExecuteTransaction({ transaction: txBase64 });
+                } else {
+                    throw new Error('Legacy wallet does not support transaction signing');
+                }
+            }
+
+            // 3. Extract digest from result
+            const digest = txResult?.digest
+                        ?? txResult?.certificate?.transactionDigest
+                        ?? txResult?.effects?.transactionDigest;
+
+            if (digest) {
+                showStatus(`✅ Swap successful! Digest: ${digest.slice(0, 14)}…`, 'success');
+                // Clear stale quote state
+                currentQuote = null;
+                document.getElementById('amount-out-value').textContent = '—';
+                document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
+                document.getElementById('route-label').textContent      = 'Best route via aggregator';
+                document.getElementById('price-impact-label').textContent = '';
+                resetDexRows('Enter amount');
+                // Refresh SUI balance
+                fetchSuiBalance(connectedAddress)
+                    .then(b => { suiBalance = b; updateBalanceDisplay(); })
+                    .catch(() => {});
+            } else {
+                showStatus('Transaction submitted. Check your wallet for confirmation.', 'info');
+            }
+
+        } catch (err) {
+            console.error('[swap] executeSwap error:', err);
+            showStatus('Swap failed: ' + (err?.message || String(err)), 'error');
+        } finally {
+            updateSwapBtn();
+        }
+    }
+
+    // ================================================================
+    // WALLET CONNECTION
+    // ================================================================
+    const connectBtn  = document.getElementById('connect-wallet-btn');
+    const walletLabel = document.getElementById('wallet-text');
+
+    connectBtn.addEventListener('click', () => {
+        if (connectedAddress) {
+            showWalletOptions();
+        } else {
+            connectWallet().catch(err =>
+                showStatus('Wallet connection failed: ' + (err?.message || err), 'error')
+            );
+        }
+    });
+
+    function showWalletOptions() {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Wallet Options</h3>
+                    <div class="space-y-2">
+                        <button id="_wo_switch"
+                            class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm">
+                            Switch Wallet
+                        </button>
+                        <button id="_wo_disconnect"
+                            class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-red-500 text-red-400 rounded-lg transition-colors font-medium text-sm">
+                            Disconnect
+                        </button>
+                    </div>
+                    <button id="_wo_cancel"
+                        class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">
+                        Cancel
+                    </button>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            document.getElementById('_wo_switch').addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                connectWallet().catch(e => showStatus('Wallet error: ' + e.message, 'error'));
+                resolve('switch');
+            });
+            document.getElementById('_wo_disconnect').addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                resolve('disconnect');
+            });
+            document.getElementById('_wo_cancel').addEventListener('click', () => {
+                document.body.removeChild(overlay); resolve(null);
+            });
+        });
+    }
+
+    async function performDisconnect() {
+        if (connectedWalletEntry?.source === 'standard') {
+            try {
+                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
+                if (disc?.disconnect) await disc.disconnect();
+            } catch (_) {}
+        } else if (connectedWalletEntry?.source === 'legacy') {
+            try {
+                if (typeof connectedWalletEntry.provider?.disconnect === 'function')
+                    await connectedWalletEntry.provider.disconnect();
+            } catch (_) {}
+        }
+        disconnectWallet();
+    }
+
+    function disconnectWallet() {
+        connectedAddress     = null;
+        connectedWalletEntry = null;
+        suiBalance           = null;
+        walletLabel.textContent = 'Connect Wallet';
+        connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
+        connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
+        document.getElementById('sui-balance').textContent = '—';
+        document.getElementById('btn-max-sui').classList.add('hidden');
+        updateSwapBtn();
+    }
+
+    async function connectWallet() {
+        const wallets = discoverWallets();
+        if (!wallets.length) {
+            throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
+        }
+
+        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
+        if (!entry) return;
+
+        walletLabel.textContent = 'Connecting…';
+        connectBtn.disabled     = true;
+
+        try {
+            let accounts;
+            if (entry.source === 'standard') {
+                try {
+                    const disc = entry.wallet.features?.['standard:disconnect'];
+                    if (disc?.disconnect) await disc.disconnect();
+                } catch (_) {}
+                const r = await entry.wallet.features['standard:connect'].connect();
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+            const all         = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) throw new Error('Wallet provided no accounts.');
+
+            const account = all.length === 1 ? all[0] : await pickAccount(all);
+            const address = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
+
+            connectedAddress     = address;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(address);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            suiBalance = await fetchSuiBalance(address);
+            updateBalanceDisplay();
+            updateSwapBtn();
+        } finally {
+            connectBtn.disabled = false;
+        }
+    }
+
+    function updateBalanceDisplay() {
+        if (suiBalance !== null) {
+            const suiAmt = (Number(suiBalance) / 1e9).toFixed(4);
+            document.getElementById('sui-balance').textContent = `${suiAmt} SUI`;
+            document.getElementById('btn-max-sui').classList.remove('hidden');
+        }
+    }
+
+    function pickWallet(wallets) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Select Wallet</h3>
+                    <div id="_wp_list" class="space-y-2"></div>
+                    <button id="_wp_cancel"
+                        class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">
+                        Cancel
+                    </button>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            wallets.forEach(entry => {
+                const btn = document.createElement('button');
+                btn.type      = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
+                btn.textContent = entry.name;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(entry); });
+                document.getElementById('_wp_list').appendChild(btn);
+            });
+            document.getElementById('_wp_cancel').addEventListener('click', () => {
+                document.body.removeChild(overlay); resolve(null);
+            });
+        });
+    }
+
+    function pickAccount(accounts) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            overlay.innerHTML = `
+                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-white font-bold text-lg mb-4">Select Account</h3>
+                    <div id="_ap_list" class="space-y-2"></div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            accounts.forEach(account => {
+                const addr = account?.address || account;
+                const btn  = document.createElement('button');
+                btn.type      = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
+                btn.textContent = shortAddr(addr);
+                btn.title       = addr;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(account); });
+                document.getElementById('_ap_list').appendChild(btn);
+            });
+        });
+    }
+
+    // ================================================================
+    // INIT
+    // ================================================================
+    initWalletStandard();
+    fetchSuiPrice().then(p => { suiPriceUsd = p; });
+
+    </script>
+</body>
+</html>
