@@ -899,7 +899,10 @@
         });
         if (!txRes.ok) throw new Error(`Aftermath tx build: HTTP ${txRes.status}`);
 
-        // The response may be a bare base64 string or an object wrapping it.
+        // The Aftermath API response format has changed between versions:
+        // it may return a bare base64 string, or wrap it in an object under
+        // various keys (tx, txBytes, txKind, transaction, data).  Parse
+        // defensively to handle all known shapes.
         const raw = await txRes.text();
         let txBytes;
         try {
@@ -988,7 +991,9 @@
         }
         if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
 
-        // If we received base64 bytes (from Aftermath API), deserialize first
+        // If we received base64 bytes (from Aftermath API), deserialize first.
+        // setSender is safe to call even if the tx already has a sender set —
+        // it simply overwrites the field and ensures it matches the wallet.
         const txb = (typeof txOrBytes === 'string')
             ? Transaction.from(txOrBytes)
             : txOrBytes;
@@ -1047,12 +1052,14 @@
         try {
             const amountInMist = BigInt(Math.round(amtSui * 1e9));
             let txOrBytes = null;
+            let swapProvider = '';
 
             // ── Strategy 1: Aftermath REST API (no SDK needed) ──
             try {
                 showStatus('Finding best swap route via Aftermath…', 'info');
                 swapBtn.textContent = 'Finding route…';
                 txOrBytes = await buildSwapViaAftermath(amountInMist, connectedAddress);
+                swapProvider = 'Aftermath';
                 console.log('[swap] Aftermath transaction built successfully');
             } catch (aftermathErr) {
                 console.warn('[swap] Aftermath API failed:', aftermathErr);
@@ -1064,6 +1071,7 @@
                     showStatus('Trying Cetus aggregator…', 'info');
                     swapBtn.textContent = 'Trying Cetus…';
                     txOrBytes = await buildSwapViaCetus(amountInMist);
+                    swapProvider = 'Cetus';
                     console.log('[swap] Cetus transaction built successfully');
                 } catch (cetusErr) {
                     console.warn('[swap] Cetus SDK failed:', cetusErr);
@@ -1074,7 +1082,7 @@
             if (!txOrBytes) {
                 const deepLink = build7kSwapUrl(amtSui);
                 showSwapError(
-                    'Could not build a swap transaction. The swap routers may be temporarily unavailable.',
+                    'Both Aftermath and Cetus swap services are currently unavailable. Please try again in a moment.',
                     deepLink
                 );
                 return;
@@ -1096,7 +1104,7 @@
                 currentQuote = null;
                 document.getElementById('amount-out-value').textContent = '—';
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
-                document.getElementById('route-label').textContent      = 'Best route';
+                document.getElementById('route-label').textContent      = swapProvider ? `Swapped via ${swapProvider}` : 'Best route';
                 document.getElementById('price-impact-label').textContent = '';
                 resetDexRows('Enter amount');
                 document.getElementById('dex-comparison-amount').textContent = '';
