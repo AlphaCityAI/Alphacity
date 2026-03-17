@@ -1044,7 +1044,7 @@
             const errMsg = err?.message || String(err);
             // If the error is a constructor / SDK-loading issue, redirect to
             // 7k.ag automatically instead of dead-ending the user.
-            if (/not a constructor|SDK not loaded|Cannot read prop/i.test(errMsg)) {
+            if (/not a constructor|SDK not loaded|Cannot read propert/i.test(errMsg)) {
                 console.warn('[swap] SDK runtime error — redirecting to 7k.ag');
                 redirectTo7k(amtSui);
                 return;
