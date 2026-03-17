@@ -68,11 +68,14 @@
     </style>
 
     <!--
-        Pre-load @mysten/sui Transaction class and Cetus Aggregator SDK from CDN.
-        The Cetus SDK finds optimal swap routes and builds the transaction
-        client-side; we only need the user's wallet to sign & execute.
+        Pre-load @mysten/sui SDK (Transaction + SuiClient) and Cetus Aggregator
+        SDK from CDN.  The Cetus SDK finds optimal swap routes and builds the
+        transaction client-side; we only need the user's wallet to sign & execute.
+        If the Cetus SDK fails to load the swap button falls back to opening
+        the swap on 7k.ag in a new tab.
     -->
     <script type="module">
+        // ── 1. Load @mysten/sui Transaction & SuiClient ──
         window._suiTxReady = import('https://esm.sh/@mysten/sui@1.25.0/transactions')
             .then(mod => {
                 window._SuiTransaction = mod.Transaction;
@@ -83,7 +86,21 @@
                 return null;
             });
 
-        window._cetusReady = import('https://esm.sh/@cetusprotocol/aggregator-sdk@1.4.5')
+        window._suiClientReady = import('https://esm.sh/@mysten/sui@1.25.0/client')
+            .then(mod => {
+                window._SuiClientMod = mod;
+                console.log('[swap] @mysten/sui SuiClient loaded');
+                return mod;
+            })
+            .catch(err => {
+                console.warn('[swap] Could not load @mysten/sui SuiClient:', err);
+                return null;
+            });
+
+        // ── 2. Load Cetus Aggregator SDK ──
+        // Pin @mysten/sui to the same version we loaded above via the esm.sh
+        // ?deps hint so the bundler de-duplicates the dependency.
+        window._cetusReady = import('https://esm.sh/@cetusprotocol/aggregator-sdk@1.4.5?deps=@mysten/sui@1.25.0')
             .then(mod => {
                 window._CetusSDK = mod;
                 console.log('[swap] Cetus Aggregator SDK loaded');
@@ -347,15 +364,15 @@
                         <p class="text-white font-medium mb-1">How it works</p>
                         <p class="leading-relaxed">
                             This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
-                            best swap rate for $CITY. The swap is executed via the Cetus Aggregator SDK,
-                            which builds an optimal swap transaction client-side.
-                            You only need a SUI wallet — no manual DEX navigation required.
+                            best swap rate for $CITY. The swap is executed via the Cetus Aggregator SDK when
+                            available. If the in-page SDK cannot load, clicking Swap will automatically
+                            open 7k.ag — a trusted SUI DEX aggregator — pre-filled with your swap details.
                         </p>
                         <p class="leading-relaxed mt-2">
                             You can also swap directly on
                             <a href="https://7k.ag/swap" target="_blank" rel="noopener noreferrer"
                                class="text-brand-secondary underline hover:text-brand-secondary-hover">7k.ag</a>
-                            if the in-page swap is unavailable.
+                            at any time.
                         </p>
                     </div>
                 </div>
@@ -845,9 +862,19 @@
     }
 
     // ================================================================
-    // EXECUTE SWAP — simplified Cetus Aggregator SDK path
+    // EXECUTE SWAP — Cetus Aggregator SDK with 7k.ag fallback
     // ================================================================
     document.getElementById('swap-btn').addEventListener('click', executeSwap);
+
+    /**
+     * Open 7k.ag in a new tab, pre-filled for the SUI → CITY swap.
+     * Used as the automatic fallback when in-page swap cannot proceed.
+     */
+    function redirectTo7k(amtSui) {
+        const url = build7kSwapUrl(amtSui);
+        showStatus('Opening 7k.ag to complete your swap…', 'info');
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
 
     async function executeSwap() {
         if (!connectedAddress || !currentQuote) return;
@@ -867,14 +894,42 @@
             if (!CetusSDK) {
                 CetusSDK = await window._cetusReady;
             }
-            if (!CetusSDK || !CetusSDK.AggregatorClient) {
-                throw new Error('Cetus SDK not loaded — please refresh and try again');
+            if (!CetusSDK || typeof CetusSDK.AggregatorClient !== 'function') {
+                console.warn('[swap] Cetus SDK unavailable — redirecting to 7k.ag');
+                redirectTo7k(amtSui);
+                return;
             }
 
             // ── 2. Create Cetus Aggregator client ──
-            const client = new CetusSDK.AggregatorClient({
-                signer: connectedAddress,
-            });
+            // Provide a pre-loaded SuiClient so the SDK constructor does not
+            // attempt to create one from its own bundled dependency (which can
+            // fail in browser environments loaded via esm.sh CDN).
+            let suiClient;
+            try {
+                let SuiClientMod = window._SuiClientMod;
+                if (!SuiClientMod && window._suiClientReady) {
+                    SuiClientMod = await window._suiClientReady;
+                }
+                if (SuiClientMod?.SuiClient) {
+                    suiClient = new SuiClientMod.SuiClient({ url: SUI_RPC });
+                }
+            } catch (e) {
+                console.warn('[swap] Could not create SuiClient:', e);
+            }
+
+            let client;
+            try {
+                const ctorOpts = { signer: connectedAddress };
+                if (suiClient) ctorOpts.client = suiClient;
+                client = new CetusSDK.AggregatorClient(ctorOpts);
+            } catch (ctorErr) {
+                // The constructor may throw "x is not a constructor" when a
+                // transitive dependency (e.g. @pythnetwork/pyth-sui-js) fails
+                // to load properly via the CDN.
+                console.warn('[swap] AggregatorClient construction failed:', ctorErr);
+                redirectTo7k(amtSui);
+                return;
+            }
 
             // ── 3. Find the best swap route via Cetus aggregator ──
             showStatus('Finding best swap route…', 'info');
@@ -986,8 +1041,16 @@
 
         } catch (err) {
             console.error('[swap] executeSwap error:', err);
-            const deepLink = build7kSwapUrl(parseFloat(document.getElementById('amount-in').value) || 0);
-            showSwapError(err?.message || String(err), deepLink);
+            const errMsg = err?.message || String(err);
+            // If the error is a constructor / SDK-loading issue, redirect to
+            // 7k.ag automatically instead of dead-ending the user.
+            if (/not a constructor|SDK not loaded|Cannot read propert/i.test(errMsg)) {
+                console.warn('[swap] SDK runtime error — redirecting to 7k.ag');
+                redirectTo7k(amtSui);
+                return;
+            }
+            const deepLink = build7kSwapUrl(amtSui);
+            showSwapError(errMsg, deepLink);
         } finally {
             updateSwapBtn();
         }
