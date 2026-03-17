@@ -308,6 +308,23 @@
                 </div>
             </div>
 
+            <!-- Alternative swap link -->
+            <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-5 mb-6 text-center">
+                <p class="text-dark-text-secondary text-sm mb-3">
+                    You can also swap directly on 7k.ag — a trusted SUI DEX aggregator:
+                </p>
+                <a id="ext-swap-link"
+                   href="https://app.7k.ag/swap"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="inline-flex items-center gap-2 px-5 py-2.5 bg-dark-bg border border-brand-secondary/40 text-brand-secondary font-semibold rounded-xl hover:bg-brand-secondary/10 transition-colors text-sm">
+                    Swap SUI → CITY on 7k.ag
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>
+            </div>
+
             <!-- Info card -->
             <div class="bg-dark-bg rounded-xl border border-gray-800 p-5 text-sm text-dark-text-secondary">
                 <div class="flex items-start gap-3">
@@ -319,9 +336,15 @@
                         <p class="text-white font-medium mb-1">How it works</p>
                         <p class="leading-relaxed">
                             This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
-                            best swap rate for $CITY. The optimal route is automatically selected by the 7k.ag
-                            aggregator and executed via a Programmable Transaction Block (PTB) on SUI Mainnet.
+                            best swap rate for $CITY. The swap is executed via the Aftermath Finance router,
+                            which builds an optimal Programmable Transaction Block (PTB) server-side.
                             You only need a SUI wallet — no manual DEX navigation required.
+                        </p>
+                        <p class="leading-relaxed mt-2">
+                            You can also swap directly on
+                            <a href="https://app.7k.ag/swap" target="_blank" rel="noopener noreferrer"
+                               class="text-brand-secondary underline hover:text-brand-secondary-hover">7k.ag</a>
+                            if the in-page swap is unavailable.
                         </p>
                     </div>
                 </div>
@@ -528,6 +551,9 @@
         } else {
             document.getElementById('usd-value-in').textContent = '≈ $0.00';
         }
+        // Keep the external swap link in sync with the entered amount
+        const extLink = document.getElementById('ext-swap-link');
+        if (extLink) extLink.href = build7kSwapUrl(amt);
         // Invalidate stale quote
         if (currentQuote) {
             currentQuote = null;
@@ -800,7 +826,20 @@
     document.getElementById('quote-btn').addEventListener('click', getQuote);
 
     // ================================================================
-    // EXECUTE SWAP
+    // 7K.AG DEEP LINK  (fallback / alternative swap)
+    // ================================================================
+    /** Build a 7k.ag URL pre-filled for a SUI → CITY swap. */
+    function build7kSwapUrl(amtSui) {
+        const params = new URLSearchParams({
+            src:  SUI_TYPE,
+            dst:  CITY_TYPE,
+        });
+        if (amtSui && amtSui > 0) params.set('amt', String(amtSui));
+        return 'https://app.7k.ag/swap?' + params.toString();
+    }
+
+    // ================================================================
+    // EXECUTE SWAP — simplified Aftermath-only path
     // ================================================================
     document.getElementById('swap-btn').addEventListener('click', executeSwap);
 
@@ -817,7 +856,7 @@
         try {
             const amountInMist = BigInt(Math.round(amtSui * 1e9));
 
-            // 1. Get optimal trade route from the Aftermath REST API.
+            // ── 1. Get optimal trade route from the Aftermath REST API ──
             //    The router finds the best path across multiple DEXes
             //    server-side (no client SDK needed).
             const routeRes = await fetch(AFTERMATH_API + '/trade-route', {
@@ -832,12 +871,14 @@
             });
             if (!routeRes.ok) {
                 const errText = await routeRes.text().catch(() => '');
-                throw new Error(`Route API error (HTTP ${routeRes.status})${errText ? ': ' + errText : ''}`);
+                console.warn('[swap] Aftermath route API error:', routeRes.status, errText);
+                throw new Error(`Aftermath route API error (HTTP ${routeRes.status})${errText ? ': ' + errText : ''}`);
             }
             const completeRoute = await routeRes.json();
+            console.log('[swap] Aftermath completeRoute received');
 
-            // 2. Build the transaction server-side via Aftermath API.
-            //    Returns a serialized Transaction that we deserialize locally.
+            // ── 2. Build the transaction server-side via Aftermath API ──
+            //    Returns a serialized Transaction (base64 string).
             showStatus('Building transaction…', 'info');
             const tradeRes = await fetch(AFTERMATH_API + '/transactions/trade', {
                 method:  'POST',
@@ -851,11 +892,30 @@
             });
             if (!tradeRes.ok) {
                 const errText = await tradeRes.text().catch(() => '');
-                throw new Error(`Trade API error (HTTP ${tradeRes.status})${errText ? ': ' + errText : ''}`);
+                console.warn('[swap] Aftermath trade API error:', tradeRes.status, errText);
+                throw new Error(`Aftermath trade API error (HTTP ${tradeRes.status})${errText ? ': ' + errText : ''}`);
             }
-            const serializedTx = await tradeRes.json();
 
-            // 3. Deserialize into a Transaction object
+            // The API may return either a bare base64 string or an object
+            // wrapping the serialized transaction (e.g. { tx, txKind }).
+            // Handle both formats defensively.
+            const tradeBody = await tradeRes.json();
+            let txBytes;
+            if (typeof tradeBody === 'string') {
+                txBytes = tradeBody;
+            } else if (tradeBody && typeof tradeBody === 'object') {
+                txBytes = tradeBody.tx
+                       ?? tradeBody.txBytes
+                       ?? tradeBody.txKind
+                       ?? tradeBody.transaction
+                       ?? tradeBody.data;
+            }
+            if (!txBytes || typeof txBytes !== 'string') {
+                console.error('[swap] Unexpected Aftermath trade response shape:', tradeBody);
+                throw new Error('Aftermath returned an unrecognised transaction format');
+            }
+
+            // ── 3. Deserialize into a Transaction object ──
             let Transaction = window._SuiTransaction;
             if (!Transaction && window._suiTxReady) {
                 const mod = await window._suiTxReady;
@@ -863,10 +923,10 @@
             }
             if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
 
-            const tx = Transaction.from(serializedTx);
+            const tx = Transaction.from(txBytes);
             tx.setSender(connectedAddress);
 
-            // 4. Sign and execute via wallet
+            // ── 4. Sign and execute via wallet ──
             showStatus('Please confirm in your wallet…', 'info');
 
             const wallet = connectedWalletEntry;
@@ -907,7 +967,7 @@
                 }
             }
 
-            // 5. Extract digest from result
+            // ── 5. Extract digest from result ──
             const digest = txResult?.digest
                         ?? txResult?.certificate?.transactionDigest
                         ?? txResult?.effects?.transactionDigest;
@@ -930,10 +990,35 @@
 
         } catch (err) {
             console.error('[swap] executeSwap error:', err);
-            showStatus('Swap failed: ' + (err?.message || String(err)), 'error');
+            const deepLink = build7kSwapUrl(parseFloat(document.getElementById('amount-in').value) || 0);
+            showSwapError(err?.message || String(err), deepLink);
         } finally {
             updateSwapBtn();
         }
+    }
+
+    /** Display a swap-error banner with a fallback link to 7k.ag */
+    function showSwapError(message, deepLink) {
+        const el = document.getElementById('swap-status');
+        el.className = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in bg-red-900/40 border border-red-700 text-red-300';
+        // Build the banner content safely using DOM methods to avoid XSS
+        el.textContent = '';
+        el.appendChild(document.createTextNode('Swap failed: ' + String(message || '')));
+        el.appendChild(document.createElement('br'));
+        const a = document.createElement('a');
+        a.href = deepLink;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'inline-block mt-2 text-brand-secondary underline hover:text-brand-secondary-hover';
+        a.textContent = 'Complete this swap on 7k.ag ↗';
+        el.appendChild(a);
+        el.classList.remove('hidden');
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(String(s || '')));
+        return div.innerHTML;
     }
 
     // ================================================================
