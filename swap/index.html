@@ -879,12 +879,17 @@
             // ── 3. Find the best swap route via Cetus aggregator ──
             showStatus('Finding best swap route…', 'info');
             swapBtn.textContent = 'Finding route…';
-            const routerData = await client.findRouters({
-                from:        SUI_TYPE,
-                target:      CITY_TYPE,
-                amount:      amountInMist,   // BigInt — SDK uses .toString()
-                byAmountIn:  true,
-            });
+            const routerData = await Promise.race([
+                client.findRouters({
+                    from:        SUI_TYPE,
+                    target:      CITY_TYPE,
+                    amount:      amountInMist,   // BigInt — SDK uses .toString()
+                    byAmountIn:  true,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Route search timed out — please try again')), 20000)
+                ),
+            ]);
 
             if (!routerData || routerData.error || !routerData.paths || routerData.paths.length === 0) {
                 const errMsg = routerData?.error?.msg || 'No swap route found';
@@ -904,11 +909,16 @@
             if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
 
             const txb = new Transaction();
-            await client.fastRouterSwap({
-                router:   routerData,
-                slippage: currentSlippage / 100,
-                txb,
-            });
+            await Promise.race([
+                client.fastRouterSwap({
+                    router:   routerData,
+                    slippage: currentSlippage / 100,
+                    txb,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Transaction build timed out — please try again')), 20000)
+                ),
+            ]);
             txb.setSender(connectedAddress);
 
             // ── 5. Sign and execute via wallet ──
