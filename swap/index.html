@@ -68,9 +68,9 @@
     </style>
 
     <!--
-        Pre-load @mysten/sui Transaction class from CDN.
-        Used to deserialize server-built transactions from the Aftermath
-        router API so they can be signed by the user's wallet.
+        Pre-load @mysten/sui Transaction class and Cetus Aggregator SDK from CDN.
+        The Cetus SDK finds optimal swap routes and builds the transaction
+        client-side; we only need the user's wallet to sign & execute.
     -->
     <script type="module">
         window._suiTxReady = import('https://esm.sh/@mysten/sui@1.25.0/transactions')
@@ -80,6 +80,17 @@
             })
             .catch(err => {
                 console.warn('[swap] Could not load @mysten/sui Transaction:', err);
+                return null;
+            });
+
+        window._cetusReady = import('https://esm.sh/@cetusprotocol/aggregator-sdk@1.4.5')
+            .then(mod => {
+                window._CetusSDK = mod;
+                console.log('[swap] Cetus Aggregator SDK loaded');
+                return mod;
+            })
+            .catch(err => {
+                console.warn('[swap] Could not load Cetus SDK:', err);
                 return null;
             });
     </script>
@@ -123,7 +134,7 @@
                     Buy <span class="text-brand-secondary">$CITY</span>
                 </h1>
                 <p class="text-dark-text-secondary">
-                    Best price across SUI DEXes — swap SUI for $CITY instantly.
+                    Swap SUI for $CITY instantly — powered by the Cetus Aggregator.
                 </p>
             </div>
 
@@ -196,7 +207,7 @@
                             </div>
                         </div>
                         <div class="flex justify-between items-center mt-2">
-                            <span class="text-xs text-dark-text-secondary" id="route-label">Best route via aggregator</span>
+                            <span class="text-xs text-dark-text-secondary" id="route-label">Best route via Cetus aggregator</span>
                             <span class="text-xs" id="price-impact-label"></span>
                         </div>
                     </div>
@@ -314,7 +325,7 @@
                     You can also swap directly on 7k.ag — a trusted SUI DEX aggregator:
                 </p>
                 <a id="ext-swap-link"
-                   href="https://app.7k.ag/swap"
+                   href="https://7k.ag/swap"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-dark-bg border border-brand-secondary/40 text-brand-secondary font-semibold rounded-xl hover:bg-brand-secondary/10 transition-colors text-sm">
@@ -336,13 +347,13 @@
                         <p class="text-white font-medium mb-1">How it works</p>
                         <p class="leading-relaxed">
                             This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
-                            best swap rate for $CITY. The swap is executed via the Aftermath Finance router,
-                            which builds an optimal Programmable Transaction Block (PTB) server-side.
+                            best swap rate for $CITY. The swap is executed via the Cetus Aggregator SDK,
+                            which builds an optimal swap transaction client-side.
                             You only need a SUI wallet — no manual DEX navigation required.
                         </p>
                         <p class="leading-relaxed mt-2">
                             You can also swap directly on
-                            <a href="https://app.7k.ag/swap" target="_blank" rel="noopener noreferrer"
+                            <a href="https://7k.ag/swap" target="_blank" rel="noopener noreferrer"
                                class="text-brand-secondary underline hover:text-brand-secondary-hover">7k.ag</a>
                             if the in-page swap is unavailable.
                         </p>
@@ -373,15 +384,10 @@
     const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
 
     // Bluefin7k aggregator quote API — used only for the DEX price
-    // comparison table.  Transaction building is handled by Aftermath.
+    // comparison table.  Transaction building is handled by the Cetus
+    // Aggregator SDK loaded above.
     const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v3/quote';
     const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx';
-
-    // Aftermath Finance router API base URL.
-    // Endpoints used:
-    //   POST /trade-route         → find optimal route across DEXes
-    //   POST /transactions/trade  → build a serialized Transaction server-side
-    const AFTERMATH_API = 'https://aftermath.finance/api/router';
 
     // ================================================================
     // STATE
@@ -559,7 +565,7 @@
             currentQuote = null;
             document.getElementById('amount-out-value').textContent = '—';
             document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
-            document.getElementById('route-label').textContent      = 'Best route via aggregator';
+            document.getElementById('route-label').textContent      = 'Best route via Cetus aggregator';
             document.getElementById('price-impact-label').textContent = '';
             updateSwapBtn();
         }
@@ -707,7 +713,7 @@
         // Reset UI
         document.getElementById('amount-out-value').textContent = 'Fetching…';
         document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-dark-text-secondary animate-pulse';
-        document.getElementById('route-label').textContent      = 'Querying DEX aggregator…';
+        document.getElementById('route-label').textContent      = 'Querying DEXes…';
         document.getElementById('price-impact-label').textContent = '';
         resetDexRows('Querying…');
         // Update the comparison header to reflect the actual user-entered amount
@@ -783,7 +789,7 @@
                 showStatus('Aggregator unavailable — see individual DEX quotes below.', 'error');
                 document.getElementById('amount-out-value').textContent = '—';
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
-                document.getElementById('route-label').textContent      = 'Best route via aggregator';
+                document.getElementById('route-label').textContent      = 'Best route via Cetus aggregator';
                 setDexRow('7k', 'Unavailable');
             }
 
@@ -830,16 +836,16 @@
     // ================================================================
     /** Build a 7k.ag URL pre-filled for a SUI → CITY swap. */
     function build7kSwapUrl(amtSui) {
-        const params = new URLSearchParams({
-            src:  SUI_TYPE,
-            dst:  CITY_TYPE,
-        });
-        if (amtSui && amtSui > 0) params.set('amt', String(amtSui));
-        return 'https://app.7k.ag/swap?' + params.toString();
+        // 7k.ag uses `from` and `to` query parameters with full coin types.
+        let url = 'https://7k.ag/swap'
+                + '?from=' + encodeURIComponent(SUI_TYPE)
+                + '&to='   + encodeURIComponent(CITY_TYPE);
+        if (amtSui && amtSui > 0) url += '&amount=' + encodeURIComponent(String(amtSui));
+        return url;
     }
 
     // ================================================================
-    // EXECUTE SWAP — simplified Aftermath-only path
+    // EXECUTE SWAP — simplified Cetus Aggregator SDK path
     // ================================================================
     document.getElementById('swap-btn').addEventListener('click', executeSwap);
 
@@ -850,72 +856,46 @@
 
         const swapBtn        = document.getElementById('swap-btn');
         swapBtn.disabled     = true;
-        swapBtn.textContent  = 'Building transaction…';
-        showStatus('Finding best route via Aftermath…', 'info');
+        swapBtn.textContent  = 'Preparing swap…';
+        showStatus('Loading Cetus Aggregator…', 'info');
 
         try {
             const amountInMist = BigInt(Math.round(amtSui * 1e9));
 
-            // ── 1. Get optimal trade route from the Aftermath REST API ──
-            //    The router finds the best path across multiple DEXes
-            //    server-side (no client SDK needed).
-            const routeRes = await fetch(AFTERMATH_API + '/trade-route', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    coinInType:   SUI_TYPE,
-                    coinOutType:  CITY_TYPE,
-                    coinInAmount: amountInMist.toString(),
-                }),
-                signal:  timeoutSignal(15000),
-            });
-            if (!routeRes.ok) {
-                const errText = await routeRes.text().catch(() => '');
-                console.warn('[swap] Aftermath route API error:', routeRes.status, errText);
-                throw new Error(`Aftermath route API error (HTTP ${routeRes.status})${errText ? ': ' + errText : ''}`);
+            // ── 1. Ensure Cetus SDK is loaded ──
+            let CetusSDK = window._CetusSDK;
+            if (!CetusSDK) {
+                CetusSDK = await window._cetusReady;
             }
-            const completeRoute = await routeRes.json();
-            console.log('[swap] Aftermath completeRoute received');
+            if (!CetusSDK || !CetusSDK.AggregatorClient) {
+                throw new Error('Cetus SDK not loaded — please refresh and try again');
+            }
 
-            // ── 2. Build the transaction server-side via Aftermath API ──
-            //    Returns a serialized Transaction (base64 string).
+            // ── 2. Create Cetus Aggregator client ──
+            const client = new CetusSDK.AggregatorClient({
+                signer: connectedAddress,
+            });
+
+            // ── 3. Find the best swap route via Cetus aggregator ──
+            showStatus('Finding best swap route…', 'info');
+            swapBtn.textContent = 'Finding route…';
+            const routerData = await client.findRouters({
+                from:        SUI_TYPE,
+                target:      CITY_TYPE,
+                amount:      amountInMist,   // BigInt — SDK uses .toString()
+                byAmountIn:  true,
+            });
+
+            if (!routerData || routerData.error || !routerData.paths || routerData.paths.length === 0) {
+                const errMsg = routerData?.error?.msg || 'No swap route found';
+                throw new Error(errMsg);
+            }
+            console.log('[swap] Cetus route found, paths:', routerData.paths.length);
+
+            // ── 4. Build the swap transaction client-side ──
             showStatus('Building transaction…', 'info');
-            const tradeRes = await fetch(AFTERMATH_API + '/transactions/trade', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    walletAddress: connectedAddress,
-                    completeRoute,
-                    slippage:      currentSlippage / 100,
-                }),
-                signal:  timeoutSignal(15000),
-            });
-            if (!tradeRes.ok) {
-                const errText = await tradeRes.text().catch(() => '');
-                console.warn('[swap] Aftermath trade API error:', tradeRes.status, errText);
-                throw new Error(`Aftermath trade API error (HTTP ${tradeRes.status})${errText ? ': ' + errText : ''}`);
-            }
+            swapBtn.textContent = 'Building transaction…';
 
-            // The API may return either a bare base64 string or an object
-            // wrapping the serialized transaction (e.g. { tx, txKind }).
-            // Handle both formats defensively.
-            const tradeBody = await tradeRes.json();
-            let txBytes;
-            if (typeof tradeBody === 'string') {
-                txBytes = tradeBody;
-            } else if (tradeBody && typeof tradeBody === 'object') {
-                txBytes = tradeBody.tx
-                       ?? tradeBody.txBytes
-                       ?? tradeBody.txKind
-                       ?? tradeBody.transaction
-                       ?? tradeBody.data;
-            }
-            if (!txBytes || typeof txBytes !== 'string') {
-                console.error('[swap] Unexpected Aftermath trade response shape:', tradeBody);
-                throw new Error('Aftermath returned an unrecognised transaction format');
-            }
-
-            // ── 3. Deserialize into a Transaction object ──
             let Transaction = window._SuiTransaction;
             if (!Transaction && window._suiTxReady) {
                 const mod = await window._suiTxReady;
@@ -923,11 +903,17 @@
             }
             if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
 
-            const tx = Transaction.from(txBytes);
-            tx.setSender(connectedAddress);
+            const txb = new Transaction();
+            await client.fastRouterSwap({
+                router:   routerData,
+                slippage: currentSlippage / 100,
+                txb,
+            });
+            txb.setSender(connectedAddress);
 
-            // ── 4. Sign and execute via wallet ──
+            // ── 5. Sign and execute via wallet ──
             showStatus('Please confirm in your wallet…', 'info');
+            swapBtn.textContent = 'Confirm in wallet…';
 
             const wallet = connectedWalletEntry;
             if (!wallet) throw new Error('Wallet disconnected');
@@ -940,12 +926,12 @@
 
                 if (newFeature) {
                     txResult = await newFeature.signAndExecuteTransaction({
-                        transaction: tx,
+                        transaction: txb,
                         chain: 'sui:mainnet',
                     });
                 } else if (legacyFeature) {
                     txResult = await legacyFeature.signAndExecuteTransactionBlock({
-                        transactionBlock: tx,
+                        transactionBlock: txb,
                         chain: 'sui:mainnet',
                         options: { showEffects: true },
                     });
@@ -957,17 +943,17 @@
                 const p = wallet.provider;
                 if (typeof p.signAndExecuteTransactionBlock === 'function') {
                     txResult = await p.signAndExecuteTransactionBlock({
-                        transactionBlock: tx,
+                        transactionBlock: txb,
                         options: { showEffects: true },
                     });
                 } else if (typeof p.signAndExecuteTransaction === 'function') {
-                    txResult = await p.signAndExecuteTransaction({ transaction: tx });
+                    txResult = await p.signAndExecuteTransaction({ transaction: txb });
                 } else {
                     throw new Error('Legacy wallet does not support transaction signing');
                 }
             }
 
-            // ── 5. Extract digest from result ──
+            // ── 6. Extract digest from result ──
             const digest = txResult?.digest
                         ?? txResult?.certificate?.transactionDigest
                         ?? txResult?.effects?.transactionDigest;
@@ -977,7 +963,7 @@
                 currentQuote = null;
                 document.getElementById('amount-out-value').textContent = '—';
                 document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
-                document.getElementById('route-label').textContent      = 'Best route via aggregator';
+                document.getElementById('route-label').textContent      = 'Best route via Cetus aggregator';
                 document.getElementById('price-impact-label').textContent = '';
                 resetDexRows('Enter amount');
                 document.getElementById('dex-comparison-amount').textContent = '';
