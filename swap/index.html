@@ -1001,17 +1001,23 @@
     function showSwapError(message, deepLink) {
         const el = document.getElementById('swap-status');
         el.className = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in bg-red-900/40 border border-red-700 text-red-300';
-        el.innerHTML =
-            'Swap failed: ' + escapeHtml(message) +
-            '<br><a href="' + escapeHtml(deepLink) + '" target="_blank" rel="noopener noreferrer" ' +
-            'class="inline-block mt-2 text-brand-secondary underline hover:text-brand-secondary-hover">' +
-            'Complete this swap on 7k.ag ↗</a>';
+        // Build the banner content safely using DOM methods to avoid XSS
+        el.textContent = '';
+        el.appendChild(document.createTextNode('Swap failed: ' + String(message || '')));
+        el.appendChild(document.createElement('br'));
+        const a = document.createElement('a');
+        a.href = deepLink;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'inline-block mt-2 text-brand-secondary underline hover:text-brand-secondary-hover';
+        a.textContent = 'Complete this swap on 7k.ag ↗';
+        el.appendChild(a);
         el.classList.remove('hidden');
     }
 
     function escapeHtml(s) {
         const div = document.createElement('div');
-        div.appendChild(document.createTextNode(s));
+        div.appendChild(document.createTextNode(String(s || '')));
         return div.innerHTML;
     }
 
