@@ -259,42 +259,6 @@
                         </div>
                         <span class="text-dark-text-secondary text-xs" id="quote-cetus">Enter amount</span>
                     </div>
-                    <!-- Turbos -->
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
-                        id="row-turbos">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-[11px] text-purple-400 font-bold shrink-0">T</div>
-                            <div>
-                                <span class="text-white font-medium">Turbos</span>
-                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
-                            </div>
-                        </div>
-                        <span class="text-dark-text-secondary text-xs" id="quote-turbos">Enter amount</span>
-                    </div>
-                    <!-- FlowX -->
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
-                        id="row-flowx">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-[11px] text-green-400 font-bold shrink-0">F</div>
-                            <div>
-                                <span class="text-white font-medium">FlowX</span>
-                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
-                            </div>
-                        </div>
-                        <span class="text-dark-text-secondary text-xs" id="quote-flowx">Enter amount</span>
-                    </div>
-                    <!-- Aftermath -->
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-gray-700/50 text-sm"
-                        id="row-aftermath">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-[11px] text-orange-400 font-bold shrink-0">A</div>
-                            <div>
-                                <span class="text-white font-medium">Aftermath</span>
-                                <span class="ml-2 text-[10px] text-dark-text-secondary">AMM</span>
-                            </div>
-                        </div>
-                        <span class="text-dark-text-secondary text-xs" id="quote-aftermath">Enter amount</span>
-                    </div>
                     <!-- 7k.ag (aggregated best) -->
                     <div class="flex items-center justify-between p-3 rounded-lg bg-dark-bg border border-brand-secondary/30 text-sm mt-3"
                         id="row-7k">
@@ -391,6 +355,7 @@
     let connectedWalletEntry= null;
     let suiBalance          = null;  // BigInt, in MIST
     let suiPriceUsd         = null;
+    let quoteDebounceTimer  = null;  // Debounce timer for auto-quoting on input
 
     document.getElementById('current-year').textContent = new Date().getFullYear();
 
@@ -561,6 +526,11 @@
             document.getElementById('price-impact-label').textContent = '';
             updateSwapBtn();
         }
+        // Auto-fetch quote after a short debounce
+        clearTimeout(quoteDebounceTimer);
+        if (amt > 0) {
+            quoteDebounceTimer = setTimeout(() => getQuote(), 600);
+        }
     });
 
     // ================================================================
@@ -630,7 +600,7 @@
     }
 
     function resetDexRows(text) {
-        ['cetus', 'turbos', 'flowx', 'aftermath'].forEach(id => setDexRow(id, text));
+        ['cetus'].forEach(id => setDexRow(id, text));
         // 7k row reset (no isBest styling)
         const quoteEl7k = document.getElementById('quote-7k');
         const row7k     = document.getElementById('row-7k');
@@ -661,18 +631,6 @@
 
     async function fetchCetusQuote(amountInMist) {
         return fetchDexQuoteViaAggregator(amountInMist, 'cetus');
-    }
-
-    async function fetchAftermathQuote(amountInMist) {
-        return fetchDexQuoteViaAggregator(amountInMist, 'aftermath');
-    }
-
-    async function fetchTurbosQuote(amountInMist) {
-        return fetchDexQuoteViaAggregator(amountInMist, 'turbos');
-    }
-
-    async function fetchFlowXQuote(amountInMist) {
-        return fetchDexQuoteViaAggregator(amountInMist, 'flowx');
     }
 
     /** Bluefin7k aggregator quote (formerly 7k.ag) */
@@ -711,7 +669,7 @@
         // Update the comparison header to reflect the actual user-entered amount
         const displayAmt = Number.isInteger(amtSui) ? amtSui.toFixed(0) : amtSui.toLocaleString('en-US', { maximumFractionDigits: 4 });
         document.getElementById('dex-comparison-amount').textContent = `(for ${displayAmt} SUI)`;
-        showStatus('Fetching best price across Cetus, Turbos, FlowX, Aftermath…', 'info');
+        showStatus('Fetching best price across DEXes…', 'info');
         currentQuote = null;
         updateSwapBtn();
 
@@ -721,12 +679,9 @@
 
         try {
             // Fire all requests in parallel
-            const [r7k, rCetus, rAftermath, rTurbos, rFlowX] = await Promise.allSettled([
+            const [r7k, rCetus] = await Promise.allSettled([
                 fetch7kQuote(amountInMist),
                 fetchCetusQuote(amountInMist),
-                fetchAftermathQuote(amountInMist),
-                fetchTurbosQuote(amountInMist),
-                fetchFlowXQuote(amountInMist),
             ]);
 
             // ── 7k.ag aggregated result (primary) ──────────────────
@@ -786,27 +741,12 @@
             }
 
             // ── Individual DEX results ──────────────────────────────
-            const indivResults = {
-                cetus:     rCetus,
-                aftermath: rAftermath,
-                turbos:    rTurbos,
-                flowx:     rFlowX,
-            };
-
-            // Determine best individual DEX
-            let bestId = null, bestAmt = 0n;
-            for (const [id, r] of Object.entries(indivResults)) {
-                if (r.status === 'fulfilled' && r.value > bestAmt) { bestAmt = r.value; bestId = id; }
-            }
-
-            for (const [id, r] of Object.entries(indivResults)) {
-                if (r.status === 'fulfilled') {
-                    const cityAmt = (Number(r.value) / 1e9).toLocaleString('en-US', { maximumFractionDigits: 4 });
-                    setDexRow(id, `${cityAmt} CITY`, id === bestId);
-                } else {
-                    console.warn(`[swap] ${id} quote failed:`, r.reason);
-                    setDexRow(id, 'Unavailable');
-                }
+            if (rCetus.status === 'fulfilled') {
+                const cityAmt = (Number(rCetus.value) / 1e9).toLocaleString('en-US', { maximumFractionDigits: 4 });
+                setDexRow('cetus', `${cityAmt} CITY`);
+            } else {
+                console.warn('[swap] cetus quote failed:', rCetus.reason);
+                setDexRow('cetus', 'Unavailable');
             }
 
         } catch (err) {
