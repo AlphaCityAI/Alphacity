@@ -274,23 +274,6 @@
                 </div>
             </div>
 
-            <!-- Alternative swap link -->
-            <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-5 mb-6 text-center">
-                <p class="text-dark-text-secondary text-sm mb-3">
-                    You can also swap directly on 7k.ag — a trusted SUI DEX aggregator:
-                </p>
-                <a id="ext-swap-link"
-                   href="https://7k.ag/swap"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="inline-flex items-center gap-2 px-5 py-2.5 bg-dark-bg border border-brand-secondary/40 text-brand-secondary font-semibold rounded-xl hover:bg-brand-secondary/10 transition-colors text-sm">
-                    Swap SUI → CITY on 7k.ag
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                </a>
-            </div>
-
             <!-- Info card -->
             <div class="bg-dark-bg rounded-xl border border-gray-800 p-5 text-sm text-dark-text-secondary">
                 <div class="flex items-start gap-3">
@@ -1046,6 +1029,7 @@
         connectedAccount     = null;
         connectedWalletEntry = null;
         suiBalance           = null;
+        try { localStorage.removeItem('alphacity_wallet'); } catch (_) {}
         walletLabel.textContent = 'Connect Wallet';
         connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
         connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
@@ -1102,6 +1086,8 @@
             walletLabel.textContent = shortAddr(address);
             connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
             connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName: entry.name, address })); } catch (_) {}
 
             suiBalance = await fetchSuiBalance(address);
             updateBalanceDisplay();
@@ -1171,10 +1157,74 @@
     }
 
     // ================================================================
+    // WALLET AUTO-RECONNECT
+    // ================================================================
+    async function tryAutoReconnect() {
+        try {
+            const saved = localStorage.getItem('alphacity_wallet');
+            if (!saved) return;
+            const { walletName, address } = JSON.parse(saved);
+            if (!walletName || !isValidSuiAddress(address)) return;
+
+            // Brief delay to allow wallet extensions to register
+            await new Promise(r => setTimeout(r, 400));
+
+            const wallets = discoverWallets();
+            const entry = wallets.find(w => w.name === walletName);
+            if (!entry) return;
+
+            walletLabel.textContent = 'Connecting…';
+
+            let accounts;
+            if (entry.source === 'standard') {
+                // Silent connect — does not prompt the user if already approved
+                const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+            const all = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            const account = all.find(a => String(a?.address || a).trim() === address) || all[0];
+            const reconnectAddress = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(reconnectAddress)) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            connectedAddress     = reconnectAddress;
+            connectedAccount     = account;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(reconnectAddress);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName, address: reconnectAddress })); } catch (_) {}
+
+            suiBalance = await fetchSuiBalance(reconnectAddress);
+            updateBalanceDisplay();
+            updateSwapBtn();
+        } catch (_) {
+            // Silent fail — auto-reconnect errors must not disrupt the user
+            walletLabel.textContent = 'Connect Wallet';
+        }
+    }
+
+    // ================================================================
     // INIT
     // ================================================================
     initWalletStandard();
     fetchSuiPrice().then(p => { suiPriceUsd = p; });
+    tryAutoReconnect();
 
     </script>
 </body>
