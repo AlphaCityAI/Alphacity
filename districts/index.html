@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>District Champions - Alpha City</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-primary': tailwind.colors.blue[500],
+                        'brand-primary-hover': tailwind.colors.blue[400],
+                        'brand-secondary': tailwind.colors.yellow[400],
+                        'brand-secondary-hover': tailwind.colors.yellow[300],
+                        'dark-bg': '#111827',
+                        'dark-card': '#1F2937',
+                        'dark-text': '#E5E7EB',
+                        'dark-text-secondary': '#9CA3AF',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .district-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .district-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .champion-badge {
+            background: linear-gradient(135deg, rgba(250, 204, 21, 0.15), rgba(250, 204, 21, 0.05));
+            border: 1px solid rgba(250, 204, 21, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Navigation -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="/" class="text-2xl font-bold text-white flex items-center gap-2 group">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                    <span class="bg-purple-500/20 text-purple-400 text-[10px] px-2 py-0.5 rounded border border-purple-500/30 uppercase tracking-wide font-bold ml-2">Districts</span>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="/" class="hidden md:block text-dark-text-secondary hover:text-white transition-colors">Home</a>
+                    <a href="/staking/" class="hidden md:block text-brand-secondary hover:text-brand-secondary-hover transition-colors font-medium">Staking</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow">
+
+        <!-- Banner Image -->
+        <section class="w-full">
+            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+                <div class="rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+                    <img
+                        src="https://i.postimg.cc/yN434Tqj/City-Banner-Shorter.jpg"
+                        alt="Alpha City Districts Banner"
+                        class="w-full h-auto object-cover"
+                    />
+                </div>
+            </div>
+        </section>
+
+        <!-- Page Title & Info -->
+        <section class="container mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
+            <h1 class="text-3xl md:text-5xl font-bold text-white mb-4">
+                District <span class="text-brand-secondary">Champions</span>
+            </h1>
+            <p class="text-dark-text-secondary max-w-2xl mx-auto mb-2">
+                The top stakers of Alpha City are appointed as champions across the city's nine districts.
+                Rankings are determined by lifetime Citizen Credits claimed on the staking portal.
+            </p>
+            <div class="flex items-center justify-center gap-2 mt-4">
+                <span class="animate-pulse-slow w-2 h-2 bg-green-500 rounded-full"></span>
+                <span id="status-display" class="text-sm text-dark-text-secondary">Loading on-chain data&hellip;</span>
+            </div>
+        </section>
+
+        <!-- Districts Grid -->
+        <section class="container mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+            <div id="districts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards are rendered by JavaScript -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark-bg border-t border-gray-800">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <p class="text-dark-text-secondary text-center md:text-left mb-4 md:mb-0">
+                    &copy; <span id="current-year"></span> Alpha City. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* ── Constants ────────────────────────────────────────────── */
+
+        const SUI_RPC = 'https://fullnode.mainnet.sui.io:443';
+        const STAKING_PACKAGE_IDS = [
+            '0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9'
+        ];
+        const COIN_DECIMALS = 9;
+        const REFRESH_INTERVAL_MS = 60000;
+
+        const DISTRICTS = [
+            { name: "The Overlord's Spire",      accent: 'yellow' },
+            { name: 'The Corrective',            accent: 'red'    },
+            { name: 'Blisshaven',                accent: 'pink'   },
+            { name: "The Ticker's Bazaar",       accent: 'green'  },
+            { name: 'The Foundry of Defiance',   accent: 'orange' },
+            { name: 'The Tangle',                accent: 'purple' },
+            { name: "The Oracle's Relay",        accent: 'cyan'   },
+            { name: 'The Data Morgue',           accent: 'gray'   },
+            { name: 'The Rust-Grave Piers',      accent: 'amber'  },
+        ];
+
+        /* Tailwind colour classes per accent */
+        const ACCENT_MAP = {
+            yellow: { border: 'border-yellow-500/30', bg: 'from-yellow-500/10', text: 'text-yellow-400', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' },
+            red:    { border: 'border-red-500/30',    bg: 'from-red-500/10',    text: 'text-red-400',    badge: 'bg-red-500/10 text-red-400 border-red-500/30'       },
+            pink:   { border: 'border-pink-500/30',   bg: 'from-pink-500/10',   text: 'text-pink-400',   badge: 'bg-pink-500/10 text-pink-400 border-pink-500/30'   },
+            green:  { border: 'border-green-500/30',  bg: 'from-green-500/10',  text: 'text-green-400',  badge: 'bg-green-500/10 text-green-400 border-green-500/30' },
+            orange: { border: 'border-orange-500/30', bg: 'from-orange-500/10', text: 'text-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/30' },
+            purple: { border: 'border-purple-500/30', bg: 'from-purple-500/10', text: 'text-purple-400', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/30' },
+            cyan:   { border: 'border-cyan-500/30',   bg: 'from-cyan-500/10',   text: 'text-cyan-400',   badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'   },
+            gray:   { border: 'border-gray-500/30',   bg: 'from-gray-500/10',   text: 'text-gray-400',   badge: 'bg-gray-500/10 text-gray-400 border-gray-500/30'   },
+            amber:  { border: 'border-amber-500/30',  bg: 'from-amber-500/10',  text: 'text-amber-400',  badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+        };
+
+        /* ── Helpers ──────────────────────────────────────────────── */
+
+        function shortenAddress(addr) {
+            return addr ? addr.slice(0, 6) + '...' + addr.slice(-4) : '';
+        }
+
+        function formatCredits(atomicBigInt, decimals, precision) {
+            decimals = decimals || COIN_DECIMALS;
+            precision = precision || 2;
+            const divisor = 10n ** BigInt(decimals);
+            const whole = atomicBigInt / divisor;
+            const frac  = atomicBigInt % divisor;
+            if (precision === 0) return whole.toString();
+            const fracStr = frac.toString().padStart(decimals, '0').slice(0, precision).replace(/0+$/, '');
+            return fracStr ? whole.toString() + '.' + fracStr : whole.toString();
+        }
+
+        /* ── Sui JSON-RPC helper ─────────────────────────────────── */
+
+        let rpcId = 0;
+        async function suiRpc(method, params) {
+            const res = await fetch(SUI_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method: method, params: params }),
+            });
+            const json = await res.json();
+            if (json.error) throw new Error(json.error.message);
+            return json.result;
+        }
+
+        async function queryAllEvents(eventType) {
+            let cursor = null;
+            const events = [];
+            for (;;) {
+                const result = await suiRpc('suix_queryEvents', [
+                    { MoveEventType: eventType },
+                    cursor,
+                    100,
+                    false
+                ]);
+                events.push(...(result.data || []));
+                if (!result.hasNextPage) break;
+                cursor = result.nextCursor;
+            }
+            return events;
+        }
+
+        function eventType(packageId, eventName) {
+            return packageId + '::city_staking::' + eventName;
+        }
+
+        /* ── Fetch leaderboard from on-chain events ──────────────── */
+
+        async function fetchLeaderboard() {
+            const allEvents = await Promise.all(
+                STAKING_PACKAGE_IDS.flatMap(function (pkg) {
+                    return [
+                        queryAllEvents(eventType(pkg, 'StakeCreated')),
+                        queryAllEvents(eventType(pkg, 'StakeIncreased')),
+                        queryAllEvents(eventType(pkg, 'Unstaked')),
+                        queryAllEvents(eventType(pkg, 'CreditsClaimed')),
+                    ];
+                })
+            );
+
+            /* Partition by event kind (groups of 4 per package) */
+            const stakeCreated  = allEvents.filter(function (_, i) { return i % 4 === 0; }).flat();
+            const stakeIncreased = allEvents.filter(function (_, i) { return i % 4 === 1; }).flat();
+            const unstaked       = allEvents.filter(function (_, i) { return i % 4 === 2; }).flat();
+            const creditsClaimed = allEvents.filter(function (_, i) { return i % 4 === 3; }).flat();
+
+            /* TVL computation */
+            var tvl = 0n;
+            const stakeAmounts = new Map();   // stakeId → amount
+            const stakeOwners  = new Map();   // stakeId → address
+            const stakeClaimed = new Map();   // stakeId → lifetime claimed
+
+            stakeCreated.forEach(function (ev) {
+                var p = ev.parsedJson || {};
+                var id = p.stake_id, staker = p.staker, amount = BigInt(p.amount || '0');
+                tvl += amount;
+                if (id) { stakeAmounts.set(id, (stakeAmounts.get(id) || 0n) + amount); if (staker) stakeOwners.set(id, staker); }
+            });
+
+            stakeIncreased.forEach(function (ev) {
+                var p = ev.parsedJson || {};
+                var id = p.stake_id, added = BigInt(p.added_amount || '0');
+                tvl += added;
+                if (id) stakeAmounts.set(id, (stakeAmounts.get(id) || 0n) + added);
+            });
+
+            unstaked.forEach(function (ev) {
+                var p = ev.parsedJson || {};
+                var id = p.stake_id, amount = BigInt(p.amount || '0');
+                tvl = tvl > amount ? tvl - amount : 0n;
+                if (id) stakeAmounts.set(id, 0n);
+            });
+
+            creditsClaimed.forEach(function (ev) {
+                var p = ev.parsedJson || {};
+                var id = p.stake_id, staker = p.staker, claimed = BigInt(p.lifetime_claimed || '0');
+                if (id) { stakeClaimed.set(id, claimed); if (staker) stakeOwners.set(id, staker); }
+            });
+
+            /* Aggregate credits per wallet */
+            const walletCredits = new Map();
+            for (const [id, claimed] of stakeClaimed.entries()) {
+                const owner = stakeOwners.get(id);
+                if (owner) walletCredits.set(owner, (walletCredits.get(owner) || 0n) + claimed);
+            }
+
+            /* Sort descending by credits, tiebreak by address */
+            const sorted = [...walletCredits.entries()]
+                .map(function (e) { return { address: e[0], creditsAtomic: e[1] }; })
+                .sort(function (a, b) {
+                    if (a.creditsAtomic === b.creditsAtomic) return a.address.localeCompare(b.address);
+                    return a.creditsAtomic > b.creditsAtomic ? -1 : 1;
+                });
+
+            return { leaderboard: sorted, tvl: tvl };
+        }
+
+        /* ── Distribute leaders round-robin across districts ─────── */
+
+        function distributeToDistricts(leaderboard) {
+            const numDistricts = DISTRICTS.length;
+            const districts = DISTRICTS.map(function (d) {
+                return { name: d.name, accent: d.accent, members: [] };
+            });
+
+            leaderboard.forEach(function (entry, index) {
+                var districtIndex = index % numDistricts;
+                districts[districtIndex].members.push({
+                    address: entry.address,
+                    creditsAtomic: entry.creditsAtomic,
+                    overallRank: index + 1,
+                });
+            });
+
+            return districts;
+        }
+
+        /* ── Render ───────────────────────────────────────────────── */
+
+        function renderDistricts(districts) {
+            var grid = document.getElementById('districts-grid');
+            if (!grid) return;
+
+            grid.innerHTML = districts.map(function (district, dIdx) {
+                var colors = ACCENT_MAP[district.accent] || ACCENT_MAP.gray;
+                var champion = district.members[0];
+
+                var membersHtml = '';
+                if (district.members.length === 0) {
+                    membersHtml = '<p class="text-sm text-dark-text-secondary text-center py-4">No champions yet</p>';
+                } else {
+                    membersHtml = district.members.map(function (m, mIdx) {
+                        var isChampion = mIdx === 0;
+                        var rowClass = isChampion ? 'champion-badge' : 'bg-dark-bg/70 border border-gray-800';
+                        var rankLabel = isChampion ? '★' : '#' + (mIdx + 1);
+                        var nameClass = isChampion ? 'text-white font-semibold' : 'text-white';
+                        return '<div class="flex items-center justify-between rounded-lg px-3 py-2 ' + rowClass + '">'
+                            + '<div class="flex items-center gap-2 min-w-0">'
+                            +   '<span class="text-xs ' + colors.text + ' w-5 flex-shrink-0">' + rankLabel + '</span>'
+                            +   '<span class="text-sm ' + nameClass + ' font-mono truncate">' + shortenAddress(m.address) + '</span>'
+                            +   '<span class="text-[10px] text-dark-text-secondary flex-shrink-0">#' + m.overallRank + ' overall</span>'
+                            + '</div>'
+                            + '<span class="text-sm text-brand-secondary font-semibold flex-shrink-0 ml-2">' + formatCredits(m.creditsAtomic) + '</span>'
+                            + '</div>';
+                    }).join('');
+                }
+
+                return '<div class="district-card glass-panel rounded-2xl overflow-hidden ' + colors.border + '">'
+                    /* District image placeholder */
+                    + '<div class="h-32 bg-gradient-to-br ' + colors.bg + ' to-transparent flex items-center justify-center relative">'
+                    +   '<div class="text-center">'
+                    +     '<div class="text-4xl mb-1 opacity-30">🏛️</div>'
+                    +     '<p class="text-xs text-dark-text-secondary">District image coming soon</p>'
+                    +   '</div>'
+                    +   '<span class="absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wide ' + colors.badge + '">District ' + (dIdx + 1) + '</span>'
+                    + '</div>'
+                    /* District header */
+                    + '<div class="p-5">'
+                    +   '<div class="flex items-center justify-between mb-4">'
+                    +     '<h2 class="text-lg font-bold ' + colors.text + '">' + district.name + '</h2>'
+                    +     (champion
+                        ? '<span class="text-[10px] text-dark-text-secondary">' + district.members.length + ' champion' + (district.members.length !== 1 ? 's' : '') + '</span>'
+                        : '')
+                    +   '</div>'
+                    /* Members list */
+                    +   '<div class="space-y-2 max-h-60 overflow-y-auto pr-1">'
+                    +     membersHtml
+                    +   '</div>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+        }
+
+        /* ── Skeleton loading state ──────────────────────────────── */
+
+        function renderSkeleton() {
+            var grid = document.getElementById('districts-grid');
+            if (!grid) return;
+            grid.innerHTML = DISTRICTS.map(function (d, i) {
+                var colors = ACCENT_MAP[d.accent] || ACCENT_MAP.gray;
+                return '<div class="district-card glass-panel rounded-2xl overflow-hidden ' + colors.border + '">'
+                    + '<div class="h-32 bg-gradient-to-br ' + colors.bg + ' to-transparent flex items-center justify-center">'
+                    +   '<div class="text-center"><div class="text-4xl mb-1 opacity-30">🏛️</div><p class="text-xs text-dark-text-secondary">District image coming soon</p></div>'
+                    + '</div>'
+                    + '<div class="p-5">'
+                    +   '<h2 class="text-lg font-bold ' + colors.text + ' mb-4">' + d.name + '</h2>'
+                    +   '<div class="space-y-2">'
+                    +     '<div class="h-8 bg-dark-bg/50 rounded-lg animate-pulse"></div>'
+                    +     '<div class="h-8 bg-dark-bg/50 rounded-lg animate-pulse opacity-60"></div>'
+                    +     '<div class="h-8 bg-dark-bg/50 rounded-lg animate-pulse opacity-30"></div>'
+                    +   '</div>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+        }
+
+        /* ── Init ─────────────────────────────────────────────────── */
+
+        async function refresh() {
+            var status = document.getElementById('status-display');
+            try {
+                var data = await fetchLeaderboard();
+                var districts = distributeToDistricts(data.leaderboard);
+                renderDistricts(districts);
+                if (status) status.textContent = 'Updated ' + new Date().toLocaleTimeString() + ' · Live on-chain';
+            } catch (err) {
+                console.warn('Failed to load district data:', err);
+                if (status) status.textContent = 'Error loading data — retrying...';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            /* Footer year */
+            var yearEl = document.getElementById('current-year');
+            if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+            /* Initial render */
+            renderSkeleton();
+            refresh();
+            setInterval(refresh, REFRESH_INTERVAL_MS);
+        });
+
+    })();
+    </script>
+
+</body>
+</html>
