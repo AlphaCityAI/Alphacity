@@ -68,9 +68,10 @@
     </style>
 
     <!--
-        Pre-load @mysten/sui Transaction from CDN. This remains available for
-        compatibility, but the live swap execution path now hands users off to
-        7k.ag for consistent execution.
+        Pre-load @mysten/sui Transaction from CDN. The swap execution path uses
+        the Aftermath Finance REST API to build the transaction server-side.
+        If that fails, the user sees an in-page error with a link to complete
+        the swap on 7k.ag.
     -->
     <script type="module">
         // ── 1. Load @mysten/sui Transaction ──
@@ -124,7 +125,7 @@
                     Buy <span class="text-brand-secondary">$CITY</span>
                 </h1>
                 <p class="text-dark-text-secondary">
-                    Swap SUI for $CITY instantly using multiple SUI DEX quotes, then complete the swap on 7k.ag.
+                    Swap SUI for $CITY instantly using multiple SUI DEX quotes, with execution handled by Aftermath.
                 </p>
             </div>
 
@@ -337,8 +338,9 @@
                         <p class="text-white font-medium mb-1">How it works</p>
                         <p class="leading-relaxed">
                             This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
-                            best swap rate for $CITY. When you're ready to trade, the swap opens on
-                            7k.ag so you can complete it there with the most consistent execution flow.
+                            best swap rate for $CITY. The swap transaction is built via the
+                            Aftermath Finance router API, and your wallet signs and executes it directly —
+                            no funds leave your wallet until you confirm.
                         </p>
                         <p class="leading-relaxed mt-2">
                             You can also swap directly on
@@ -372,8 +374,9 @@
     const SUI_TYPE   = '0x2::sui::SUI';
     const CITY_TYPE  = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
 
-    // Bluefin7k aggregator quote API — used for the DEX price
-    // comparison table, while swap execution is handed off to 7k.ag.
+    // Bluefin7k aggregator quote API — used only for the DEX price
+    // comparison table. Transaction building is handled separately by
+    // the Aftermath router API.
     const AGG_QUOTE_URL = 'https://aggregator.api.sui-prod.bluefin.io/v3/quote';
     const AGG_SOURCES   = 'cetus,aftermath,turbos,flowx';
 
@@ -555,8 +558,8 @@
             document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
             document.getElementById('route-label').textContent      = 'Best available route';
             document.getElementById('price-impact-label').textContent = '';
+            updateSwapBtn();
         }
-        updateSwapBtn();
     });
 
     // ================================================================
@@ -581,18 +584,24 @@
         const btn = document.getElementById('swap-btn');
         const amt = parseFloat(document.getElementById('amount-in').value) || 0;
 
-        if (amt <= 0) {
+        if (!connectedAddress) {
+            btn.disabled   = true;
+            btn.textContent = 'Connect Wallet to Swap';
+            btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else if (amt <= 0) {
             btn.disabled   = true;
             btn.textContent = 'Enter an Amount';
             btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else if (!currentQuote) {
+            btn.disabled   = true;
+            btn.textContent = 'Get Quote First';
+            btn.className  = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
         } else {
             btn.disabled   = false;
-            btn.textContent = `Continue ${amt.toFixed(4)} SUI → CITY on 7k.ag`;
+            btn.textContent = `Swap ${amt.toFixed(4)} SUI → CITY`;
             btn.className  = 'w-full py-4 bg-brand-secondary text-gray-900 font-bold text-lg rounded-xl hover:bg-brand-secondary-hover transition-all shadow-lg shadow-yellow-500/20 hover:-translate-y-0.5';
         }
     }
-
-    updateSwapBtn();
 
     // ================================================================
     // DEX COMPARISON TABLE
@@ -827,23 +836,164 @@
     }
 
     // ================================================================
-    // EXECUTE SWAP — hand off to 7k.ag
+    // EXECUTE SWAP — Aftermath REST API
     // ================================================================
     document.getElementById('swap-btn').addEventListener('click', executeSwap);
 
+    // ── Aftermath Finance REST API ──
+    // Pure REST approach: the server builds the transaction, we just
+    // deserialize, sign and execute.  No complex SDK loading required.
+    const AFTERMATH_API = 'https://aftermath.finance/api';
+
+    async function buildSwapViaAftermath(amountInMist, walletAddress) {
+        // Step 1 — get optimal trade route
+        const routeRes = await fetch(`${AFTERMATH_API}/router/trade-route`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                coinInType:   SUI_TYPE,
+                coinOutType:  CITY_TYPE,
+                coinInAmount: amountInMist.toString(),
+            }),
+            signal: timeoutSignal(15000),
+        });
+        if (!routeRes.ok) throw new Error(`Aftermath route: HTTP ${routeRes.status}`);
+        const route = await routeRes.json();
+
+        // Step 2 — build serialized transaction from route
+        const txRes = await fetch(`${AFTERMATH_API}/router/transactions/trade`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                walletAddress,
+                completeRoute: route,
+                slippage:      currentSlippage / 100,
+            }),
+            signal: timeoutSignal(15000),
+        });
+        if (!txRes.ok) throw new Error(`Aftermath tx build: HTTP ${txRes.status}`);
+
+        // The Aftermath API response format has changed between versions:
+        // it may return a bare base64 string, or wrap it in an object under
+        // various keys (tx, txBytes, txKind, transaction, data).  Parse
+        // defensively to handle all known shapes.
+        const raw = await txRes.text();
+        let txBytes;
+        try {
+            const obj = JSON.parse(raw);
+            txBytes = typeof obj === 'string' ? obj
+                    : obj.tx ?? obj.txBytes ?? obj.txKind ?? obj.transaction ?? obj.data ?? null;
+        } catch {
+            // Bare base64 string (not JSON-wrapped)
+            txBytes = raw;
+        }
+        if (!txBytes || typeof txBytes !== 'string') {
+            throw new Error('Aftermath returned an unexpected transaction format');
+        }
+        return txBytes;
+    }
+
+    // ── Sign & execute a transaction (Transaction object or base64 bytes) ──
+    async function signAndExecuteTx(txOrBytes) {
+        let Transaction = window._SuiTransaction;
+        if (!Transaction && window._suiTxReady) {
+            const mod = await window._suiTxReady;
+            Transaction = mod?.Transaction;
+        }
+        if (!Transaction) throw new Error('SUI SDK not loaded — please refresh and try again');
+
+        // If we received base64 bytes (from Aftermath API), deserialize first.
+        // setSender is safe to call even if the tx already has a sender set —
+        // it simply overwrites the field and ensures it matches the wallet.
+        const txb = (typeof txOrBytes === 'string')
+            ? Transaction.from(txOrBytes)
+            : txOrBytes;
+        txb.setSender(connectedAddress);
+
+        const wallet = connectedWalletEntry;
+        if (!wallet) throw new Error('Wallet disconnected');
+
+        let txResult;
+
+        if (wallet.source === 'standard') {
+            const newFeature    = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
+            const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
+
+            if (newFeature) {
+                txResult = await newFeature.signAndExecuteTransaction({
+                    transaction: txb,
+                    chain: 'sui:mainnet',
+                });
+            } else if (legacyFeature) {
+                txResult = await legacyFeature.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    chain: 'sui:mainnet',
+                    options: { showEffects: true },
+                });
+            } else {
+                throw new Error('Wallet does not support transaction signing');
+            }
+
+        } else if (wallet.source === 'legacy') {
+            const p = wallet.provider;
+            if (typeof p.signAndExecuteTransactionBlock === 'function') {
+                txResult = await p.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true },
+                });
+            } else if (typeof p.signAndExecuteTransaction === 'function') {
+                txResult = await p.signAndExecuteTransaction({ transaction: txb });
+            } else {
+                throw new Error('Legacy wallet does not support transaction signing');
+            }
+        }
+
+        return txResult;
+    }
+
     async function executeSwap() {
+        if (!connectedAddress || !currentQuote) return;
         const amtSui = parseFloat(document.getElementById('amount-in').value) || 0;
         if (amtSui <= 0) return;
 
         const swapBtn        = document.getElementById('swap-btn');
         swapBtn.disabled     = true;
-        swapBtn.textContent  = 'Opening 7k.ag…';
+        swapBtn.textContent  = 'Preparing swap…';
 
         try {
-            const deepLink = build7kSwapUrl(amtSui);
-            showStatus('Opening 7k.ag in a new tab to complete your swap…', 'info');
-            const opened = window.open(deepLink, '_blank', 'noopener,noreferrer');
-            if (!opened) window.location.href = deepLink;
+            const amountInMist = BigInt(Math.round(amtSui * 1e9));
+            showStatus('Preparing swap via Aftermath…', 'info');
+            swapBtn.textContent = 'Building transaction…';
+            const txOrBytes = await buildSwapViaAftermath(amountInMist, connectedAddress);
+            console.log('[swap] Aftermath transaction built successfully');
+
+            // ── Sign and execute ──
+            showStatus('Please confirm in your wallet…', 'info');
+            swapBtn.textContent = 'Confirm in wallet…';
+
+            const txResult = await signAndExecuteTx(txOrBytes);
+
+            // ── Extract digest from result ──
+            const digest = txResult?.digest
+                        ?? txResult?.certificate?.transactionDigest
+                        ?? txResult?.effects?.transactionDigest;
+
+            if (digest) {
+                showStatus(`✅ Swap successful! Digest: ${digest.slice(0, 14)}…`, 'success');
+                currentQuote = null;
+                document.getElementById('amount-out-value').textContent = '—';
+                document.getElementById('amount-out-value').className   = 'text-2xl font-bold text-gray-600';
+                document.getElementById('route-label').textContent      = 'Swapped via Aftermath';
+                document.getElementById('price-impact-label').textContent = '';
+                resetDexRows('Enter amount');
+                document.getElementById('dex-comparison-amount').textContent = '';
+                fetchSuiBalance(connectedAddress)
+                    .then(b => { suiBalance = b; updateBalanceDisplay(); })
+                    .catch(() => {});
+            } else {
+                showStatus('Transaction submitted. Check your wallet for confirmation.', 'info');
+            }
+
         } catch (err) {
             console.error('[swap] executeSwap error:', err);
             const deepLink = build7kSwapUrl(amtSui);
