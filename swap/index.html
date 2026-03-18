@@ -125,7 +125,7 @@
                     Buy <span class="text-brand-secondary">$CITY</span>
                 </h1>
                 <p class="text-dark-text-secondary">
-                    Swap SUI for $CITY instantly — with quotes across top Sui DEXes and execution via Aftermath.
+                    Swap SUI for $CITY instantly using multiple SUI DEX quotes, with execution handled by Aftermath.
                 </p>
             </div>
 
@@ -338,7 +338,7 @@
                         <p class="text-white font-medium mb-1">How it works</p>
                         <p class="leading-relaxed">
                             This widget queries Cetus, Turbos, FlowX, and Aftermath simultaneously to find the
-                            best displayed swap rate for $CITY. The swap transaction is built via the
+                            best swap rate for $CITY. The swap transaction is built via the
                             Aftermath Finance router API, and your wallet signs and executes it directly —
                             no funds leave your wallet until you confirm.
                         </p>
@@ -385,7 +385,7 @@
     // ================================================================
     // Stored as a percentage (e.g., 0.5 means 0.5%). Converted to decimal (÷100) when passed to APIs.
     let currentSlippage     = 0.5;
-    let currentQuote        = null;  // Aggregated quote response (used for displayed pricing / gating)
+    let currentQuote        = null;  // Bluefin7k aggregator quote (used for displayed pricing / gating)
     let connectedAddress    = null;
     let connectedWalletEntry= null;
     let suiBalance          = null;  // BigInt, in MIST
@@ -966,15 +966,6 @@
             swapBtn.textContent = 'Building transaction…';
             const txOrBytes = await buildSwapViaAftermath(amountInMist, connectedAddress);
             console.log('[swap] Aftermath transaction built successfully');
-
-            if (!txOrBytes) {
-                const deepLink = build7kSwapUrl(amtSui);
-                showSwapError(
-                    'The swap service is currently unavailable. Please try again in a moment.',
-                    deepLink
-                );
-                return;
-            }
 
             // ── Sign and execute ──
             showStatus('Please confirm in your wallet…', 'info');
