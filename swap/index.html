@@ -387,6 +387,7 @@
     let currentSlippage     = 0.5;
     let currentQuote        = null;  // Bluefin7k aggregator quote (used for displayed pricing / gating)
     let connectedAddress    = null;
+    let connectedAccount    = null;  // Full WalletAccount object (needed for signAndExecuteTransaction)
     let connectedWalletEntry= null;
     let suiBalance          = null;  // BigInt, in MIST
     let suiPriceUsd         = null;
@@ -922,11 +923,13 @@
             if (newFeature) {
                 txResult = await newFeature.signAndExecuteTransaction({
                     transaction: txb,
+                    account: connectedAccount,
                     chain: 'sui:mainnet',
                 });
             } else if (legacyFeature) {
                 txResult = await legacyFeature.signAndExecuteTransactionBlock({
                     transactionBlock: txb,
+                    account: connectedAccount,
                     chain: 'sui:mainnet',
                     options: { showEffects: true },
                 });
@@ -1100,6 +1103,7 @@
 
     function disconnectWallet() {
         connectedAddress     = null;
+        connectedAccount     = null;
         connectedWalletEntry = null;
         suiBalance           = null;
         walletLabel.textContent = 'Connect Wallet';
@@ -1153,6 +1157,7 @@
             if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
 
             connectedAddress     = address;
+            connectedAccount     = account;
             connectedWalletEntry = entry;
             walletLabel.textContent = shortAddr(address);
             connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
