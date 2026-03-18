@@ -172,9 +172,7 @@
             return addr ? addr.slice(0, 6) + '...' + addr.slice(-4) : '';
         }
 
-        function formatCredits(atomicBigInt, decimals, precision) {
-            decimals = decimals || COIN_DECIMALS;
-            precision = precision || 2;
+        function formatCredits(atomicBigInt, decimals = COIN_DECIMALS, precision = 2) {
             const divisor = 10n ** BigInt(decimals);
             const whole = atomicBigInt / divisor;
             const frac  = atomicBigInt % divisor;
@@ -239,35 +237,41 @@
             const creditsClaimed = allEvents.filter(function (_, i) { return i % 4 === 3; }).flat();
 
             /* TVL computation */
-            var tvl = 0n;
+            let tvl = 0n;
             const stakeAmounts = new Map();   // stakeId → amount
             const stakeOwners  = new Map();   // stakeId → address
             const stakeClaimed = new Map();   // stakeId → lifetime claimed
 
             stakeCreated.forEach(function (ev) {
-                var p = ev.parsedJson || {};
-                var id = p.stake_id, staker = p.staker, amount = BigInt(p.amount || '0');
+                const p = ev.parsedJson || {};
+                const id = p.stake_id;
+                const staker = p.staker;
+                const amount = BigInt(p.amount || '0');
                 tvl += amount;
                 if (id) { stakeAmounts.set(id, (stakeAmounts.get(id) || 0n) + amount); if (staker) stakeOwners.set(id, staker); }
             });
 
             stakeIncreased.forEach(function (ev) {
-                var p = ev.parsedJson || {};
-                var id = p.stake_id, added = BigInt(p.added_amount || '0');
+                const p = ev.parsedJson || {};
+                const id = p.stake_id;
+                const added = BigInt(p.added_amount || '0');
                 tvl += added;
                 if (id) stakeAmounts.set(id, (stakeAmounts.get(id) || 0n) + added);
             });
 
             unstaked.forEach(function (ev) {
-                var p = ev.parsedJson || {};
-                var id = p.stake_id, amount = BigInt(p.amount || '0');
+                const p = ev.parsedJson || {};
+                const id = p.stake_id;
+                const amount = BigInt(p.amount || '0');
                 tvl = tvl > amount ? tvl - amount : 0n;
                 if (id) stakeAmounts.set(id, 0n);
             });
 
             creditsClaimed.forEach(function (ev) {
-                var p = ev.parsedJson || {};
-                var id = p.stake_id, staker = p.staker, claimed = BigInt(p.lifetime_claimed || '0');
+                const p = ev.parsedJson || {};
+                const id = p.stake_id;
+                const staker = p.staker;
+                const claimed = BigInt(p.lifetime_claimed || '0');
                 if (id) { stakeClaimed.set(id, claimed); if (staker) stakeOwners.set(id, staker); }
             });
 
@@ -298,7 +302,7 @@
             });
 
             leaderboard.forEach(function (entry, index) {
-                var districtIndex = index % numDistricts;
+                const districtIndex = index % numDistricts;
                 districts[districtIndex].members.push({
                     address: entry.address,
                     creditsAtomic: entry.creditsAtomic,
@@ -312,22 +316,22 @@
         /* ── Render ───────────────────────────────────────────────── */
 
         function renderDistricts(districts) {
-            var grid = document.getElementById('districts-grid');
+            const grid = document.getElementById('districts-grid');
             if (!grid) return;
 
             grid.innerHTML = districts.map(function (district, dIdx) {
-                var colors = ACCENT_MAP[district.accent] || ACCENT_MAP.gray;
-                var champion = district.members[0];
+                const colors = ACCENT_MAP[district.accent] || ACCENT_MAP.gray;
+                const champion = district.members[0];
 
-                var membersHtml = '';
+                let membersHtml = '';
                 if (district.members.length === 0) {
                     membersHtml = '<p class="text-sm text-dark-text-secondary text-center py-4">No champions yet</p>';
                 } else {
                     membersHtml = district.members.map(function (m, mIdx) {
-                        var isChampion = mIdx === 0;
-                        var rowClass = isChampion ? 'champion-badge' : 'bg-dark-bg/70 border border-gray-800';
-                        var rankLabel = isChampion ? '★' : '#' + (mIdx + 1);
-                        var nameClass = isChampion ? 'text-white font-semibold' : 'text-white';
+                        const isChampion = mIdx === 0;
+                        const rowClass = isChampion ? 'champion-badge' : 'bg-dark-bg/70 border border-gray-800';
+                        const rankLabel = isChampion ? '★' : '#' + (mIdx + 1);
+                        const nameClass = isChampion ? 'text-white font-semibold' : 'text-white';
                         return '<div class="flex items-center justify-between rounded-lg px-3 py-2 ' + rowClass + '">'
                             + '<div class="flex items-center gap-2 min-w-0">'
                             +   '<span class="text-xs ' + colors.text + ' w-5 flex-shrink-0">' + rankLabel + '</span>'
@@ -368,10 +372,10 @@
         /* ── Skeleton loading state ──────────────────────────────── */
 
         function renderSkeleton() {
-            var grid = document.getElementById('districts-grid');
+            const grid = document.getElementById('districts-grid');
             if (!grid) return;
             grid.innerHTML = DISTRICTS.map(function (d, i) {
-                var colors = ACCENT_MAP[d.accent] || ACCENT_MAP.gray;
+                const colors = ACCENT_MAP[d.accent] || ACCENT_MAP.gray;
                 return '<div class="district-card glass-panel rounded-2xl overflow-hidden ' + colors.border + '">'
                     + '<div class="h-32 bg-gradient-to-br ' + colors.bg + ' to-transparent flex items-center justify-center">'
                     +   '<div class="text-center"><div class="text-4xl mb-1 opacity-30">🏛️</div><p class="text-xs text-dark-text-secondary">District image coming soon</p></div>'
@@ -391,10 +395,10 @@
         /* ── Init ─────────────────────────────────────────────────── */
 
         async function refresh() {
-            var status = document.getElementById('status-display');
+            const status = document.getElementById('status-display');
             try {
-                var data = await fetchLeaderboard();
-                var districts = distributeToDistricts(data.leaderboard);
+                const data = await fetchLeaderboard();
+                const districts = distributeToDistricts(data.leaderboard);
                 renderDistricts(districts);
                 if (status) status.textContent = 'Updated ' + new Date().toLocaleTimeString() + ' · Live on-chain';
             } catch (err) {
@@ -405,7 +409,7 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             /* Footer year */
-            var yearEl = document.getElementById('current-year');
+            const yearEl = document.getElementById('current-year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
 
             /* Initial render */
