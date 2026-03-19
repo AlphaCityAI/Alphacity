@@ -142,15 +142,15 @@
         const REFRESH_INTERVAL_MS = 60000;
 
         const DISTRICTS = [
-            { name: "The Overlord's Spire",      accent: 'yellow' },
-            { name: 'The Corrective',            accent: 'red'    },
-            { name: 'Blisshaven',                accent: 'pink'   },
-            { name: "The Ticker's Bazaar",       accent: 'green'  },
-            { name: 'The Foundry of Defiance',   accent: 'orange' },
-            { name: 'The Tangle',                accent: 'purple' },
-            { name: "The Oracle's Relay",        accent: 'cyan'   },
-            { name: 'The Data Morgue',           accent: 'gray'   },
-            { name: 'The Rust-Grave Piers',      accent: 'amber'  },
+            { name: "The Overlord's Spire",    accent: 'yellow', image: 'https://i.postimg.cc/L8PMkX9j/Spire.png'      },
+            { name: 'The Corrective',          accent: 'red',    image: 'https://i.postimg.cc/PqknSjJF/Correctie.png'  },
+            { name: 'Blisshaven',              accent: 'pink',   image: 'https://i.postimg.cc/63twpXNf/Blisshaven.png' },
+            { name: "The Ticker's Bazaar",     accent: 'green',  image: 'https://i.postimg.cc/2q7S3kHp'                },
+            { name: 'The Foundry of Defiance', accent: 'orange', image: 'https://i.postimg.cc/zBFzCfky/Foundry.png'    },
+            { name: 'The Tangle',              accent: 'purple', image: 'https://i.postimg.cc/MHGS1mHW/Tangle.png'     },
+            { name: "The Oracle's Relay",      accent: 'cyan',   image: 'https://i.postimg.cc/YqZHmgwy/Relay.png'      },
+            { name: 'The Data Morgue',         accent: 'gray',   image: 'https://i.postimg.cc/nVKj2FL5/Data-Morgue.png'},
+            { name: 'The Rust-Grave Piers',    accent: 'amber',  image: 'https://i.postimg.cc/13dfX4W9/Rust-Grave.png' },
         ];
 
         /* Tailwind colour classes per accent */
@@ -344,12 +344,9 @@
                 }
 
                 return '<div class="district-card glass-panel rounded-2xl overflow-hidden ' + colors.border + '">'
-                    /* District image placeholder */
-                    + '<div class="h-32 bg-gradient-to-br ' + colors.bg + ' to-transparent flex items-center justify-center relative">'
-                    +   '<div class="text-center">'
-                    +     '<div class="text-4xl mb-1 opacity-30">🏛️</div>'
-                    +     '<p class="text-xs text-dark-text-secondary">District image coming soon</p>'
-                    +   '</div>'
+                    /* District image */
+                    + '<div class="relative h-32 overflow-hidden bg-gradient-to-br ' + colors.bg + ' to-transparent">'
+                    +   '<img src="' + district.image + '" alt="' + district.name + '" class="w-full h-full object-cover" onerror="this.style.display=\'none\'" />'
                     +   '<span class="absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wide ' + colors.badge + '">District ' + (dIdx + 1) + '</span>'
                     + '</div>'
                     /* District header */
@@ -377,8 +374,8 @@
             grid.innerHTML = DISTRICTS.map(function (d, i) {
                 const colors = ACCENT_MAP[d.accent] || ACCENT_MAP.gray;
                 return '<div class="district-card glass-panel rounded-2xl overflow-hidden ' + colors.border + '">'
-                    + '<div class="h-32 bg-gradient-to-br ' + colors.bg + ' to-transparent flex items-center justify-center">'
-                    +   '<div class="text-center"><div class="text-4xl mb-1 opacity-30">🏛️</div><p class="text-xs text-dark-text-secondary">District image coming soon</p></div>'
+                    + '<div class="relative h-32 overflow-hidden bg-gradient-to-br ' + colors.bg + ' to-transparent">'
+                    +   '<img src="' + d.image + '" alt="' + d.name + '" class="w-full h-full object-cover" onerror="this.style.display=\'none\'" />'
                     + '</div>'
                     + '<div class="p-5">'
                     +   '<h2 class="text-lg font-bold ' + colors.text + ' mb-4">' + d.name + '</h2>'
