@@ -298,7 +298,7 @@
         function distributeToDistricts(leaderboard) {
             const numDistricts = DISTRICTS.length;
             const districts = DISTRICTS.map(function (d) {
-                return { name: d.name, accent: d.accent, members: [] };
+                return { name: d.name, accent: d.accent, image: d.image, members: [] };
             });
 
             leaderboard.forEach(function (entry, index) {
