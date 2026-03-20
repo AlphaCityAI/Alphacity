@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construct Alpha City</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #111827;
+            --card: #1f2937;
+            --card-soft: rgba(31, 41, 55, 0.72);
+            --card-deep: rgba(17, 24, 39, 0.86);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.14);
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --blue: #3b82f6;
+            --yellow: #facc15;
+            --danger: #fca5a5;
+            --danger-bg: rgba(239, 68, 68, 0.12);
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+            --radius-xl: 20px;
+            --radius-2xl: 28px;
+            --radius-pill: 999px;
+            --container: 1320px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 38%),
+                radial-gradient(circle at 85% 20%, rgba(250, 204, 21, 0.08), transparent 30%),
+                var(--bg);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .container {
+            width: min(var(--container), calc(100% - 2rem));
+            margin: 0 auto;
+        }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(14px);
+            background: rgba(17, 24, 39, 0.84);
+        }
+
+        .nav-shell {
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 800;
+            font-size: 1.7rem;
+            letter-spacing: -0.03em;
+            color: white;
+        }
+
+        .brand-link span span,
+        .brand-accent {
+            color: var(--yellow);
+        }
+
+        .page-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(250, 204, 21, 0.28);
+            background: rgba(250, 204, 21, 0.08);
+            color: var(--yellow);
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            padding: 0.4rem 0.7rem;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+
+        .back-link {
+            color: var(--muted);
+            font-size: 0.92rem;
+            transition: color 160ms ease;
+        }
+
+        .back-link:hover {
+            color: white;
+        }
+
+        .primary-button {
+            border: 0;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #4f96ff, #2e73eb);
+            color: white;
+            font-weight: 700;
+            padding: 0.78rem 1rem;
+            box-shadow: 0 18px 40px rgba(59, 130, 246, 0.24);
+            cursor: pointer;
+            transition: transform 160ms ease, opacity 160ms ease;
+        }
+
+        .primary-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .primary-button:disabled {
+            cursor: wait;
+            opacity: 0.7;
+        }
+
+        .page-main {
+            padding: 2.2rem 0 3rem;
+        }
+
+        .glass-panel {
+            border-radius: var(--radius-2xl);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--card-soft);
+            backdrop-filter: blur(14px);
+            box-shadow: var(--shadow);
+        }
+
+        .blueprint-grid {
+            position: relative;
+            overflow: hidden;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        .blueprint-grid::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.12), transparent 66%);
+            pointer-events: none;
+        }
+
+        .hero-card {
+            position: relative;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        .hero-orb-blue {
+            top: 60px;
+            right: 70px;
+            width: 180px;
+            height: 180px;
+            background: rgba(59, 130, 246, 0.16);
+        }
+
+        .hero-orb-yellow {
+            right: 20px;
+            bottom: 40px;
+            width: 160px;
+            height: 160px;
+            background: rgba(250, 204, 21, 0.1);
+        }
+
+        .hero-grid,
+        .content-grid,
+        .bottom-grid,
+        .stat-grid,
+        .metric-grid,
+        .district-grid,
+        .era-track,
+        .landmark-grid {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .hero-grid {
+            position: relative;
+            z-index: 1;
+            grid-template-columns: minmax(0, 1.2fr) minmax(330px, 0.8fr);
+            align-items: start;
+        }
+
+        .hero-kicker,
+        .panel-kicker {
+            color: var(--blue);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            margin: 0 0 0.9rem;
+        }
+
+        .hero-title {
+            margin: 0 0 1rem;
+            color: white;
+            font-size: clamp(2.5rem, 5vw, 4.4rem);
+            line-height: 0.98;
+            letter-spacing: -0.05em;
+        }
+
+        .hero-copy {
+            color: var(--muted);
+            font-size: 1.08rem;
+            line-height: 1.72;
+            max-width: 62ch;
+            margin: 0 0 1.5rem;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border);
+            background: rgba(17, 24, 39, 0.72);
+            padding: 0.65rem 0.9rem;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .legend-swatch {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            flex: 0 0 auto;
+        }
+
+        .stat-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .stat-card,
+        .metric-card,
+        .district-mini-stat {
+            border-radius: var(--radius-xl);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(17, 24, 39, 0.7);
+            padding: 1rem;
+        }
+
+        .stat-label,
+        .metric-label,
+        .eyebrow {
+            display: block;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 0.55rem;
+        }
+
+        .stat-value,
+        .metric-value {
+            margin: 0;
+            color: white;
+            font-size: 1.65rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .era-card {
+            padding: 1.4rem;
+            animation: drift 12s ease-in-out infinite;
+        }
+
+        .era-header {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .era-title {
+            margin: 0.35rem 0 0;
+            font-size: 1.4rem;
+            color: white;
+        }
+
+        .era-description {
+            margin: 0 0 1.25rem;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .era-track {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .era-node {
+            position: relative;
+        }
+
+        .era-node::before {
+            content: "";
+            position: absolute;
+            top: 9px;
+            left: calc(100% + 0.5rem);
+            width: calc(100% - 1rem);
+            height: 2px;
+            background: rgba(148, 163, 184, 0.18);
+        }
+
+        .era-node:last-child::before {
+            display: none;
+        }
+
+        .era-line {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .era-dot {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: #111827;
+            flex: 0 0 auto;
+            margin-top: 0.15rem;
+        }
+
+        .era-node.is-complete .era-dot,
+        .era-node.is-active .era-dot {
+            border-color: rgba(250, 204, 21, 0.8);
+            background: var(--yellow);
+            box-shadow: 0 0 16px rgba(250, 204, 21, 0.45);
+        }
+
+        .era-node-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .era-node-text {
+            margin: 0.35rem 0 0;
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        .content-grid {
+            grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+            align-items: start;
+            margin-bottom: 2rem;
+        }
+
+        .bottom-grid {
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            align-items: start;
+        }
+
+        .panel,
+        .detail-panel {
+            padding: 1.45rem;
+        }
+
+        .panel-header {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 1.7rem;
+            color: white;
+        }
+
+        .panel-copy {
+            max-width: 34rem;
+            color: var(--muted);
+            font-size: 0.94rem;
+            line-height: 1.65;
+        }
+
+        .district-grid {
+            position: relative;
+            z-index: 1;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .district-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(17,24,39,0.94));
+            padding: 1.2rem;
+            color: var(--text);
+            cursor: pointer;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+            isolation: isolate;
+        }
+
+        .district-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            border-radius: inherit;
+            background: radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.24), transparent 45%);
+            pointer-events: none;
+        }
+
+        .district-card:hover,
+        .district-card:focus-visible,
+        .district-card.is-active {
+            transform: translateY(-4px);
+            border-color: rgba(var(--accent-rgb), 0.55);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(var(--accent-rgb), 0.2);
+        }
+
+        .district-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .district-index {
+            margin: 0 0 0.4rem;
+            color: var(--muted);
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .district-name {
+            margin: 0;
+            color: white;
+            font-size: 1.22rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .district-icon {
+            color: rgb(var(--accent-rgb));
+        }
+
+        .district-tagline {
+            margin: 0.5rem 0 0;
+            font-size: 0.92rem;
+            color: rgba(var(--accent-rgb), 0.88);
+        }
+
+        .district-stage {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            align-self: start;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255,255,255,0.82);
+            padding: 0.55rem 0.8rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .skyline {
+            height: 64px;
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .skyline span {
+            flex: 1 1 0;
+            display: block;
+            border-radius: 10px 10px 0 0;
+            background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.9), rgba(var(--accent-rgb), 0.44));
+            opacity: 0.3;
+            transition: opacity 180ms ease;
+        }
+
+        .skyline span.is-on {
+            opacity: 1;
+            box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.3);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.55rem;
+            font-size: 0.92rem;
+        }
+
+        .progress-label {
+            color: var(--muted);
+        }
+
+        .progress-value {
+            color: white;
+            font-weight: 700;
+        }
+
+        .meter-track {
+            height: 10px;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+            background: rgba(148, 163, 184, 0.14);
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.75), rgba(var(--accent-rgb), 1));
+            box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.35);
+        }
+
+        .district-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .district-mini-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.7rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 0.35rem;
+        }
+
+        .district-mini-value {
+            margin: 0;
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .detail-sidebar {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-title {
+            margin: 0;
+            font-size: 1.7rem;
+            color: white;
+        }
+
+        .detail-copy {
+            margin: 0.75rem 0 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .detail-badge {
+            align-self: start;
+            white-space: nowrap;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border);
+            padding: 0.65rem 0.9rem;
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 1rem;
+        }
+
+        .landmark-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .landmark-card,
+        .contributor-card,
+        .rule-card,
+        .standing-card,
+        .loading-card,
+        .error-card {
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            background: var(--card-deep);
+        }
+
+        .landmark-card {
+            padding: 0.9rem;
+        }
+
+        .landmark-card.is-unlocked {
+            border-color: rgba(var(--accent-rgb), 0.55);
+            background: rgba(var(--accent-rgb), 0.12);
+        }
+
+        .landmark-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 0.8rem;
+        }
+
+        .landmark-title {
+            margin: 0;
+            font-size: 0.96rem;
+            font-weight: 700;
+        }
+
+        .landmark-text {
+            margin: 0.35rem 0 0;
+            color: var(--muted);
+            font-size: 0.8rem;
+            line-height: 1.45;
+        }
+
+        .contributors-list,
+        .standings-list,
+        .rules-list {
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .contributor-card,
+        .standing-card,
+        .rule-card {
+            padding: 0.95rem 1rem;
+        }
+
+        .contributor-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contributor-name,
+        .standing-title {
+            margin: 0;
+            color: white;
+            font-weight: 700;
+        }
+
+        .contributor-meta,
+        .standing-meta,
+        .small-muted,
+        .footer-note {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .rules-title {
+            margin: 0 0 1.25rem;
+            color: white;
+            font-size: 1.7rem;
+        }
+
+        .rule-card strong {
+            display: block;
+            color: white;
+            font-size: 0.98rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .rule-card p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.68;
+            font-size: 0.92rem;
+        }
+
+        .standing-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 1rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .standing-rank {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            font-weight: 800;
+        }
+
+        .standing-left {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .loading-card,
+        .error-card {
+            padding: 1.4rem;
+            text-align: center;
+        }
+
+        .error-card {
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.28);
+            background: var(--danger-bg);
+        }
+
+        .footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding: 2rem 0;
+        }
+
+        .footer-note {
+            margin: 0;
+            text-align: center;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+
+        @media (max-width: 1180px) {
+            .hero-grid,
+            .content-grid,
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .district-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 860px) {
+            .nav-shell {
+                flex-wrap: wrap;
+                padding: 1rem 0;
+            }
+
+            .nav-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .page-badge,
+            .back-link {
+                display: none;
+            }
+
+            .stat-grid,
+            .metric-grid,
+            .landmark-grid,
+            .era-track {
+                grid-template-columns: 1fr;
+            }
+
+            .district-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-header,
+            .detail-header,
+            .standing-row,
+            .contributor-card {
+                flex-direction: column;
+                align-items: start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container nav-shell">
+            <a href="/" class="brand-link">
+                <span>Alpha<span class="brand-accent"> City</span></span>
+                <span class="page-badge">Draft Metagame</span>
+            </a>
+            <div class="nav-actions">
+                <a href="/" class="back-link">← Back to Home</a>
+                <button id="refresh-btn" class="primary-button">Refresh City Data</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-main">
+        <section class="glass-panel blueprint-grid hero-card">
+            <div class="hero-orb hero-orb-blue"></div>
+            <div class="hero-orb hero-orb-yellow"></div>
+            <div class="hero-grid">
+                <div>
+                    <p class="hero-kicker">Construct Alpha City</p>
+                    <h1 class="hero-title">Build the city by <span class="brand-accent">mobilizing Citizen Credits</span>.</h1>
+                    <p class="hero-copy">
+                        This draft turns staking influence into a living city simulation. Each wallet with lifetime Citizen Credits is assigned to a district, every district competes for relative influence, and the skyline evolves as those credit balances deepen.
+                    </p>
+                    <div class="chip-row">
+                        <span class="info-chip"><span class="legend-swatch" style="background:#60A5FA"></span><span id="data-source-chip-text">Live Sui staking data</span></span>
+                        <span class="info-chip"><span class="legend-swatch" style="background:#FACC15"></span>Relative district power</span>
+                        <span class="info-chip"><span class="legend-swatch" style="background:#34D399"></span>Unlockable landmarks</span>
+                    </div>
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <span class="stat-label">Observed Credits</span>
+                            <p class="stat-value" id="total-credits-display">--</p>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Active Builders</span>
+                            <p class="stat-value" id="active-stakers-display">--</p>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Leading District</span>
+                            <p class="stat-value" id="leading-district-display">--</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-panel era-card">
+                    <div class="era-header">
+                        <div>
+                            <span class="eyebrow">City Era</span>
+                            <h2 class="era-title" id="current-era-display">Surveying the perimeter</h2>
+                        </div>
+                        <span class="small-muted" id="updated-at-display">Sync pending</span>
+                    </div>
+                    <p class="era-description" id="era-description-display">
+                        Loading the blueprint from on-chain Citizen Credit history...
+                    </p>
+                    <div id="era-track" class="era-track"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-grid">
+            <div class="glass-panel blueprint-grid panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">District Blueprint</p>
+                        <h2 class="panel-title">Relative power map</h2>
+                    </div>
+                    <div class="panel-copy">
+                        Districts are scored by the Citizen Credits currently attributed to the wallets inside them. The strongest district defines the pace; every other district grows in relation to that leader.
+                    </div>
+                </div>
+                <div id="district-grid" class="district-grid">
+                    <div class="loading-card">Loading district construction plans...</div>
+                </div>
+            </div>
+
+            <aside class="detail-sidebar">
+                <div class="glass-panel detail-panel">
+                    <div class="detail-header">
+                        <div>
+                            <span class="eyebrow">Selected District</span>
+                            <h2 class="detail-title" id="detail-name">Awaiting sync</h2>
+                            <p class="detail-copy" id="detail-description">Once the city data loads, select a district to inspect its population, unlocked landmarks, and relative power curve.</p>
+                        </div>
+                        <div id="detail-badge" class="detail-badge">No stage</div>
+                    </div>
+
+                    <div class="metric-grid">
+                        <div class="metric-card">
+                            <span class="metric-label">District Credits</span>
+                            <p class="metric-value" id="detail-credits">--</p>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Citizens</span>
+                            <p class="metric-value" id="detail-residents">--</p>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Share of City</span>
+                            <p class="metric-value" id="detail-share">--</p>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Relative Power</span>
+                            <p class="metric-value" id="detail-relative">--</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <div class="progress-header">
+                            <span class="progress-label">Build Progress</span>
+                            <span class="progress-value" id="detail-progress-label">--</span>
+                        </div>
+                        <div class="meter-track"><div id="detail-progress-bar" class="meter-fill" style="width: 0%; --accent-rgb: 59,130,246;"></div></div>
+                    </div>
+
+                    <div>
+                        <div class="progress-header">
+                            <span class="progress-value" style="font-size:1rem;">Unlocked Landmarks</span>
+                            <span class="small-muted" id="detail-landmark-count">0 / 0 unlocked</span>
+                        </div>
+                        <div id="detail-landmarks" class="landmark-grid"></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel detail-panel">
+                    <div class="panel-header" style="margin-bottom: 1rem;">
+                        <div>
+                            <p class="panel-kicker">Top Patrons</p>
+                            <h3 class="panel-title" style="font-size:1.45rem;">Who is building here?</h3>
+                        </div>
+                        <span class="small-muted">Top 5 by district credits</span>
+                    </div>
+                    <div id="detail-contributors" class="contributors-list">
+                        <div class="loading-card">No district selected.</div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="bottom-grid">
+            <div class="glass-panel detail-panel">
+                <p class="panel-kicker">How the draft works</p>
+                <h2 class="rules-title">Construction doctrine</h2>
+                <div class="rules-list">
+                    <div class="rule-card">
+                        <strong>1. Citizen Credits become district influence.</strong>
+                        <p>Every wallet with lifetime claimed Citizen Credits is mapped into a district using a deterministic wallet signature. The same wallet always strengthens the same district.</p>
+                    </div>
+                    <div class="rule-card">
+                        <strong>2. Relative strength unlocks new structures.</strong>
+                        <p>District growth is measured against the current leading district. Falling behind does not erase progress, but it does slow landmark unlocks until the district catches up.</p>
+                    </div>
+                    <div class="rule-card">
+                        <strong>3. City eras are driven by ecosystem-wide credits.</strong>
+                        <p>As total observed Citizen Credits rise, Alpha City graduates from excavation to skyline status. This gives the whole community a shared macro objective while districts battle locally.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel detail-panel">
+                <div class="panel-header" style="margin-bottom: 1rem;">
+                    <div>
+                        <p class="panel-kicker">District standings</p>
+                        <h2 class="panel-title">Construction leaderboard</h2>
+                    </div>
+                    <span class="small-muted">Sorted by district credits</span>
+                </div>
+                <div id="district-standings" class="standings-list">
+                    <div class="loading-card">Standings will populate after the first sync.</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-note">Draft Alpha City construct page. Not linked elsewhere yet.</p>
+        </div>
+    </footer>
+
+    <script>
+        const RPC_URL = 'https://fullnode.mainnet.sui.io:443';
+        const STAKING_PACKAGE = '0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9';
+        const CREDIT_DECIMALS = 9n;
+
+        const STAGES = [
+            { threshold: 0.12, name: 'Groundbreak' },
+            { threshold: 0.28, name: 'Street Grid' },
+            { threshold: 0.46, name: 'Utilities' },
+            { threshold: 0.64, name: 'Vertical Build' },
+            { threshold: 0.82, name: 'Landmark Era' },
+            { threshold: 1, name: 'Ascendant' },
+        ];
+
+        const CITY_ERAS = [
+            {
+                minCredits: 0n,
+                name: 'Surveying the perimeter',
+                description: 'The city is still being plotted. Early holders define where the first meaningful concentration of influence will appear.'
+            },
+            {
+                minCredits: 10000n,
+                name: 'Excavation crews mobilized',
+                description: 'Citizen Credits are now deep enough to support roads, walls, and the first symbolic structures.'
+            },
+            {
+                minCredits: 50000n,
+                name: 'District skeletons emerging',
+                description: 'Distinct neighborhoods start to separate from one another. Leadership battles matter now.'
+            },
+            {
+                minCredits: 150000n,
+                name: 'Infrastructure age',
+                description: 'Transit, trade, and cultural landmarks begin to shape the strategic center of Alpha City.'
+            },
+            {
+                minCredits: 400000n,
+                name: 'Skyline wars',
+                description: 'Each district is competing to dominate the visual identity and political gravity of the city.'
+            },
+            {
+                minCredits: 1000000n,
+                name: 'Sovereign metropolis',
+                description: 'Alpha City has matured into a full on-chain metropolis. Influence is now legendary, not local.'
+            },
+        ];
+
+        const DISTRICT_DEFINITIONS = [
+            {
+                key: 'foundation-ward',
+                name: 'Foundation Ward',
+                icon: '⬢',
+                accent: '#38BDF8',
+                accentRgb: '56,189,248',
+                tagline: 'The civic bedrock of Alpha City.',
+                description: 'Builders here specialize in stability and foundational systems. When this ward grows, the rest of the city gets a stronger floor to build on.',
+                landmarks: ['Pioneer Gate', 'Ledger Square', 'Gridworks Depot', 'Transit Spine', 'Bastion Hall', 'Atlas Monument'],
+            },
+            {
+                key: 'exchange-arcade',
+                name: 'Exchange Arcade',
+                icon: '◫',
+                accent: '#60A5FA',
+                accentRgb: '96,165,250',
+                tagline: 'Where velocity, fees, and flow become spectacle.',
+                description: 'This district rewards motion. It represents the buzzing market center where swaps, speculation, and deal flow animate the city.',
+                landmarks: ['Market Lanterns', 'Quote Row', 'Bluebook Bridge', 'Liquidity Arcade', 'Slipstream Tower', 'The Golden Board'],
+            },
+            {
+                key: 'signal-gardens',
+                name: 'Signal Gardens',
+                icon: '✦',
+                accent: '#34D399',
+                accentRgb: '52,211,153',
+                tagline: 'A calm district built on intelligence and coordination.',
+                description: 'Signal Gardens channels analytical strength. It symbolizes AI insight, long-term conviction, and strategic scouting.',
+                landmarks: ['Beacon Orchard', 'Whisper Net', 'Signal Conservatory', 'Analyst Terrace', 'Forecast Dome', 'Oracle Bloom'],
+            },
+            {
+                key: 'forge-quarter',
+                name: 'Forge Quarter',
+                icon: '⬣',
+                accent: '#F97316',
+                accentRgb: '249,115,22',
+                tagline: 'Industry, experimentation, and weapons-grade momentum.',
+                description: 'Forge Quarter turns raw participation into momentum. It is where builders, grinders, and high-conviction players harden the city.',
+                landmarks: ['Starter Kiln', 'Builders Anvil', 'Pressure Yards', 'Momentum Stack', 'Redline Works', 'Titan Foundry'],
+            },
+            {
+                key: 'echo-harbor',
+                name: 'Echo Harbor',
+                icon: '◉',
+                accent: '#A78BFA',
+                accentRgb: '167,139,250',
+                tagline: 'The social dock where memes, raids, and rumor hit shore.',
+                description: 'Echo Harbor thrives on cultural energy. It is the district of raids, referrals, alliances, and the waves of attention that pull outsiders inward.',
+                landmarks: ['Raid Pier', 'Caller’s Wharf', 'Rumor Market', 'Banner Lighthouse', 'Alliance Docks', 'Tidebreak Plaza'],
+            },
+            {
+                key: 'sovereign-spire',
+                name: 'Sovereign Spire',
+                icon: '▲',
+                accent: '#FACC15',
+                accentRgb: '250,204,21',
+                tagline: 'The final skyline. Prestige lives here.',
+                description: 'Sovereign Spire represents authority. Its rise signals concentrated influence, elite coordination, and the symbolic crown of Alpha City.',
+                landmarks: ['Crown Steps', 'High Council Walk', 'Baron’s Ring', 'Warlord Lift', 'Sovereign Crown', 'Starfire Apex'],
+            },
+        ];
+
+        const state = {
+            districts: [],
+            selectedDistrictKey: DISTRICT_DEFINITIONS[0].key,
+            totalCreditsAtomic: 0n,
+            activeStakers: 0,
+            updatedAt: 0,
+            dataMode: 'live',
+        };
+
+        let rpcId = 0;
+
+        function el(id) {
+            return document.getElementById(id);
+        }
+
+        function formatAtomic(value, decimals = CREDIT_DECIMALS, precision = 1) {
+            const numeric = typeof value === 'bigint' ? value : BigInt(value || 0);
+            const base = 10n ** decimals;
+            const whole = numeric / base;
+            const fraction = numeric % base;
+            if (precision === 0) {
+                return whole.toString();
+            }
+            const digits = fraction.toString().padStart(Number(decimals), '0').slice(0, precision).replace(/0+$/, '');
+            return digits ? `${whole.toString()}.${digits}` : whole.toString();
+        }
+
+        function shortAddress(address) {
+            return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '—';
+        }
+
+        async function rpc(method, params) {
+            const response = await fetch(RPC_URL, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: ++rpcId,
+                    method,
+                    params,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`RPC request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            if (payload.error) {
+                throw new Error(payload.error.message || 'Unknown RPC error');
+            }
+            return payload.result;
+        }
+
+        async function queryAllEvents(eventName) {
+            let cursor = null;
+            const rows = [];
+            for (;;) {
+                const result = await rpc('suix_queryEvents', [
+                    { MoveEventType: `${STAKING_PACKAGE}::city_staking::${eventName}` },
+                    cursor,
+                    100,
+                    false,
+                ]);
+
+                rows.push(...(result.data || []));
+                if (!result.hasNextPage) {
+                    break;
+                }
+                cursor = result.nextCursor;
+            }
+            return rows;
+        }
+
+        function hashAddress(address) {
+            let hash = 0;
+            for (let i = 2; i < address.length; i += 1) {
+                hash = (hash * 33 + address.charCodeAt(i)) >>> 0;
+            }
+            return hash;
+        }
+
+        function assignDistrict(address) {
+            const index = hashAddress(address) % DISTRICT_DEFINITIONS.length;
+            return DISTRICT_DEFINITIONS[index].key;
+        }
+
+        function getCityEra(totalCreditsAtomic) {
+            const totalCredits = totalCreditsAtomic / (10n ** CREDIT_DECIMALS);
+            let current = CITY_ERAS[0];
+            for (const era of CITY_ERAS) {
+                if (totalCredits >= era.minCredits) {
+                    current = era;
+                }
+            }
+            return current;
+        }
+
+        function getStage(relativePower) {
+            let current = STAGES[0];
+            let next = null;
+            for (let i = 0; i < STAGES.length; i += 1) {
+                const stage = STAGES[i];
+                if (relativePower >= stage.threshold) {
+                    current = stage;
+                    next = STAGES[i + 1] || null;
+                }
+            }
+            return { current, next };
+        }
+
+        function computeDistricts(creditsByAddress) {
+            const districts = DISTRICT_DEFINITIONS.map((definition) => ({
+                ...definition,
+                creditsAtomic: 0n,
+                residents: 0,
+                contributors: [],
+                shareOfCity: 0,
+                relativePower: 0,
+                progressPercent: 0,
+                stage: STAGES[0],
+                nextStage: STAGES[1],
+                unlockedCount: 1,
+            }));
+
+            const totalCreditsAtomic = [...creditsByAddress.values()].reduce((sum, value) => sum + value, 0n);
+
+            for (const [address, creditsAtomic] of creditsByAddress.entries()) {
+                const key = assignDistrict(address);
+                const district = districts.find((item) => item.key === key);
+                if (!district) continue;
+                district.creditsAtomic += creditsAtomic;
+                district.residents += 1;
+                district.contributors.push({ address, creditsAtomic });
+            }
+
+            districts.forEach((district) => {
+                district.contributors.sort((a, b) => {
+                    if (a.creditsAtomic === b.creditsAtomic) {
+                        return a.address.localeCompare(b.address);
+                    }
+                    return a.creditsAtomic > b.creditsAtomic ? -1 : 1;
+                });
+            });
+
+            const leadingCredits = districts.reduce((max, district) => district.creditsAtomic > max ? district.creditsAtomic : max, 0n);
+            const safeLeadingCredits = leadingCredits > 0n ? leadingCredits : 1n;
+            const safeTotalCredits = totalCreditsAtomic > 0n ? totalCreditsAtomic : 1n;
+
+            districts.forEach((district) => {
+                district.shareOfCity = Number((district.creditsAtomic * 10000n) / safeTotalCredits) / 100;
+                district.relativePower = Number((district.creditsAtomic * 10000n) / safeLeadingCredits) / 10000;
+                district.progressPercent = Math.max(8, Math.min(100, Math.round(district.relativePower * 100)));
+                const { current, next } = getStage(district.relativePower);
+                district.stage = current;
+                district.nextStage = next;
+                district.unlockedCount = STAGES.findIndex((stage) => stage.name === current.name) + 1;
+            });
+
+            districts.sort((a, b) => {
+                if (a.creditsAtomic === b.creditsAtomic) {
+                    return a.name.localeCompare(b.name);
+                }
+                return a.creditsAtomic > b.creditsAtomic ? -1 : 1;
+            });
+
+            return { districts, totalCreditsAtomic };
+        }
+
+        function renderEraTrack(totalCreditsAtomic) {
+            const currentEra = getCityEra(totalCreditsAtomic);
+            const totalCredits = totalCreditsAtomic / (10n ** CREDIT_DECIMALS);
+
+            el('current-era-display').textContent = currentEra.name;
+            el('era-description-display').textContent = currentEra.description;
+            el('era-track').innerHTML = CITY_ERAS.map((era) => {
+                const isComplete = totalCredits >= era.minCredits;
+                const isActive = currentEra.name === era.name;
+                return `
+                    <div class="era-node ${isComplete ? 'is-complete' : ''} ${isActive ? 'is-active' : ''}">
+                        <div class="era-line">
+                            <span class="era-dot"></span>
+                            <div>
+                                <p class="era-node-title" style="color:${isActive ? 'white' : 'var(--muted)'}">${era.name}</p>
+                                <p class="era-node-text">${era.minCredits.toLocaleString()}+ credits</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderDistrictGrid() {
+            const selectedKey = state.selectedDistrictKey;
+            el('district-grid').innerHTML = state.districts.map((district, index) => {
+                const heights = [24, 34, 44, 62, 38, 52].map((base, idx) => Math.min(70, Math.round(base * (0.4 + district.relativePower * 0.75) + idx * 1.5)));
+                const activeBars = Math.max(1, Math.min(6, district.unlockedCount));
+
+                return `
+                    <button
+                        class="district-card ${selectedKey === district.key ? 'is-active' : ''}"
+                        type="button"
+                        style="--accent-rgb:${district.accentRgb}"
+                        data-district-key="${district.key}"
+                        aria-pressed="${selectedKey === district.key ? 'true' : 'false'}"
+                    >
+                        <div class="district-header">
+                            <div>
+                                <p class="district-index">District ${index + 1}</p>
+                                <h3 class="district-name"><span class="district-icon">${district.icon}</span>${district.name}</h3>
+                                <p class="district-tagline">${district.tagline}</p>
+                            </div>
+                            <span class="district-stage">${district.stage.name}</span>
+                        </div>
+                        <div class="skyline">
+                            ${heights.map((height, idx) => `<span class="${idx < activeBars ? 'is-on' : ''}" style="height:${height}px"></span>`).join('')}
+                        </div>
+                        <div class="progress-header">
+                            <span class="progress-label">Relative power</span>
+                            <span class="progress-value">${Math.round(district.relativePower * 100)}% of leader</span>
+                        </div>
+                        <div class="meter-track"><div class="meter-fill" style="width:${district.progressPercent}%; --accent-rgb:${district.accentRgb};"></div></div>
+                        <div class="district-stats">
+                            <div class="district-mini-stat">
+                                <span class="district-mini-label">Credits</span>
+                                <p class="district-mini-value">${formatAtomic(district.creditsAtomic, CREDIT_DECIMALS, 1)}</p>
+                            </div>
+                            <div class="district-mini-stat">
+                                <span class="district-mini-label">Share</span>
+                                <p class="district-mini-value">${district.shareOfCity.toFixed(1)}%</p>
+                            </div>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            document.querySelectorAll('[data-district-key]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    state.selectedDistrictKey = button.dataset.districtKey;
+                    renderDistrictGrid();
+                    renderSelectedDistrict();
+                });
+            });
+        }
+
+        function renderSelectedDistrict() {
+            const district = state.districts.find((item) => item.key === state.selectedDistrictKey) || state.districts[0];
+            if (!district) {
+                return;
+            }
+
+            el('detail-name').textContent = district.name;
+            el('detail-description').textContent = district.description;
+            el('detail-badge').textContent = district.stage.name;
+            el('detail-badge').style.color = district.accent;
+            el('detail-badge').style.borderColor = `rgba(${district.accentRgb}, 0.45)`;
+            el('detail-badge').style.background = `rgba(${district.accentRgb}, 0.12)`;
+            el('detail-credits').textContent = `${formatAtomic(district.creditsAtomic, CREDIT_DECIMALS, 1)} credits`;
+            el('detail-residents').textContent = district.residents.toLocaleString();
+            el('detail-share').textContent = `${district.shareOfCity.toFixed(1)}%`;
+            el('detail-relative').textContent = `${Math.round(district.relativePower * 100)}%`;
+            el('detail-progress-label').textContent = district.nextStage
+                ? `${district.stage.name} → ${district.nextStage.name}`
+                : 'Maximum district stage reached';
+            el('detail-progress-bar').style.width = `${district.progressPercent}%`;
+            el('detail-progress-bar').style.setProperty('--accent-rgb', district.accentRgb);
+            el('detail-landmark-count').textContent = `${district.unlockedCount} / ${district.landmarks.length} unlocked`;
+
+            el('detail-landmarks').innerHTML = district.landmarks.map((landmark, index) => {
+                const unlocked = index < district.unlockedCount;
+                return `
+                    <div class="landmark-card ${unlocked ? 'is-unlocked' : ''}" style="--accent-rgb:${district.accentRgb}">
+                        <div class="landmark-line">
+                            <div>
+                                <p class="landmark-title" style="color:${unlocked ? 'white' : 'var(--muted)'}">${landmark}</p>
+                                <p class="landmark-text">${unlocked ? 'Unlocked by district momentum' : 'Still under construction'}</p>
+                            </div>
+                            <span>${unlocked ? '✦' : '·'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            el('detail-contributors').innerHTML = district.contributors.length
+                ? district.contributors.slice(0, 5).map((entry, index) => `
+                    <div class="contributor-card">
+                        <div>
+                            <span class="eyebrow" style="margin-bottom:0.35rem;">Patron ${index + 1}</span>
+                            <p class="contributor-name mono">${shortAddress(entry.address)}</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <span class="eyebrow" style="margin-bottom:0.35rem;">Credits</span>
+                            <p class="contributor-name">${formatAtomic(entry.creditsAtomic, CREDIT_DECIMALS, 1)}</p>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div class="loading-card">No patrons have established this district yet.</div>';
+        }
+
+        function renderStandings() {
+            el('district-standings').innerHTML = state.districts.map((district, index) => {
+                const nextLabel = district.nextStage ? `Next: ${district.nextStage.name}` : 'Final stage reached';
+                return `
+                    <div class="standing-card">
+                        <div class="standing-row">
+                            <div class="standing-left">
+                                <div class="standing-rank" style="background:rgba(${district.accentRgb},0.14); color:${district.accent};">${index + 1}</div>
+                                <div>
+                                    <p class="standing-title">${district.name}</p>
+                                    <p class="standing-meta">${district.stage.name} • ${district.residents.toLocaleString()} citizens</p>
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <p class="standing-title">${formatAtomic(district.creditsAtomic, CREDIT_DECIMALS, 1)} credits</p>
+                                <p class="standing-meta">${district.shareOfCity.toFixed(1)}% of observed city power</p>
+                            </div>
+                        </div>
+                        <div class="progress-header">
+                            <span class="progress-label">Build momentum</span>
+                            <span class="progress-value">${nextLabel}</span>
+                        </div>
+                        <div class="meter-track"><div class="meter-fill" style="width:${district.progressPercent}%; --accent-rgb:${district.accentRgb};"></div></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderOverview() {
+            const leadingDistrict = state.districts[0];
+            el('total-credits-display').textContent = formatAtomic(state.totalCreditsAtomic, CREDIT_DECIMALS, 0);
+            el('active-stakers-display').textContent = state.activeStakers.toLocaleString();
+            el('leading-district-display').textContent = leadingDistrict ? leadingDistrict.name : '—';
+            el('updated-at-display').textContent = state.updatedAt
+                ? `${state.dataMode === 'live' ? 'Live sync' : 'Draft snapshot'} • ${new Date(state.updatedAt).toLocaleTimeString()}`
+                : 'Sync pending';
+            el('data-source-chip-text').textContent = state.dataMode === 'live'
+                ? 'Live Sui staking data'
+                : 'Fallback city snapshot';
+            renderEraTrack(state.totalCreditsAtomic);
+            renderDistrictGrid();
+            renderSelectedDistrict();
+            renderStandings();
+        }
+
+        function setLoading(isLoading, message = 'Refreshing city data…') {
+            const button = el('refresh-btn');
+            button.disabled = isLoading;
+            button.textContent = isLoading ? message : 'Refresh City Data';
+        }
+
+        function renderError(message) {
+            el('district-grid').innerHTML = `<div class="error-card">${message}</div>`;
+            el('district-standings').innerHTML = `<div class="error-card">Construction standings unavailable while city data is offline.</div>`;
+            el('detail-name').textContent = 'Sync failed';
+            el('detail-description').textContent = 'The page could not reach the on-chain staking data source. Refresh to retry.';
+            el('detail-contributors').innerHTML = '<div class="error-card">No contributor data available.</div>';
+        }
+
+        function buildFallbackCity() {
+            const syntheticCredits = {
+                'foundation-ward': [162000n, 98000n, 61000n, 37000n, 19000n, 9000n],
+                'exchange-arcade': [188000n, 120000n, 87000n, 44000n, 21000n, 11000n],
+                'signal-gardens': [154000n, 112000n, 76000n, 39000n, 17000n, 8000n],
+                'forge-quarter': [173000n, 131000n, 93000n, 52000n, 26000n, 12000n],
+                'echo-harbor': [140000n, 104000n, 69000n, 33000n, 16000n, 7000n],
+                'sovereign-spire': [225000n, 149000n, 101000n, 57000n, 29000n, 13000n],
+            };
+
+            let seed = 1;
+            const creditsByAddress = new Map();
+
+            function addressForDistrict(targetKey) {
+                while (seed < 500000) {
+                    const address = `0x${seed.toString(16).padStart(64, '0')}`;
+                    seed += 1;
+                    if (assignDistrict(address) === targetKey) {
+                        return address;
+                    }
+                }
+                throw new Error(`Unable to generate fallback address for ${targetKey}`);
+            }
+
+            Object.entries(syntheticCredits).forEach(([districtKey, credits]) => {
+                credits.forEach((creditValue) => {
+                    const address = addressForDistrict(districtKey);
+                    creditsByAddress.set(address, creditValue * (10n ** CREDIT_DECIMALS));
+                });
+            });
+
+            const { districts, totalCreditsAtomic } = computeDistricts(creditsByAddress);
+            state.districts = districts;
+            state.totalCreditsAtomic = totalCreditsAtomic;
+            state.activeStakers = creditsByAddress.size;
+            state.updatedAt = Date.now();
+            state.dataMode = 'fallback';
+            state.selectedDistrictKey = state.districts[0]?.key || DISTRICT_DEFINITIONS[0].key;
+            renderOverview();
+        }
+
+        async function loadCity() {
+            setLoading(true, 'Syncing Alpha City…');
+            try {
+                const [stakeCreated, stakeIncreased, unstaked, creditsClaimed] = await Promise.all([
+                    queryAllEvents('StakeCreated'),
+                    queryAllEvents('StakeIncreased'),
+                    queryAllEvents('Unstaked'),
+                    queryAllEvents('CreditsClaimed'),
+                ]);
+
+                const stakeAmounts = new Map();
+                const stakeToAddress = new Map();
+                const lifetimeByStake = new Map();
+
+                for (const event of stakeCreated) {
+                    const parsed = event.parsedJson || {};
+                    const stakeId = parsed.stake_id;
+                    const amount = BigInt(parsed.amount || '0');
+                    const staker = parsed.staker;
+                    if (stakeId) {
+                        stakeAmounts.set(stakeId, (stakeAmounts.get(stakeId) || 0n) + amount);
+                    }
+                    if (stakeId && staker) {
+                        stakeToAddress.set(stakeId, staker);
+                    }
+                }
+
+                for (const event of stakeIncreased) {
+                    const parsed = event.parsedJson || {};
+                    const stakeId = parsed.stake_id;
+                    const amount = BigInt(parsed.added_amount || '0');
+                    if (stakeId) {
+                        stakeAmounts.set(stakeId, (stakeAmounts.get(stakeId) || 0n) + amount);
+                    }
+                }
+
+                for (const event of unstaked) {
+                    const parsed = event.parsedJson || {};
+                    const stakeId = parsed.stake_id;
+                    if (stakeId) {
+                        stakeAmounts.set(stakeId, 0n);
+                    }
+                }
+
+                for (const event of creditsClaimed) {
+                    const parsed = event.parsedJson || {};
+                    const stakeId = parsed.stake_id;
+                    const staker = parsed.staker;
+                    const lifetimeClaimed = BigInt(parsed.lifetime_claimed || '0');
+                    if (stakeId) {
+                        lifetimeByStake.set(stakeId, lifetimeClaimed);
+                    }
+                    if (stakeId && staker) {
+                        stakeToAddress.set(stakeId, staker);
+                    }
+                }
+
+                const activeStakers = new Set();
+                for (const [stakeId, amount] of stakeAmounts.entries()) {
+                    if (amount <= 0n) continue;
+                    const address = stakeToAddress.get(stakeId);
+                    if (address) {
+                        activeStakers.add(address);
+                    }
+                }
+
+                const creditsByAddress = new Map();
+                for (const [stakeId, claimed] of lifetimeByStake.entries()) {
+                    const address = stakeToAddress.get(stakeId);
+                    if (!address) continue;
+                    creditsByAddress.set(address, (creditsByAddress.get(address) || 0n) + claimed);
+                }
+
+                const { districts, totalCreditsAtomic } = computeDistricts(creditsByAddress);
+
+                state.districts = districts;
+                state.totalCreditsAtomic = totalCreditsAtomic;
+                state.activeStakers = activeStakers.size;
+                state.updatedAt = Date.now();
+                state.dataMode = 'live';
+                state.selectedDistrictKey = state.districts.some((district) => district.key === state.selectedDistrictKey)
+                    ? state.selectedDistrictKey
+                    : (state.districts[0]?.key || DISTRICT_DEFINITIONS[0].key);
+
+                renderOverview();
+                setLoading(false);
+            } catch (error) {
+                console.error('[construct] Unable to load city data:', error);
+                try {
+                    buildFallbackCity();
+                    setLoading(false);
+                } catch (fallbackError) {
+                    console.error('[construct] Unable to build fallback city:', fallbackError);
+                    renderError('Unable to load construction data from the Sui fullnode right now. Try refreshing the page in a moment.');
+                    setLoading(false);
+                }
+            }
+        }
+
+        el('refresh-btn').addEventListener('click', loadCity);
+        loadCity();
+    </script>
+</body>
+</html>
