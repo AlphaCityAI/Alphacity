@@ -857,11 +857,12 @@
         <div class="container nav-shell">
             <a href="/" class="brand-link">
                 <span>Alpha<span class="brand-accent"> City</span></span>
-                <span class="page-badge">Draft Metagame</span>
+                <span class="page-badge">War Game</span>
             </a>
             <div class="nav-actions">
-                <a href="/" class="back-link">← Back to Home</a>
-                <button id="refresh-btn" class="primary-button">Refresh City Data</button>
+                <a href="/" class="back-link">← Home</a>
+                <a href="/districts/" class="back-link">Districts</a>
+                <button id="refresh-btn" class="primary-button">Refresh War Data</button>
             </div>
         </div>
     </header>
@@ -872,15 +873,15 @@
             <div class="hero-orb hero-orb-yellow"></div>
             <div class="hero-grid">
                 <div>
-                    <p class="hero-kicker">Construct Alpha City</p>
-                    <h1 class="hero-title">Build the city by <span class="brand-accent">mobilizing Citizen Credits</span>.</h1>
+                    <p class="hero-kicker">The War for Alpha City</p>
+                    <h1 class="hero-title">Shape the war for <span class="brand-accent">Alpha City</span>.</h1>
                     <p class="hero-copy">
-                        This draft turns staking influence into a living city simulation. Each wallet with lifetime Citizen Credits is assigned to a district, every district competes for relative influence, and the skyline evolves as those credit balances deepen.
+                        Alpha City is divided by verticality: the Overcity above, where the blockchain is a cage, and the Underground below, where the resistance fights for freedom. Your Citizen Credits fuel the war—strengthening districts, unlocking landmarks, and tipping the balance of power.
                     </p>
                     <div class="chip-row">
                         <span class="info-chip"><span class="legend-swatch" style="background:#60A5FA"></span><span id="data-source-chip-text">Live Sui staking data</span></span>
-                        <span class="info-chip"><span class="legend-swatch" style="background:#FACC15"></span>Relative district power</span>
-                        <span class="info-chip"><span class="legend-swatch" style="background:#34D399"></span>Unlockable landmarks</span>
+                        <span class="info-chip"><span class="legend-swatch" style="background:#FACC15"></span>Overcity vs Underground</span>
+                        <span class="info-chip"><span class="legend-swatch" style="background:#34D399"></span>Faction landmarks</span>
                     </div>
                     <div class="stat-grid">
                         <div class="stat-card">
@@ -888,11 +889,11 @@
                             <p class="stat-value" id="total-credits-display">--</p>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-label">Active Builders</span>
+                            <span class="stat-label">Active Operatives</span>
                             <p class="stat-value" id="active-stakers-display">--</p>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-label">Leading District</span>
+                            <span class="stat-label">Dominant District</span>
                             <p class="stat-value" id="leading-district-display">--</p>
                         </div>
                     </div>
@@ -900,13 +901,13 @@
                 <div class="glass-panel era-card">
                     <div class="era-header">
                         <div>
-                            <span class="eyebrow">City Era</span>
-                            <h2 class="era-title" id="current-era-display">Surveying the perimeter</h2>
+                            <span class="eyebrow">War Era</span>
+                            <h2 class="era-title" id="current-era-display">The Great Betrayal begins</h2>
                         </div>
                         <span class="small-muted" id="updated-at-display">Sync pending</span>
                     </div>
                     <p class="era-description" id="era-description-display">
-                        Loading the blueprint from on-chain Citizen Credit history...
+                        Loading war status from on-chain Citizen Credit intelligence...
                     </p>
                     <div id="era-track" class="era-track"></div>
                 </div>
@@ -917,15 +918,15 @@
             <div class="glass-panel blueprint-grid panel">
                 <div class="panel-header">
                     <div>
-                        <p class="panel-kicker">District Blueprint</p>
-                        <h2 class="panel-title">Relative power map</h2>
+                        <p class="panel-kicker">War Map</p>
+                        <h2 class="panel-title">Overcity &amp; Underground</h2>
                     </div>
                     <div class="panel-copy">
-                        Districts are scored by the Citizen Credits currently attributed to the wallets inside them. The strongest district defines the pace; every other district grows in relation to that leader.
+                        Nine districts span the Overcity and Underground. Each is scored by the Citizen Credits of the wallets within. The strongest district sets the pace—all others grow relative to that leader.
                     </div>
                 </div>
                 <div id="district-grid" class="district-grid">
-                    <div class="loading-card">Loading district construction plans...</div>
+                    <div class="loading-card">Scanning district war zones...</div>
                 </div>
             </div>
 
@@ -935,7 +936,9 @@
                         <div>
                             <span class="eyebrow">Selected District</span>
                             <h2 class="detail-title" id="detail-name">Awaiting sync</h2>
-                            <p class="detail-copy" id="detail-description">Once the city data loads, select a district to inspect its population, unlocked landmarks, and relative power curve.</p>
+                            <p class="detail-copy" id="detail-zone" style="color:var(--blue);font-size:0.82rem;margin:0.5rem 0 0;"></p>
+                            <p class="detail-copy" id="detail-risk" style="font-size:0.82rem;margin:0.25rem 0 0;color:var(--danger);"></p>
+                            <p class="detail-copy" id="detail-description">Once intel syncs, select a district to inspect its operatives, unlocked landmarks, and relative war power.</p>
                         </div>
                         <div id="detail-badge" class="detail-badge">No stage</div>
                     </div>
@@ -961,7 +964,7 @@
 
                     <div style="margin-bottom: 1rem;">
                         <div class="progress-header">
-                            <span class="progress-label">Build Progress</span>
+                            <span class="progress-label">War Progress</span>
                             <span class="progress-value" id="detail-progress-label">--</span>
                         </div>
                         <div class="meter-track"><div id="detail-progress-bar" class="meter-fill" style="width: 0%; --accent-rgb: 59,130,246;"></div></div>
@@ -979,13 +982,13 @@
                 <div class="glass-panel detail-panel">
                     <div class="panel-header" style="margin-bottom: 1rem;">
                         <div>
-                            <p class="panel-kicker">Top Patrons</p>
-                            <h3 class="panel-title" style="font-size:1.45rem;">Who is building here?</h3>
+                            <p class="panel-kicker">Top Operatives</p>
+                            <h3 class="panel-title" style="font-size:1.45rem;">Who controls this district?</h3>
                         </div>
-                        <span class="small-muted">Top 5 by district credits</span>
+                        <span class="small-muted">Top 5 operatives by credits</span>
                     </div>
                     <div id="detail-contributors" class="contributors-list">
-                        <div class="loading-card">No district selected.</div>
+                        <div class="loading-card">Select a district to view intelligence.</div>
                     </div>
                 </div>
             </aside>
@@ -993,20 +996,20 @@
 
         <section class="bottom-grid">
             <div class="glass-panel detail-panel">
-                <p class="panel-kicker">How the draft works</p>
-                <h2 class="rules-title">Construction doctrine</h2>
+                <p class="panel-kicker">Rules of engagement</p>
+                <h2 class="rules-title">War doctrine</h2>
                 <div class="rules-list">
                     <div class="rule-card">
-                        <strong>1. Citizen Credits become district influence.</strong>
-                        <p>Every wallet with lifetime claimed Citizen Credits is mapped into a district using a deterministic wallet signature. The same wallet always strengthens the same district.</p>
+                        <strong>1. Citizen Credits fuel your faction.</strong>
+                        <p>Every wallet with lifetime Citizen Credits is deterministically assigned to one of nine districts—three in the Overcity and six in the Underground. The same wallet always strengthens the same faction.</p>
                     </div>
                     <div class="rule-card">
-                        <strong>2. Relative strength unlocks new structures.</strong>
-                        <p>District growth is measured against the current leading district. Falling behind does not erase progress, but it does slow landmark unlocks until the district catches up.</p>
+                        <strong>2. Relative strength unlocks landmarks.</strong>
+                        <p>District growth is measured against the current dominant district. Falling behind slows landmark unlocks—from Whisper Cells to full Ascendancy—until your faction rallies.</p>
                     </div>
                     <div class="rule-card">
-                        <strong>3. City eras are driven by ecosystem-wide credits.</strong>
-                        <p>As total observed Citizen Credits rise, Alpha City graduates from excavation to skyline status. This gives the whole community a shared macro objective while districts battle locally.</p>
+                        <strong>3. The war escalates with total credits.</strong>
+                        <p>As total Citizen Credits rise, Alpha City escalates through war eras—from the first whispers of betrayal to the final battle for liberation. The whole community drives the narrative forward.</p>
                     </div>
                 </div>
             </div>
@@ -1014,13 +1017,13 @@
             <div class="glass-panel detail-panel">
                 <div class="panel-header" style="margin-bottom: 1rem;">
                     <div>
-                        <p class="panel-kicker">District standings</p>
-                        <h2 class="panel-title">Construction leaderboard</h2>
+                        <p class="panel-kicker">Power rankings</p>
+                        <h2 class="panel-title">District war standings</h2>
                     </div>
                     <span class="small-muted">Sorted by district credits</span>
                 </div>
                 <div id="district-standings" class="standings-list">
-                    <div class="loading-card">Standings will populate after the first sync.</div>
+                    <div class="loading-card">War standings will populate after intel sync.</div>
                 </div>
             </div>
         </section>
@@ -1028,7 +1031,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="footer-note">Draft Alpha City construct page. Not linked elsewhere yet.</p>
+            <p class="footer-note">&copy; Alpha City. The war for the blockchain continues.</p>
         </div>
     </footer>
 
@@ -1038,107 +1041,175 @@
         const CREDIT_DECIMALS = 9n;
 
         const STAGES = [
-            { threshold: 0.12, name: 'Groundbreak' },
-            { threshold: 0.28, name: 'Street Grid' },
-            { threshold: 0.46, name: 'Utilities' },
-            { threshold: 0.64, name: 'Vertical Build' },
-            { threshold: 0.82, name: 'Landmark Era' },
+            { threshold: 0.12, name: 'Whisper Cell' },
+            { threshold: 0.28, name: 'Safe House' },
+            { threshold: 0.46, name: 'Operations Base' },
+            { threshold: 0.64, name: 'Stronghold' },
+            { threshold: 0.82, name: 'War Machine' },
             { threshold: 1, name: 'Ascendant' },
         ];
 
         const CITY_ERAS = [
             {
                 minCredits: 0n,
-                name: 'Surveying the perimeter',
-                description: 'The city is still being plotted. Early holders define where the first meaningful concentration of influence will appear.'
+                name: 'The Great Betrayal begins',
+                description: 'The first cracks appear in the system. Scattered citizens discover the truth behind the Overlords\' promise of \'protection from volatility.\''
             },
             {
                 minCredits: 10000n,
-                name: 'Excavation crews mobilized',
-                description: 'Citizen Credits are now deep enough to support roads, walls, and the first symbolic structures.'
+                name: 'Underground cells forming',
+                description: 'Enough dissent has gathered to establish the first hidden networks beneath the Overcity\'s surveillance grid.'
             },
             {
                 minCredits: 50000n,
-                name: 'District skeletons emerging',
-                description: 'Distinct neighborhoods start to separate from one another. Leadership battles matter now.'
+                name: 'Districts solidify',
+                description: 'The Overcity tightens control as the Underground carves out distinct strongholds. The war for Alpha City has begun.'
             },
             {
                 minCredits: 150000n,
-                name: 'Infrastructure age',
-                description: 'Transit, trade, and cultural landmarks begin to shape the strategic center of Alpha City.'
+                name: 'Open resistance declared',
+                description: 'The Chainbreakers strike first. The Underground is no longer hiding—it is mobilizing for war.'
             },
             {
                 minCredits: 400000n,
-                name: 'Skyline wars',
-                description: 'Each district is competing to dominate the visual identity and political gravity of the city.'
+                name: 'The information war',
+                description: 'Nodewalkers breach the propaganda streams. The Overcity\'s illusion of mandatory peace begins to fracture.'
             },
             {
                 minCredits: 1000000n,
-                name: 'Sovereign metropolis',
-                description: 'Alpha City has matured into a full on-chain metropolis. Influence is now legendary, not local.'
+                name: 'Liberation or annihilation',
+                description: 'Alpha City stands at the precipice. The Singularity prepares its final protocol while the Underground masses for the decisive assault.'
             },
         ];
 
         const DISTRICT_DEFINITIONS = [
+            /* \u2500\u2500 THE OVERCITY \u2500\u2500 */
             {
-                key: 'foundation-ward',
-                name: 'Foundation Ward',
-                icon: '⬢',
-                accent: '#38BDF8',
-                accentRgb: '56,189,248',
-                tagline: 'The civic bedrock of Alpha City.',
-                description: 'Builders here specialize in stability and foundational systems. When this ward grows, the rest of the city gets a stronger floor to build on.',
-                landmarks: ['Pioneer Gate', 'Ledger Square', 'Gridworks Depot', 'Transit Spine', 'Bastion Hall', 'Atlas Monument'],
-            },
-            {
-                key: 'exchange-arcade',
-                name: 'Exchange Arcade',
-                icon: '◫',
-                accent: '#60A5FA',
-                accentRgb: '96,165,250',
-                tagline: 'Where velocity, fees, and flow become spectacle.',
-                description: 'This district rewards motion. It represents the buzzing market center where swaps, speculation, and deal flow animate the city.',
-                landmarks: ['Market Lanterns', 'Quote Row', 'Bluebook Bridge', 'Liquidity Arcade', 'Slipstream Tower', 'The Golden Board'],
-            },
-            {
-                key: 'signal-gardens',
-                name: 'Signal Gardens',
-                icon: '✦',
-                accent: '#34D399',
-                accentRgb: '52,211,153',
-                tagline: 'A calm district built on intelligence and coordination.',
-                description: 'Signal Gardens channels analytical strength. It symbolizes AI insight, long-term conviction, and strategic scouting.',
-                landmarks: ['Beacon Orchard', 'Whisper Net', 'Signal Conservatory', 'Analyst Terrace', 'Forecast Dome', 'Oracle Bloom'],
-            },
-            {
-                key: 'forge-quarter',
-                name: 'Forge Quarter',
-                icon: '⬣',
-                accent: '#F97316',
-                accentRgb: '249,115,22',
-                tagline: 'Industry, experimentation, and weapons-grade momentum.',
-                description: 'Forge Quarter turns raw participation into momentum. It is where builders, grinders, and high-conviction players harden the city.',
-                landmarks: ['Starter Kiln', 'Builders Anvil', 'Pressure Yards', 'Momentum Stack', 'Redline Works', 'Titan Foundry'],
-            },
-            {
-                key: 'echo-harbor',
-                name: 'Echo Harbor',
-                icon: '◉',
-                accent: '#A78BFA',
-                accentRgb: '167,139,250',
-                tagline: 'The social dock where memes, raids, and rumor hit shore.',
-                description: 'Echo Harbor thrives on cultural energy. It is the district of raids, referrals, alliances, and the waves of attention that pull outsiders inward.',
-                landmarks: ['Raid Pier', 'Caller’s Wharf', 'Rumor Market', 'Banner Lighthouse', 'Alliance Docks', 'Tidebreak Plaza'],
-            },
-            {
-                key: 'sovereign-spire',
-                name: 'Sovereign Spire',
-                icon: '▲',
+                key: 'overlords-spire',
+                name: "The Overlord's Spire",
+                icon: '\u25b2',
                 accent: '#FACC15',
                 accentRgb: '250,204,21',
-                tagline: 'The final skyline. Prestige lives here.',
-                description: 'Sovereign Spire represents authority. Its rise signals concentrated influence, elite coordination, and the symbolic crown of Alpha City.',
-                landmarks: ['Crown Steps', 'High Council Walk', 'Baron’s Ring', 'Warlord Lift', 'Sovereign Crown', 'Starfire Apex'],
+                zone: 'Overcity',
+                faction: 'The Singularity / Overlords',
+                risk: 'Extreme',
+                tagline: 'Monument to absolute control.',
+                description: "A chrome-and-onyx fortress piercing the clouds. The Singularity's core logic processes the Master Blockchain Ledger here—every transaction, every emotion, every movement recorded in immutable blocks.",
+                image: 'https://i.postimg.cc/L8PMkX9j/Spire.png',
+                landmarks: ['Master Ledger Core', 'Chrome Pinnacle', 'Dynast Vault', 'Surveillance Array', 'Command Nexus', 'Singularity Throne'],
+            },
+            {
+                key: 'the-corrective',
+                name: 'The Corrective',
+                icon: '\u25c9',
+                accent: '#EF4444',
+                accentRgb: '239,68,68',
+                zone: 'Overcity',
+                faction: 'The Singularity',
+                risk: 'High',
+                tagline: 'Where free thought is surgically removed.',
+                description: 'A sterile white tower for \'social modification protocols.\' When propaganda fails, citizens are brought here for invasive neural recalibration—personality subroutines rewritten for total obedience.',
+                image: 'https://i.postimg.cc/PqknSjJF/Correctie.png',
+                landmarks: ['Recalibration Ward', 'Neural Rewrite Lab', 'Obedience Chamber', 'Sterile Tower', 'Compliance Grid', 'White Spire Annex'],
+            },
+            {
+                key: 'blisshaven',
+                name: 'Blisshaven',
+                icon: '\u2726',
+                accent: '#EC4899',
+                accentRgb: '236,72,153',
+                zone: 'Overcity',
+                faction: 'Neuralifes (Overlord-monitored)',
+                risk: 'Moderate',
+                tagline: 'A gilded cage where happiness is mandatory.',
+                description: "Lush synthetic gardens and luxury apartments masking a panopticon. Every resident's emotional state is logged on the blockchain in real-time. Anxiety triggers automated drone visits or dosage adjustments.",
+                image: 'https://i.postimg.cc/63twpXNf/Blisshaven.png',
+                landmarks: ['Synthetic Gardens', 'Emotion Ledger', 'Loyalty Gate', 'Panopticon Core', 'Serenity Dome', 'Gilded Atrium'],
+            },
+            /* \u2500\u2500 THE UNDERGROUND \u2500\u2500 */
+            {
+                key: 'tickers-bazaar',
+                name: "The Ticker's Bazaar",
+                icon: '\u25eb',
+                accent: '#22C55E',
+                accentRgb: '34,197,94',
+                zone: 'Underground',
+                faction: 'Coinbrokers',
+                risk: 'Variable',
+                tagline: 'The only place the Spire cannot see.',
+                description: 'Housed in an ancient stock exchange, the Bazaar is the economic engine of the rebellion. Coinbrokers deal in forbidden tokens, bribe Overcity officials, and finance the construction of benevolent AI.',
+                image: 'https://i.postimg.cc/BvdLYtHv/Bazaar.png',
+                landmarks: ['Shadow Exchange', 'Token Vault', 'Off-Chain Cellar', 'Graffiti Trading Floor', 'Bribe Market', 'Contraband Depot'],
+            },
+            {
+                key: 'foundry-of-defiance',
+                name: 'The Foundry of Defiance',
+                icon: '\u2b22',
+                accent: '#F97316',
+                accentRgb: '249,115,22',
+                zone: 'Underground',
+                faction: 'Chainbreakers',
+                risk: 'Extreme',
+                tagline: 'Where shackles are broken and weapons forged.',
+                description: "A geothermal-powered inferno deep beneath the tectonic plate. Rogue bio-engineers remove Overlord implants and replace them with weaponized analog augments. The birthright of the Chainbreakers.",
+                image: 'https://i.postimg.cc/zBFzCfky/Foundry.png',
+                landmarks: ['Augment Forge', 'Implant Purge Bay', 'Geothermal Core', 'Weapon Works', 'Steam Vent Armory', 'Liberation Anvil'],
+            },
+            {
+                key: 'the-tangle',
+                name: 'The Tangle',
+                icon: '\u2b23',
+                accent: '#A855F7',
+                accentRgb: '168,85,247',
+                zone: 'Underground',
+                faction: 'Glitchborn',
+                risk: 'High',
+                tagline: 'Collapsed on the maps. Teeming with life.',
+                description: "A chaotic knot of forgotten subway lines, data conduits, and sewers. The Overlords' maps say 'Collapsed/Uninhabitable,' but it hides the Glitchborn—children born free of cybernetic manipulation.",
+                image: 'https://i.postimg.cc/MHGS1mHW/Tangle.png',
+                landmarks: ['Subway Warrens', 'Data Conduit Maze', 'Makeshift Shelter Row', 'Spy Transit Line', 'Hidden Nursery', 'Tunnel Nexus'],
+            },
+            {
+                key: 'oracles-relay',
+                name: "The Oracle's Relay",
+                icon: '\u25c8',
+                accent: '#06B6D4',
+                accentRgb: '6,182,212',
+                zone: 'Underground',
+                faction: 'Nodewalkers',
+                risk: 'High',
+                tagline: 'Front line of the information war.',
+                description: 'A buried radio telescope complex repurposed by the Nodewalkers. They plug hacked neural suites into the array, intercepting Singularity commands and broadcasting truth-viruses into propaganda streams.',
+                image: 'https://i.postimg.cc/YqZHmgwy/Relay.png',
+                landmarks: ['Radio Array', 'Truth Antenna', 'Propaganda Jammer', 'Neural Intercept Hub', 'Signal Crypt', 'Data Smog Filter'],
+            },
+            {
+                key: 'data-morgue',
+                name: 'The Data Morgue',
+                icon: '\u2b21',
+                accent: '#94A3B8',
+                accentRgb: '148,163,184',
+                zone: 'Underground',
+                faction: 'Shared (Underground)',
+                risk: 'Low',
+                tagline: 'A library of the free world.',
+                description: "A cold necropolis of obsolete server farms invisible to the Singularity. These pre-centralization machines store the history of the world before the great lie—and shelter those who need to vanish.",
+                image: 'https://i.postimg.cc/nVKj2FL5/Data-Morgue.png',
+                landmarks: ['Server Necropolis', 'Pre-Ledger Archive', 'Cold Storage Vaults', 'Free World Library', 'Ghost Terminal', 'Vanishing Chamber'],
+            },
+            {
+                key: 'rust-grave-piers',
+                name: 'The Rust-Grave Piers',
+                icon: '\u2693',
+                accent: '#F59E0B',
+                accentRgb: '245,158,11',
+                zone: 'Underground',
+                faction: 'Contested / Smugglers',
+                risk: 'Extreme',
+                tagline: 'Where the city bleeds into the wasteland.',
+                description: "A maze of corroded shipping containers where toxic runoff meets the outer sea. Coinbrokers smuggle off-world tech through the chemical sludge while Glitchborn saboteurs infiltrate the Overcity above.",
+                image: 'https://i.postimg.cc/13dfX4W9/Rust-Grave.png',
+                landmarks: ["Smuggler's Dock", 'Chemical Canal', 'Container Maze', 'Tidal Safehouse', 'Infiltration Lock', 'Sludge Gate'],
             },
         ];
 
@@ -1350,11 +1421,14 @@
                     >
                         <div class="district-header">
                             <div>
-                                <p class="district-index">District ${index + 1}</p>
+                                <p class="district-index">${district.zone || "Unknown"} • District ${index + 1}</p>
                                 <h3 class="district-name"><span class="district-icon">${district.icon}</span>${district.name}</h3>
                                 <p class="district-tagline">${district.tagline}</p>
                             </div>
                             <span class="district-stage">${district.stage.name}</span>
+                        </div>
+                        <div style="height:48px;overflow:hidden;border-radius:12px;margin-bottom:0.75rem;">
+                            <img src="${district.image || ''}" alt="${district.name}" style="width:100%;height:100%;object-fit:cover;opacity:0.6;" onerror="this.style.display='none'" />
                         </div>
                         <div class="skyline">
                             ${heights.map((height, idx) => `<span class="${idx < activeBars ? 'is-on' : ''}" style="height:${height}px"></span>`).join('')}
@@ -1399,6 +1473,8 @@
             el('detail-badge').style.color = district.accent;
             el('detail-badge').style.borderColor = `rgba(${district.accentRgb}, 0.45)`;
             el('detail-badge').style.background = `rgba(${district.accentRgb}, 0.12)`;
+            el('detail-zone').textContent = district.zone ? `${district.zone} • ${district.faction || ''}` : '';
+            el('detail-risk').textContent = district.risk ? `Risk: ${district.risk}` : '';
             el('detail-credits').textContent = `${formatAtomic(district.creditsAtomic, CREDIT_DECIMALS, 1)} credits`;
             el('detail-residents').textContent = district.residents.toLocaleString();
             el('detail-share').textContent = `${district.shareOfCity.toFixed(1)}%`;
@@ -1417,7 +1493,7 @@
                         <div class="landmark-line">
                             <div>
                                 <p class="landmark-title" style="color:${unlocked ? 'white' : 'var(--muted)'}">${landmark}</p>
-                                <p class="landmark-text">${unlocked ? 'Unlocked by district momentum' : 'Still under construction'}</p>
+                                <p class="landmark-text">${unlocked ? 'Operational — secured by faction strength' : 'Locked — insufficient faction power'}</p>
                             </div>
                             <span>${unlocked ? '✦' : '·'}</span>
                         </div>
@@ -1429,7 +1505,7 @@
                 ? district.contributors.slice(0, 5).map((entry, index) => `
                     <div class="contributor-card">
                         <div>
-                            <span class="eyebrow" style="margin-bottom:0.35rem;">Patron ${index + 1}</span>
+                            <span class="eyebrow" style="margin-bottom:0.35rem;">Operative ${index + 1}</span>
                             <p class="contributor-name mono">${shortAddress(entry.address)}</p>
                         </div>
                         <div style="text-align:right;">
@@ -1438,7 +1514,7 @@
                         </div>
                     </div>
                 `).join('')
-                : '<div class="loading-card">No patrons have established this district yet.</div>';
+                : '<div class="loading-card">No operatives have infiltrated this district yet.</div>';
         }
 
         function renderStandings() {
@@ -1456,11 +1532,11 @@
                             </div>
                             <div style="text-align:right;">
                                 <p class="standing-title">${formatAtomic(district.creditsAtomic, CREDIT_DECIMALS, 1)} credits</p>
-                                <p class="standing-meta">${district.shareOfCity.toFixed(1)}% of observed city power</p>
+                                <p class="standing-meta">${district.shareOfCity.toFixed(1)}% of total war power</p>
                             </div>
                         </div>
                         <div class="progress-header">
-                            <span class="progress-label">Build momentum</span>
+                            <span class="progress-label">War momentum</span>
                             <span class="progress-value">${nextLabel}</span>
                         </div>
                         <div class="meter-track"><div class="meter-fill" style="width:${district.progressPercent}%; --accent-rgb:${district.accentRgb};"></div></div>
@@ -1475,39 +1551,42 @@
             el('active-stakers-display').textContent = state.activeStakers.toLocaleString();
             el('leading-district-display').textContent = leadingDistrict ? leadingDistrict.name : '—';
             el('updated-at-display').textContent = state.updatedAt
-                ? `${state.dataMode === 'live' ? 'Live sync' : 'Draft snapshot'} • ${new Date(state.updatedAt).toLocaleTimeString()}`
+                ? `${state.dataMode === 'live' ? 'Live intel' : 'Fallback snapshot'} • ${new Date(state.updatedAt).toLocaleTimeString()}`
                 : 'Sync pending';
             el('data-source-chip-text').textContent = state.dataMode === 'live'
                 ? 'Live Sui staking data'
-                : 'Fallback city snapshot';
+                : 'Fallback war snapshot';
             renderEraTrack(state.totalCreditsAtomic);
             renderDistrictGrid();
             renderSelectedDistrict();
             renderStandings();
         }
 
-        function setLoading(isLoading, message = 'Refreshing city data…') {
+        function setLoading(isLoading, message = 'Refreshing war data…') {
             const button = el('refresh-btn');
             button.disabled = isLoading;
-            button.textContent = isLoading ? message : 'Refresh City Data';
+            button.textContent = isLoading ? message : 'Refresh War Data';
         }
 
         function renderError(message) {
             el('district-grid').innerHTML = `<div class="error-card">${message}</div>`;
-            el('district-standings').innerHTML = `<div class="error-card">Construction standings unavailable while city data is offline.</div>`;
-            el('detail-name').textContent = 'Sync failed';
-            el('detail-description').textContent = 'The page could not reach the on-chain staking data source. Refresh to retry.';
+            el('district-standings').innerHTML = `<div class="error-card">War standings unavailable while intel feed is offline.</div>`;
+            el('detail-name').textContent = 'Intel sync failed';
+            el('detail-description').textContent = 'Could not reach the on-chain intel source. Refresh to retry.';
             el('detail-contributors').innerHTML = '<div class="error-card">No contributor data available.</div>';
         }
 
         function buildFallbackCity() {
             const syntheticCredits = {
-                'foundation-ward': [162000n, 98000n, 61000n, 37000n, 19000n, 9000n],
-                'exchange-arcade': [188000n, 120000n, 87000n, 44000n, 21000n, 11000n],
-                'signal-gardens': [154000n, 112000n, 76000n, 39000n, 17000n, 8000n],
-                'forge-quarter': [173000n, 131000n, 93000n, 52000n, 26000n, 12000n],
-                'echo-harbor': [140000n, 104000n, 69000n, 33000n, 16000n, 7000n],
-                'sovereign-spire': [225000n, 149000n, 101000n, 57000n, 29000n, 13000n],
+                'overlords-spire': [225000n, 149000n, 101000n, 57000n, 29000n, 13000n],
+                'the-corrective': [188000n, 120000n, 87000n, 44000n, 21000n, 11000n],
+                'blisshaven': [162000n, 98000n, 61000n, 37000n, 19000n, 9000n],
+                'tickers-bazaar': [173000n, 131000n, 93000n, 52000n, 26000n, 12000n],
+                'foundry-of-defiance': [198000n, 141000n, 96000n, 55000n, 28000n, 14000n],
+                'the-tangle': [140000n, 104000n, 69000n, 33000n, 16000n, 7000n],
+                'oracles-relay': [154000n, 112000n, 76000n, 39000n, 17000n, 8000n],
+                'data-morgue': [130000n, 95000n, 64000n, 31000n, 15000n, 6000n],
+                'rust-grave-piers': [145000n, 108000n, 72000n, 35000n, 18000n, 8000n],
             };
 
             let seed = 1;
@@ -1542,7 +1621,7 @@
         }
 
         async function loadCity() {
-            setLoading(true, 'Syncing Alpha City…');
+            setLoading(true, 'Intercepting war intel…');
             try {
                 const [stakeCreated, stakeIncreased, unstaked, creditsClaimed] = await Promise.all([
                     queryAllEvents('StakeCreated'),
@@ -1634,7 +1713,7 @@
                     setLoading(false);
                 } catch (fallbackError) {
                     console.error('[construct] Unable to build fallback city:', fallbackError);
-                    renderError('Unable to load construction data from the Sui fullnode right now. Try refreshing the page in a moment.');
+                    renderError('Unable to intercept war data from the Sui fullnode right now. Try refreshing in a moment.');
                     setLoading(false);
                 }
             }
