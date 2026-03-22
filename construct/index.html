@@ -1287,19 +1287,6 @@
             return rows;
         }
 
-        function hashAddress(address) {
-            let hash = 0;
-            for (let i = 2; i < address.length; i += 1) {
-                hash = (hash * 33 + address.charCodeAt(i)) >>> 0;
-            }
-            return hash;
-        }
-
-        function assignDistrict(address) {
-            const index = hashAddress(address) % DISTRICT_DEFINITIONS.length;
-            return DISTRICT_DEFINITIONS[index].key;
-        }
-
         function getCityEra(totalCreditsAtomic) {
             const totalCredits = totalCreditsAtomic / (10n ** CREDIT_DECIMALS);
             let current = CITY_ERAS[0];
@@ -1340,15 +1327,24 @@
 
             const totalCreditsAtomic = [...creditsByAddress.values()].reduce((sum, value) => sum + value, 0n);
 
-            for (const [address, creditsAtomic] of creditsByAddress.entries()) {
-                const key = assignDistrict(address);
-                const district = districts.find((item) => item.key === key);
-                if (!district) continue;
+            // Sort all addresses by credits descending (matching /districts page leaderboard order)
+            const sortedEntries = [...creditsByAddress.entries()]
+                .sort((a, b) => {
+                    if (a[1] === b[1]) return a[0].localeCompare(b[0]);
+                    return a[1] > b[1] ? -1 : 1;
+                });
+
+            // Assign round-robin to districts (matching /districts page distributeToDistricts behavior)
+            const numDistricts = DISTRICT_DEFINITIONS.length;
+            sortedEntries.forEach(([address, creditsAtomic], index) => {
+                const districtIndex = index % numDistricts;
+                const district = districts[districtIndex];
                 district.creditsAtomic += creditsAtomic;
                 district.residents += 1;
-                district.contributors.push({ address, creditsAtomic });
-            }
+                district.contributors.push({ address, creditsAtomic, overallRank: index + 1 });
+            });
 
+            // Sort contributors within each district by credits descending
             districts.forEach((district) => {
                 district.contributors.sort((a, b) => {
                     if (a.creditsAtomic === b.creditsAtomic) {
@@ -1372,13 +1368,7 @@
                 district.unlockedCount = STAGES.findIndex((stage) => stage.name === current.name) + 1;
             });
 
-            districts.sort((a, b) => {
-                if (a.creditsAtomic === b.creditsAtomic) {
-                    return a.name.localeCompare(b.name);
-                }
-                return a.creditsAtomic > b.creditsAtomic ? -1 : 1;
-            });
-
+            // Keep districts in original DISTRICT_DEFINITIONS order (matching /districts page)
             return { districts, totalCreditsAtomic };
         }
 
@@ -1577,37 +1567,20 @@
         }
 
         function buildFallbackCity() {
-            const syntheticCredits = {
-                'overlords-spire': [225000n, 149000n, 101000n, 57000n, 29000n, 13000n],
-                'the-corrective': [188000n, 120000n, 87000n, 44000n, 21000n, 11000n],
-                'blisshaven': [162000n, 98000n, 61000n, 37000n, 19000n, 9000n],
-                'tickers-bazaar': [173000n, 131000n, 93000n, 52000n, 26000n, 12000n],
-                'foundry-of-defiance': [198000n, 141000n, 96000n, 55000n, 28000n, 14000n],
-                'the-tangle': [140000n, 104000n, 69000n, 33000n, 16000n, 7000n],
-                'oracles-relay': [154000n, 112000n, 76000n, 39000n, 17000n, 8000n],
-                'data-morgue': [130000n, 95000n, 64000n, 31000n, 15000n, 6000n],
-                'rust-grave-piers': [145000n, 108000n, 72000n, 35000n, 18000n, 8000n],
-            };
+            // Synthetic credit values sorted descending — distributed round-robin to districts
+            const syntheticCreditValues = [
+                225000n, 198000n, 188000n, 173000n, 162000n, 154000n, 145000n, 140000n, 130000n,
+                149000n, 141000n, 131000n, 120000n, 112000n, 108000n, 104000n,  98000n,  95000n,
+                101000n,  96000n,  93000n,  87000n,  76000n,  72000n,  69000n,  64000n,  61000n,
+                 57000n,  55000n,  52000n,  44000n,  39000n,  37000n,  35000n,  33000n,  31000n,
+                 29000n,  28000n,  26000n,  21000n,  19000n,  18000n,  17000n,  16000n,  15000n,
+                 14000n,  13000n,  12000n,  11000n,   9000n,   8000n,   8000n,   7000n,   6000n,
+            ].sort((a, b) => (a > b ? -1 : a < b ? 1 : 0));
 
-            let seed = 1;
             const creditsByAddress = new Map();
-
-            function addressForDistrict(targetKey) {
-                while (seed < 500000) {
-                    const address = `0x${seed.toString(16).padStart(64, '0')}`;
-                    seed += 1;
-                    if (assignDistrict(address) === targetKey) {
-                        return address;
-                    }
-                }
-                throw new Error(`Unable to generate fallback address for ${targetKey}`);
-            }
-
-            Object.entries(syntheticCredits).forEach(([districtKey, credits]) => {
-                credits.forEach((creditValue) => {
-                    const address = addressForDistrict(districtKey);
-                    creditsByAddress.set(address, creditValue * (10n ** CREDIT_DECIMALS));
-                });
+            syntheticCreditValues.forEach((credits, i) => {
+                const address = `0x${(i + 1).toString(16).padStart(64, '0')}`;
+                creditsByAddress.set(address, credits * (10n ** CREDIT_DECIMALS));
             });
 
             const { districts, totalCreditsAtomic } = computeDistricts(creditsByAddress);
