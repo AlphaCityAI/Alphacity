@@ -510,7 +510,7 @@
     function showStatus(msg, type) {
         type = type || 'info';
         const el = document.getElementById('mint-status');
-        var cls = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in ';
+        let cls = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in ';
         if (type === 'success') cls += 'bg-green-900/40 border border-green-700 text-green-300';
         else if (type === 'error') cls += 'bg-red-900/40 border border-red-700 text-red-300';
         else cls += 'bg-dark-bg border border-gray-700 text-dark-text-secondary';
@@ -525,7 +525,7 @@
     // MINT BUTTON STATE
     // ================================================================
     function updateMintBtn() {
-        var btn = document.getElementById('mint-btn');
+        const btn = document.getElementById('mint-btn');
 
         if (!connectedAddress) {
             btn.disabled    = true;
@@ -549,7 +549,7 @@
         if (!connectedAddress) return;
         if (mintedCount >= TOTAL_SUPPLY) return;
 
-        var btn = document.getElementById('mint-btn');
+        const btn = document.getElementById('mint-btn');
         btn.disabled    = true;
         btn.textContent = 'Minting…';
         btn.className   = 'w-full py-4 bg-gray-600 text-gray-300 font-bold text-lg rounded-xl cursor-wait transition-all shadow-lg';
@@ -557,7 +557,7 @@
 
         // Placeholder: smart contract call will go here
         // For now, show a message that contract integration is pending
-        await new Promise(function(r) { setTimeout(r, 1500); });
+        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
 
         showStatus('Smart contract integration coming soon. Stay tuned!', 'info');
         updateMintBtn();
@@ -566,8 +566,8 @@
     // ================================================================
     // WALLET CONNECTION
     // ================================================================
-    var connectBtn  = document.getElementById('connect-wallet-btn');
-    var walletLabel = document.getElementById('wallet-text');
+    const connectBtn  = document.getElementById('connect-wallet-btn');
+    const walletLabel = document.getElementById('wallet-text');
 
     connectBtn.addEventListener('click', function() {
         if (connectedAddress) {
@@ -581,7 +581,7 @@
 
     function showWalletOptions() {
         return new Promise(function(resolve) {
-            var overlay = makeOverlay();
+            const overlay = makeOverlay();
             overlay.innerHTML =
                 '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
                     '<h3 class="text-white font-bold text-lg mb-4">Wallet Options</h3>' +
@@ -614,7 +614,7 @@
     async function performDisconnect() {
         if (connectedWalletEntry?.source === 'standard') {
             try {
-                var disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
+                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
                 if (disc?.disconnect) await disc.disconnect();
             } catch (_) {}
         } else if (connectedWalletEntry?.source === 'legacy') {
@@ -641,32 +641,32 @@
     }
 
     async function connectWallet() {
-        var wallets = discoverWallets();
+        const wallets = discoverWallets();
         if (!wallets.length) {
             throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
         }
 
-        var entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
+        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
         if (!entry) return;
 
         walletLabel.textContent = 'Connecting…';
         connectBtn.disabled     = true;
 
         try {
-            var accounts;
+            let accounts;
             if (entry.source === 'standard') {
                 try {
-                    var disc = entry.wallet.features?.['standard:disconnect'];
+                    const disc = entry.wallet.features?.['standard:disconnect'];
                     if (disc?.disconnect) await disc.disconnect();
                 } catch (_) {}
-                var r = await entry.wallet.features['standard:connect'].connect();
-                accounts = r?.accounts || entry.wallet.accounts || [];
+                const connResult = await entry.wallet.features['standard:connect'].connect();
+                accounts = connResult?.accounts || entry.wallet.accounts || [];
             } else {
-                var p = entry.provider;
+                const p = entry.provider;
                 if (typeof p.connect === 'function') await p.connect();
-                var addrs = [];
+                let addrs = [];
                 if (typeof p.getAccounts === 'function') {
-                    var ac = await p.getAccounts();
+                    const ac = await p.getAccounts();
                     addrs = (ac || []).map(function(a) { return a?.address || a; }).filter(Boolean);
                 }
                 if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(function(a) { return a?.address || a; }).filter(Boolean);
@@ -674,12 +674,12 @@
                 accounts = addrs.map(function(addr) { return { address: addr }; });
             }
 
-            var suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
-            var all         = suiAccounts.length ? suiAccounts : accounts;
+            const suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
+            const all         = suiAccounts.length ? suiAccounts : accounts;
             if (!all.length) throw new Error('Wallet provided no accounts.');
 
-            var account = all.length === 1 ? all[0] : await pickAccount(all);
-            var address = String(account?.address || account || '').trim();
+            const account = all.length === 1 ? all[0] : await pickAccount(all);
+            const address = String(account?.address || account || '').trim();
             if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
 
             connectedAddress     = address;
@@ -701,7 +701,7 @@
 
     function updateBalanceDisplay() {
         if (suiBalance !== null) {
-            var suiAmt = (Number(suiBalance) / 1e9).toFixed(4);
+            const suiAmt = (Number(suiBalance) / 1e9).toFixed(4);
             document.getElementById('sui-balance').textContent = suiAmt + ' SUI';
             document.getElementById('balance-card').classList.remove('hidden');
         }
@@ -709,7 +709,7 @@
 
     function pickWallet(wallets) {
         return new Promise(function(resolve) {
-            var overlay = makeOverlay();
+            const overlay = makeOverlay();
             overlay.innerHTML =
                 '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
                     '<h3 class="text-white font-bold text-lg mb-4">Select Wallet</h3>' +
@@ -719,7 +719,7 @@
             document.body.appendChild(overlay);
 
             wallets.forEach(function(entry) {
-                var btn = document.createElement('button');
+                const btn = document.createElement('button');
                 btn.type      = 'button';
                 btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
                 btn.textContent = entry.name;
@@ -735,7 +735,7 @@
 
     function pickAccount(accounts) {
         return new Promise(function(resolve) {
-            var overlay = makeOverlay();
+            const overlay = makeOverlay();
             overlay.innerHTML =
                 '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
                     '<h3 class="text-white font-bold text-lg mb-4">Select Account</h3>' +
@@ -744,8 +744,8 @@
             document.body.appendChild(overlay);
 
             accounts.forEach(function(account) {
-                var addr = account?.address || account;
-                var btn  = document.createElement('button');
+                const addr = account?.address || account;
+                const btn  = document.createElement('button');
                 btn.type      = 'button';
                 btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
                 btn.textContent = shortAddr(addr);
@@ -761,31 +761,31 @@
     // ================================================================
     async function tryAutoReconnect() {
         try {
-            var saved = localStorage.getItem('alphacity_wallet');
+            const saved = localStorage.getItem('alphacity_wallet');
             if (!saved) return;
-            var parsed = JSON.parse(saved);
-            var walletName = parsed.walletName;
-            var address = parsed.address;
+            const parsed = JSON.parse(saved);
+            const walletName = parsed.walletName;
+            const address = parsed.address;
             if (!walletName || !isValidSuiAddress(address)) return;
 
             await new Promise(function(r) { setTimeout(r, 400); });
 
-            var wallets = discoverWallets();
-            var entry = wallets.find(function(w) { return w.name === walletName; });
+            const wallets = discoverWallets();
+            const entry = wallets.find(function(w) { return w.name === walletName; });
             if (!entry) return;
 
             walletLabel.textContent = 'Connecting…';
 
-            var accounts;
+            let accounts;
             if (entry.source === 'standard') {
-                var r = await entry.wallet.features['standard:connect'].connect({ silent: true });
-                accounts = r?.accounts || entry.wallet.accounts || [];
+                const connResult = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                accounts = connResult?.accounts || entry.wallet.accounts || [];
             } else {
-                var p = entry.provider;
+                const p = entry.provider;
                 if (typeof p.connect === 'function') await p.connect();
-                var addrs = [];
+                let addrs = [];
                 if (typeof p.getAccounts === 'function') {
-                    var ac = await p.getAccounts();
+                    const ac = await p.getAccounts();
                     addrs = (ac || []).map(function(a) { return a?.address || a; }).filter(Boolean);
                 }
                 if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(function(a) { return a?.address || a; }).filter(Boolean);
@@ -793,12 +793,12 @@
                 accounts = addrs.map(function(addr) { return { address: addr }; });
             }
 
-            var suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
-            var all = suiAccounts.length ? suiAccounts : accounts;
+            const suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
+            const all = suiAccounts.length ? suiAccounts : accounts;
             if (!all.length) { walletLabel.textContent = 'Connect Wallet'; return; }
 
-            var account = all.find(function(a) { return String(a?.address || a).trim() === address; }) || all[0];
-            var reconnectAddress = String(account?.address || account || '').trim();
+            const account = all.find(function(a) { return String(a?.address || a).trim() === address; }) || all[0];
+            const reconnectAddress = String(account?.address || account || '').trim();
             if (!isValidSuiAddress(reconnectAddress)) { walletLabel.textContent = 'Connect Wallet'; return; }
 
             connectedAddress     = reconnectAddress;
