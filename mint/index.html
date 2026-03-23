@@ -515,7 +515,7 @@
         else if (type === 'error') cls += 'bg-red-900/40 border border-red-700 text-red-300';
         else cls += 'bg-dark-bg border border-gray-700 text-dark-text-secondary';
         el.className = cls;
-        el.innerHTML = msg;
+        el.textContent = msg;
         el.classList.remove('hidden');
     }
 
