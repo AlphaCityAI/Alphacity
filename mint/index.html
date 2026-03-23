@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mint NFT - Alpha City</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fix for SUI SDK globals -->
+    <script>window.global = window;</script>
+
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'brand-primary':          tailwind.colors.blue[500],
+                        'brand-primary-hover':    tailwind.colors.blue[400],
+                        'brand-secondary':        tailwind.colors.yellow[400],
+                        'brand-secondary-hover':  tailwind.colors.yellow[300],
+                        'dark-bg':                '#111827',
+                        'dark-card':              '#1F2937',
+                        'dark-text':              '#E5E7EB',
+                        'dark-text-secondary':    '#9CA3AF',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+
+        /* City image reveal — shadow overlay gradient */
+        .city-shadow-overlay {
+            background: linear-gradient(
+                135deg,
+                rgba(17, 24, 39, 0.97) 0%,
+                rgba(17, 24, 39, 0.93) 20%,
+                rgba(17, 24, 39, 0.88) 40%,
+                rgba(17, 24, 39, 0.80) 60%,
+                rgba(17, 24, 39, 0.70) 80%,
+                rgba(17, 24, 39, 0.55) 100%
+            );
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        /* Phase step connector line */
+        .phase-connector {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #374151;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- ============================================================
+         Navigation
+         ============================================================ -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="/" class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="/" class="hidden md:block text-dark-text-secondary hover:text-white transition-colors text-sm">
+                        &larr; Back to Home
+                    </a>
+                    <button id="connect-wallet-btn"
+                        class="bg-brand-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="wallet-text">Connect Wallet</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ============================================================
+         Main Content
+         ============================================================ -->
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div class="max-w-4xl mx-auto">
+
+            <!-- Page Title -->
+            <div class="text-center mb-10">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                    Mint <span class="text-brand-secondary">Alpha City</span> NFT
+                </h1>
+                <p class="text-dark-text-secondary">
+                    Secure your place in the city. 1,690 unique NFTs available.
+                </p>
+            </div>
+
+            <!-- Two-column layout on desktop -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                <!-- ================================================
+                     Left Column — City Image with Shadow Overlay
+                     ================================================ -->
+                <div class="order-2 lg:order-1">
+                    <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 overflow-hidden">
+                        <div class="relative">
+                            <!-- Futuristic city image (stock placeholder) -->
+                            <img id="city-image"
+                                 src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800&q=80"
+                                 alt="Futuristic City"
+                                 class="w-full aspect-[4/3] object-cover"
+                                 crossorigin="anonymous">
+                            <!-- Shadow overlay — hides image, gradually revealed -->
+                            <div id="city-overlay" class="absolute inset-0 city-shadow-overlay"></div>
+                            <!-- Reveal progress label -->
+                            <div class="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                                <span class="text-xs text-gray-400 bg-dark-bg/80 backdrop-blur-sm px-2 py-1 rounded">
+                                    City revealed as mints complete
+                                </span>
+                                <span id="reveal-pct" class="text-xs text-brand-secondary font-semibold bg-dark-bg/80 backdrop-blur-sm px-2 py-1 rounded">
+                                    0% revealed
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================================================
+                     Right Column — Phases + Mint Controls
+                     ================================================ -->
+                <div class="order-1 lg:order-2 space-y-6">
+
+                    <!-- Mint Phases -->
+                    <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-6">
+                        <h2 class="text-sm font-medium text-dark-text-secondary uppercase tracking-wider mb-5">Mint Phases</h2>
+
+                        <div class="space-y-3">
+                            <!-- Phase 1: Guaranteed -->
+                            <div id="phase-guaranteed" class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-brand-secondary bg-brand-secondary/5">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-brand-secondary text-gray-900 font-bold text-sm">
+                                    1
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-white font-semibold text-sm">Guaranteed</span>
+                                        <span id="badge-guaranteed" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-secondary/20 text-brand-secondary">
+                                            Active
+                                        </span>
+                                    </div>
+                                    <p class="text-dark-text-secondary text-xs mt-0.5">Allowlisted wallets only</p>
+                                </div>
+                            </div>
+
+                            <!-- Phase 2: FCFS -->
+                            <div id="phase-fcfs" class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-gray-700 bg-dark-bg">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gray-700 text-gray-400 font-bold text-sm">
+                                    2
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-400 font-semibold text-sm">FCFS</span>
+                                        <span id="badge-fcfs" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-700/50 text-gray-500 hidden">
+                                            Active
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-600 text-xs mt-0.5">First come, first served</p>
+                                </div>
+                            </div>
+
+                            <!-- Phase 3: Public Mint -->
+                            <div id="phase-public" class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-gray-700 bg-dark-bg">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gray-700 text-gray-400 font-bold text-sm">
+                                    3
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-400 font-semibold text-sm">Public Mint</span>
+                                        <span id="badge-public" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-700/50 text-gray-500 hidden">
+                                            Active
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-600 text-xs mt-0.5">Open to everyone</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mint Counter + Button -->
+                    <div class="bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-6">
+                        <h2 class="text-sm font-medium text-dark-text-secondary uppercase tracking-wider mb-4">Mint Progress</h2>
+
+                        <!-- Counter -->
+                        <div class="flex items-baseline gap-2 mb-3">
+                            <span id="minted-count" class="text-4xl font-bold text-white">0</span>
+                            <span class="text-dark-text-secondary text-lg font-medium">/ 1,690</span>
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="w-full bg-dark-bg rounded-full h-2.5 mb-5 border border-gray-700">
+                            <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-500" style="width: 0%"></div>
+                        </div>
+
+                        <!-- Price display -->
+                        <div class="flex items-center justify-between mb-4 p-3 bg-dark-bg rounded-xl border border-gray-700">
+                            <span class="text-dark-text-secondary text-sm">Price</span>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shrink-0">
+                                    <span class="text-white text-[8px] font-bold leading-none">SUI</span>
+                                </div>
+                                <span class="text-white font-bold text-lg">9 SUI</span>
+                            </div>
+                        </div>
+
+                        <!-- Quantity selector -->
+                        <div class="flex items-center justify-between mb-5 p-3 bg-dark-bg rounded-xl border border-gray-700">
+                            <span class="text-dark-text-secondary text-sm">Quantity</span>
+                            <div class="flex items-center gap-3">
+                                <button id="qty-minus"
+                                    class="w-8 h-8 rounded-lg bg-dark-card border border-gray-700 text-white font-bold hover:border-brand-primary transition-colors flex items-center justify-center">
+                                    &minus;
+                                </button>
+                                <span id="mint-qty" class="text-white font-bold text-lg w-6 text-center">1</span>
+                                <button id="qty-plus"
+                                    class="w-8 h-8 rounded-lg bg-dark-card border border-gray-700 text-white font-bold hover:border-brand-primary transition-colors flex items-center justify-center">
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Total -->
+                        <div class="flex items-center justify-between mb-5 px-3">
+                            <span class="text-dark-text-secondary text-sm">Total</span>
+                            <span id="total-price" class="text-brand-secondary font-bold text-lg">9 SUI</span>
+                        </div>
+
+                        <!-- Mint button -->
+                        <button id="mint-btn"
+                            class="w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg">
+                            Connect Wallet to Mint
+                        </button>
+
+                        <!-- Status banner -->
+                        <div id="mint-status" class="hidden mt-4 p-3 rounded-lg text-sm text-center"></div>
+                    </div>
+
+                    <!-- Wallet balance (shown when connected) -->
+                    <div id="balance-card" class="hidden bg-dark-card rounded-2xl shadow-xl border border-gray-800 p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-dark-text-secondary text-sm">Your SUI Balance</span>
+                            <span id="sui-balance" class="text-white font-medium">—</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ============================================================
+         Footer
+         ============================================================ -->
+    <footer class="border-t border-gray-800 py-8 mt-auto">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-dark-text-secondary text-sm">
+            &copy; <span id="current-year"></span> Alpha City. All rights reserved.
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         JavaScript
+         ============================================================ -->
+    <script>
+    // ================================================================
+    // CONSTANTS
+    // ================================================================
+    const SUI_RPC       = 'https://fullnode.mainnet.sui.io:443';
+    const SUI_TYPE      = '0x2::sui::SUI';
+    const TOTAL_SUPPLY  = 1690;
+    const MINT_PRICE    = 9;  // SUI per NFT
+    const MAX_QTY       = 5;  // Max per transaction
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    let connectedAddress     = null;
+    let connectedAccount     = null;
+    let connectedWalletEntry = null;
+    let suiBalance           = null;
+    let mintedCount          = 0;
+    let mintQty              = 1;
+    let activePhase          = 'guaranteed'; // 'guaranteed' | 'fcfs' | 'public'
+
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    function isValidSuiAddress(a) { return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim()); }
+    function shortAddr(a) { return (!a || a.length < 11) ? a : a.slice(0, 6) + '...' + a.slice(-4); }
+
+    function makeOverlay() {
+        const d = document.createElement('div');
+        d.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
+        return d;
+    }
+
+    function timeoutSignal(ms) {
+        if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+        const c = new AbortController();
+        setTimeout(() => c.abort(), ms);
+        return c.signal;
+    }
+
+    // ================================================================
+    // WALLET-STANDARD DISCOVERY
+    // ================================================================
+    const registeredWallets = new Set();
+    let walletListCache;
+
+    function registerWallet(w) { walletListCache = undefined; registeredWallets.add(w); }
+    function getRegisteredWallets() {
+        if (!walletListCache) walletListCache = [...registeredWallets];
+        return walletListCache;
+    }
+
+    class WalletStandardEvent extends Event {
+        #api;
+        get detail() { return this.#api; }
+        get type() { return 'wallet-standard:app-ready'; }
+        constructor(api) {
+            super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+            this.#api = api;
+        }
+    }
+
+    function initWalletStandard() {
+        const appApi = Object.freeze({ register: (...ws) => ws.forEach(registerWallet) });
+        try { window.addEventListener('wallet-standard:register-wallet', e => e.detail(appApi)); } catch (_) {}
+        try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
+    }
+
+    function isSuiWallet(w) {
+        if (!w.features?.['standard:connect']) return false;
+        const chains = w.chains || [];
+        if (chains.length === 0) return true;
+        return chains.some(c => typeof c === 'string' && c.startsWith('sui:'));
+    }
+
+    function discoverWallets() {
+        const found = [], seen = new Set();
+        for (const w of getRegisteredWallets()) {
+            if (isSuiWallet(w) && !seen.has(w.name)) {
+                seen.add(w.name);
+                found.push({ source: 'standard', name: w.name, wallet: w });
+            }
+        }
+        const legacy = [
+            { name: 'Slush',      obj: window.slush?.sui || window.slush },
+            { name: 'Sui Wallet', obj: window.suiWallet },
+            { name: 'Sui',        obj: window.sui },
+            { name: 'Martian',    obj: window.martian?.sui || window.martian },
+            { name: 'Ethos',      obj: window.ethos?.sui || window.ethos },
+        ];
+        for (const c of legacy) {
+            if (c.obj && !seen.has(c.name)) {
+                seen.add(c.name);
+                found.push({ source: 'legacy', name: c.name, provider: c.obj });
+            }
+        }
+        return found;
+    }
+
+    // ================================================================
+    // SUI RPC
+    // ================================================================
+    async function rpc(method, params) {
+        const res = await fetch(SUI_RPC, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+        if (!res.ok) throw new Error('SUI RPC HTTP ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error('SUI RPC: ' + data.error.message);
+        return data.result;
+    }
+
+    async function fetchSuiBalance(address) {
+        const r = await rpc('suix_getBalance', [address, SUI_TYPE]);
+        return BigInt(r.totalBalance || '0');
+    }
+
+    // ================================================================
+    // CITY IMAGE REVEAL
+    // ================================================================
+    function updateCityReveal() {
+        const pct = TOTAL_SUPPLY > 0 ? (mintedCount / TOTAL_SUPPLY) : 0;
+        const overlay = document.getElementById('city-overlay');
+        // Reduce overlay opacity as more are minted (1.0 = fully hidden, 0.0 = fully revealed)
+        overlay.style.opacity = String(1 - pct);
+        document.getElementById('reveal-pct').textContent = Math.round(pct * 100) + '% revealed';
+    }
+
+    // ================================================================
+    // MINT COUNTER & PROGRESS
+    // ================================================================
+    function updateMintProgress() {
+        document.getElementById('minted-count').textContent = mintedCount.toLocaleString();
+        const pct = TOTAL_SUPPLY > 0 ? (mintedCount / TOTAL_SUPPLY) * 100 : 0;
+        document.getElementById('progress-bar').style.width = pct + '%';
+        updateCityReveal();
+    }
+
+    // ================================================================
+    // QUANTITY SELECTOR
+    // ================================================================
+    document.getElementById('qty-minus').addEventListener('click', () => {
+        if (mintQty > 1) {
+            mintQty--;
+            document.getElementById('mint-qty').textContent = mintQty;
+            document.getElementById('total-price').textContent = (mintQty * MINT_PRICE) + ' SUI';
+        }
+    });
+
+    document.getElementById('qty-plus').addEventListener('click', () => {
+        if (mintQty < MAX_QTY) {
+            mintQty++;
+            document.getElementById('mint-qty').textContent = mintQty;
+            document.getElementById('total-price').textContent = (mintQty * MINT_PRICE) + ' SUI';
+        }
+    });
+
+    // ================================================================
+    // PHASE MANAGEMENT
+    // ================================================================
+    function setActivePhase(phase) {
+        activePhase = phase;
+        const phases = ['guaranteed', 'fcfs', 'public'];
+        phases.forEach(p => {
+            const el    = document.getElementById('phase-' + p);
+            const badge = document.getElementById('badge-' + p);
+            const numEl = el.querySelector('.w-8');
+            const nameEl = el.querySelector('.font-semibold');
+            const descEl = el.querySelector('.text-xs');
+
+            if (p === phase) {
+                // Active
+                el.className = 'flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-brand-secondary bg-brand-secondary/5';
+                numEl.className = 'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-brand-secondary text-gray-900 font-bold text-sm';
+                nameEl.className = 'text-white font-semibold text-sm';
+                if (descEl) descEl.className = 'text-dark-text-secondary text-xs mt-0.5';
+                badge.className = 'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-secondary/20 text-brand-secondary';
+                badge.textContent = 'Active';
+                badge.classList.remove('hidden');
+            } else if (phases.indexOf(p) < phases.indexOf(phase)) {
+                // Completed
+                el.className = 'flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-green-700/50 bg-green-900/5';
+                numEl.className = 'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-green-600 text-white font-bold text-sm';
+                nameEl.className = 'text-green-400 font-semibold text-sm';
+                if (descEl) descEl.className = 'text-green-700 text-xs mt-0.5';
+                badge.className = 'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-900/30 text-green-500';
+                badge.textContent = 'Complete';
+                badge.classList.remove('hidden');
+            } else {
+                // Upcoming
+                el.className = 'flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 border-gray-700 bg-dark-bg';
+                numEl.className = 'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gray-700 text-gray-400 font-bold text-sm';
+                nameEl.className = 'text-gray-400 font-semibold text-sm';
+                if (descEl) descEl.className = 'text-gray-600 text-xs mt-0.5';
+                badge.classList.add('hidden');
+            }
+        });
+        updateMintBtn();
+    }
+
+    // ================================================================
+    // STATUS BANNER
+    // ================================================================
+    function showStatus(msg, type) {
+        type = type || 'info';
+        const el = document.getElementById('mint-status');
+        let cls = 'mt-4 p-3 rounded-lg text-sm text-center animate-fade-in ';
+        if (type === 'success') cls += 'bg-green-900/40 border border-green-700 text-green-300';
+        else if (type === 'error') cls += 'bg-red-900/40 border border-red-700 text-red-300';
+        else cls += 'bg-dark-bg border border-gray-700 text-dark-text-secondary';
+        el.className = cls;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function hideStatus() { document.getElementById('mint-status').classList.add('hidden'); }
+
+    // ================================================================
+    // MINT BUTTON STATE
+    // ================================================================
+    function updateMintBtn() {
+        const btn = document.getElementById('mint-btn');
+
+        if (!connectedAddress) {
+            btn.disabled    = true;
+            btn.textContent = 'Connect Wallet to Mint';
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else if (mintedCount >= TOTAL_SUPPLY) {
+            btn.disabled    = true;
+            btn.textContent = 'Sold Out';
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed transition-all shadow-lg';
+        } else {
+            btn.disabled    = false;
+            btn.textContent = 'Mint ' + mintQty + ' NFT' + (mintQty > 1 ? 's' : '') + ' for ' + (mintQty * MINT_PRICE) + ' SUI';
+            btn.className   = 'w-full py-4 bg-brand-secondary text-gray-900 font-bold text-lg rounded-xl hover:bg-brand-secondary-hover transition-all shadow-lg shadow-yellow-500/20 hover:-translate-y-0.5';
+        }
+    }
+
+    // ================================================================
+    // MINT ACTION (placeholder — smart contract integration later)
+    // ================================================================
+    document.getElementById('mint-btn').addEventListener('click', async () => {
+        if (!connectedAddress) return;
+        if (mintedCount >= TOTAL_SUPPLY) return;
+
+        const btn = document.getElementById('mint-btn');
+        btn.disabled    = true;
+        btn.textContent = 'Minting…';
+        btn.className   = 'w-full py-4 bg-gray-600 text-gray-300 font-bold text-lg rounded-xl cursor-wait transition-all shadow-lg';
+        hideStatus();
+
+        // Placeholder: smart contract call will go here
+        // For now, show a message that contract integration is pending
+        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
+
+        showStatus('Smart contract integration coming soon. Stay tuned!', 'info');
+        updateMintBtn();
+    });
+
+    // ================================================================
+    // WALLET CONNECTION
+    // ================================================================
+    const connectBtn  = document.getElementById('connect-wallet-btn');
+    const walletLabel = document.getElementById('wallet-text');
+
+    connectBtn.addEventListener('click', function() {
+        if (connectedAddress) {
+            showWalletOptions();
+        } else {
+            connectWallet().catch(function(err) {
+                showStatus('Wallet connection failed: ' + (err?.message || err), 'error');
+            });
+        }
+    });
+
+    function showWalletOptions() {
+        return new Promise(function(resolve) {
+            const overlay = makeOverlay();
+            overlay.innerHTML =
+                '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
+                    '<h3 class="text-white font-bold text-lg mb-4">Wallet Options</h3>' +
+                    '<div class="space-y-2">' +
+                        '<button id="_wo_switch" class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm">Switch Wallet</button>' +
+                        '<button id="_wo_disconnect" class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-red-500 text-red-400 rounded-lg transition-colors font-medium text-sm">Disconnect</button>' +
+                    '</div>' +
+                    '<button id="_wo_cancel" class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">Cancel</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+
+            document.getElementById('_wo_switch').addEventListener('click', async function() {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                connectWallet().catch(function(e) { showStatus('Wallet error: ' + e.message, 'error'); });
+                resolve('switch');
+            });
+            document.getElementById('_wo_disconnect').addEventListener('click', async function() {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                resolve('disconnect');
+            });
+            document.getElementById('_wo_cancel').addEventListener('click', function() {
+                document.body.removeChild(overlay);
+                resolve(null);
+            });
+        });
+    }
+
+    async function performDisconnect() {
+        if (connectedWalletEntry?.source === 'standard') {
+            try {
+                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
+                if (disc?.disconnect) await disc.disconnect();
+            } catch (_) {}
+        } else if (connectedWalletEntry?.source === 'legacy') {
+            try {
+                if (typeof connectedWalletEntry.provider?.disconnect === 'function')
+                    await connectedWalletEntry.provider.disconnect();
+            } catch (_) {}
+        }
+        disconnectWallet();
+    }
+
+    function disconnectWallet() {
+        connectedAddress     = null;
+        connectedAccount     = null;
+        connectedWalletEntry = null;
+        suiBalance           = null;
+        try { localStorage.removeItem('alphacity_wallet'); } catch (_) {}
+        walletLabel.textContent = 'Connect Wallet';
+        connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
+        connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
+        document.getElementById('sui-balance').textContent = '—';
+        document.getElementById('balance-card').classList.add('hidden');
+        updateMintBtn();
+    }
+
+    async function connectWallet() {
+        const wallets = discoverWallets();
+        if (!wallets.length) {
+            throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
+        }
+
+        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
+        if (!entry) return;
+
+        walletLabel.textContent = 'Connecting…';
+        connectBtn.disabled     = true;
+
+        try {
+            let accounts;
+            if (entry.source === 'standard') {
+                try {
+                    const disc = entry.wallet.features?.['standard:disconnect'];
+                    if (disc?.disconnect) await disc.disconnect();
+                } catch (_) {}
+                const connResult = await entry.wallet.features['standard:connect'].connect();
+                accounts = connResult?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(function(a) { return a?.address || a; }).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(function(a) { return a?.address || a; }).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(function(addr) { return { address: addr }; });
+            }
+
+            const suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
+            const all         = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) throw new Error('Wallet provided no accounts.');
+
+            const account = all.length === 1 ? all[0] : await pickAccount(all);
+            const address = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
+
+            connectedAddress     = address;
+            connectedAccount     = account;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(address);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName: entry.name, address: address })); } catch (_) {}
+
+            suiBalance = await fetchSuiBalance(address);
+            updateBalanceDisplay();
+            updateMintBtn();
+        } finally {
+            connectBtn.disabled = false;
+        }
+    }
+
+    function updateBalanceDisplay() {
+        if (suiBalance !== null) {
+            const suiAmt = (Number(suiBalance) / 1e9).toFixed(4);
+            document.getElementById('sui-balance').textContent = suiAmt + ' SUI';
+            document.getElementById('balance-card').classList.remove('hidden');
+        }
+    }
+
+    function pickWallet(wallets) {
+        return new Promise(function(resolve) {
+            const overlay = makeOverlay();
+            overlay.innerHTML =
+                '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
+                    '<h3 class="text-white font-bold text-lg mb-4">Select Wallet</h3>' +
+                    '<div id="_wp_list" class="space-y-2"></div>' +
+                    '<button id="_wp_cancel" class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">Cancel</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+
+            wallets.forEach(function(entry) {
+                const btn = document.createElement('button');
+                btn.type      = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
+                btn.textContent = entry.name;
+                btn.addEventListener('click', function() { document.body.removeChild(overlay); resolve(entry); });
+                document.getElementById('_wp_list').appendChild(btn);
+            });
+            document.getElementById('_wp_cancel').addEventListener('click', function() {
+                document.body.removeChild(overlay);
+                resolve(null);
+            });
+        });
+    }
+
+    function pickAccount(accounts) {
+        return new Promise(function(resolve) {
+            const overlay = makeOverlay();
+            overlay.innerHTML =
+                '<div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">' +
+                    '<h3 class="text-white font-bold text-lg mb-4">Select Account</h3>' +
+                    '<div id="_ap_list" class="space-y-2"></div>' +
+                '</div>';
+            document.body.appendChild(overlay);
+
+            accounts.forEach(function(account) {
+                const addr = account?.address || account;
+                const btn  = document.createElement('button');
+                btn.type      = 'button';
+                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
+                btn.textContent = shortAddr(addr);
+                btn.title       = addr;
+                btn.addEventListener('click', function() { document.body.removeChild(overlay); resolve(account); });
+                document.getElementById('_ap_list').appendChild(btn);
+            });
+        });
+    }
+
+    // ================================================================
+    // WALLET AUTO-RECONNECT
+    // ================================================================
+    async function tryAutoReconnect() {
+        try {
+            const saved = localStorage.getItem('alphacity_wallet');
+            if (!saved) return;
+            const parsed = JSON.parse(saved);
+            const walletName = parsed.walletName;
+            const address = parsed.address;
+            if (!walletName || !isValidSuiAddress(address)) return;
+
+            await new Promise(function(r) { setTimeout(r, 400); });
+
+            const wallets = discoverWallets();
+            const entry = wallets.find(function(w) { return w.name === walletName; });
+            if (!entry) return;
+
+            walletLabel.textContent = 'Connecting…';
+
+            let accounts;
+            if (entry.source === 'standard') {
+                const connResult = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                accounts = connResult?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(function(a) { return a?.address || a; }).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(function(a) { return a?.address || a; }).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(function(addr) { return { address: addr }; });
+            }
+
+            const suiAccounts = accounts.filter(function(a) { return !a.chains || a.chains.includes('sui:mainnet'); });
+            const all = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            const account = all.find(function(a) { return String(a?.address || a).trim() === address; }) || all[0];
+            const reconnectAddress = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(reconnectAddress)) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            connectedAddress     = reconnectAddress;
+            connectedAccount     = account;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(reconnectAddress);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName: walletName, address: reconnectAddress })); } catch (_) {}
+
+            suiBalance = await fetchSuiBalance(reconnectAddress);
+            updateBalanceDisplay();
+            updateMintBtn();
+        } catch (_) {
+            walletLabel.textContent = 'Connect Wallet';
+        }
+    }
+
+    // ================================================================
+    // INIT
+    // ================================================================
+    initWalletStandard();
+    updateMintProgress();
+    setActivePhase('guaranteed');
+    tryAutoReconnect();
+
+    </script>
+</body>
+</html>
