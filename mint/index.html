@@ -641,7 +641,7 @@
     }
 
     async function connectWallet() {
-        var wallets = discoverWallets();
+        let wallets = discoverWallets();
         // On mobile, wallet providers may register asynchronously after page
         // load.  Retry a couple of times with short delays before giving up.
         if (!wallets.length) {
