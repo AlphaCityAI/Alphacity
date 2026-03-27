@@ -555,7 +555,17 @@
     }
 
     async function connectWallet() {
-        const wallets = discoverWallets();
+        let wallets = discoverWallets();
+        // On mobile, wallet providers may register asynchronously after page
+        // load.  Retry a couple of times with short delays before giving up.
+        if (!wallets.length) {
+            await new Promise(r => setTimeout(r, 600));
+            wallets = discoverWallets();
+        }
+        if (!wallets.length) {
+            await new Promise(r => setTimeout(r, 1200));
+            wallets = discoverWallets();
+        }
         if (!wallets.length) {
             throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
         }
