@@ -29,15 +29,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject OpenAI API key
+      - name: Inject OpenAI proxy URL
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROXY_URL: ${{ secrets.OPENAI_PROXY_URL }}
         run: |
-          if [ -z "${OPENAI_API_KEY}" ]; then
-            echo "::error::OPENAI_API_KEY secret is not set. Add it under Settings → Secrets and variables → Actions."
+          if [ -z "${OPENAI_PROXY_URL}" ]; then
+            echo "::error::OPENAI_PROXY_URL secret is not set. Deploy the Cloudflare Worker in api/openai-proxy/ and add its URL under Settings → Secrets and variables → Actions."
             exit 1
           fi
-          sed -i "s|__OPENAI_API_KEY__|${OPENAI_API_KEY}|g" analyze/index.html
+          sed -i "s|__OPENAI_PROXY_URL__|${OPENAI_PROXY_URL}|g" analyze/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
