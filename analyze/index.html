@@ -959,7 +959,7 @@
             return;
         }
         if (!isKeyConfigured) {
-            showError('The AI service is not configured yet. The proxy URL must be set via GitHub Actions for AI features to work.');
+            showError('The AI service is not configured. Please ensure OPENAI_PROXY_URL is set in GitHub Actions secrets.');
             return;
         }
 

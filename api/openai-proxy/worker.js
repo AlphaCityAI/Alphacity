@@ -117,19 +117,17 @@ function allowedOrigins(env) {
 
 function isAllowedOrigin(origin, env) {
   if (!origin) return false;
-  return allowedOrigins(env).some(
-    (allowed) => origin === allowed || origin === allowed.replace(/\/$/, ''),
-  );
+  return allowedOrigins(env).includes(origin);
 }
 
 function handleCors(request, env, response) {
   const origin = request.headers.get('Origin') || '';
-  const matched = allowedOrigins(env).find(
-    (a) => origin === a || origin === a.replace(/\/$/, ''),
-  );
+  const matched = allowedOrigins(env).find((a) => origin === a);
 
   const headers = new Headers(response.headers);
-  headers.set('Access-Control-Allow-Origin', matched || '');
+  if (matched) {
+    headers.set('Access-Control-Allow-Origin', matched);
+  }
   headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type');
   headers.set('Access-Control-Max-Age', '86400');
