@@ -1,0 +1,11 @@
+name = "alphacity-openai-proxy"
+main = "worker.js"
+compatibility_date = "2024-12-01"
+
+# Optional: set ALLOWED_ORIGINS to restrict which domains can call the proxy.
+# Defaults to https://alphacity.tech if not set.
+# [vars]
+# ALLOWED_ORIGINS = "https://alphacity.tech,https://www.alphacity.tech"
+
+# The OPENAI_API_KEY must be stored as an encrypted secret:
+#   wrangler secret put OPENAI_API_KEY
