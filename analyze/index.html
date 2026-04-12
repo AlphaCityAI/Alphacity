@@ -1396,8 +1396,9 @@ Return ONLY a valid JSON object with two string keys:
     // =========================================================
     // INTELLIGENCE DASHBOARD — MARKET PULSE
     // =========================================================
-    const PULSE_REFRESH_MS   = 60_000;  // 60 seconds
-    const DEX_CACHE_TTL_MS   = 60_000;  // 60 seconds
+    const PULSE_REFRESH_MS   = 60_000;  // 60 seconds — market pulse auto-refresh
+    const DEX_REFRESH_MS     = 300_000; // 5 minutes — DEX data auto-refresh
+    const DEX_CACHE_TTL_MS   = 60_000;  // 60 seconds — minimum time before re-fetching DexScreener
     const MIN_LIQUIDITY_USD  = 1_000;   // filter spam pairs
     const WATCHLIST_STORAGE  = 'ac_intel_watchlist';
 
@@ -1422,6 +1423,13 @@ Return ONLY a valid JSON object with two string keys:
     function pctClass(n) {
         if (n == null) return '';
         return n >= 0 ? 'change-positive' : 'change-negative';
+    }
+
+    function fmtPrice(priceUsd) {
+        if (!priceUsd) return '—';
+        const n = parseFloat(priceUsd);
+        if (!Number.isFinite(n)) return '—';
+        return '$' + n.toFixed(n < 0.01 ? 6 : n < 1 ? 4 : 2);
     }
 
     function timeAgo(ts) {
@@ -1525,7 +1533,7 @@ Return ONLY a valid JSON object with two string keys:
     }
 
     function renderTokenRow(p) {
-        const price   = p.priceUsd ? '$' + parseFloat(p.priceUsd).toFixed(p.priceUsd < 0.01 ? 6 : p.priceUsd < 1 ? 4 : 2) : '—';
+        const price   = fmtPrice(p.priceUsd);
         const change  = p.priceChange?.h24;
         const vol     = fmtUsd(p.volume?.h24);
         const liq     = fmtUsd(p.liquidity?.usd);
@@ -1554,7 +1562,7 @@ Return ONLY a valid JSON object with two string keys:
     }
 
     function renderMoverRow(p) {
-        const price  = p.priceUsd ? '$' + parseFloat(p.priceUsd).toFixed(p.priceUsd < 0.01 ? 6 : p.priceUsd < 1 ? 4 : 2) : '—';
+        const price  = fmtPrice(p.priceUsd);
         const change = p.priceChange?.h24;
         const vol    = fmtUsd(p.volume?.h24);
         return `
@@ -1632,7 +1640,7 @@ Return ONLY a valid JSON object with two string keys:
                     <div class="text-right hide-mobile">Liquidity</div>
                 </div>` +
                 recent.map(p => {
-                    const price = p.priceUsd ? '$' + parseFloat(p.priceUsd).toFixed(p.priceUsd < 0.01 ? 6 : p.priceUsd < 1 ? 4 : 2) : '—';
+                    const price = fmtPrice(p.priceUsd);
                     return `
                     <div class="token-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
                         <div class="flex items-center gap-2">
@@ -1829,7 +1837,7 @@ Return ONLY a valid JSON object with two string keys:
             renderTrending();
             renderMovers();
             renderNewPools();
-        }, PULSE_REFRESH_MS * 5); // refresh DEX data every 5 minutes
+        }, DEX_REFRESH_MS);
     }
 
     // =========================================================
