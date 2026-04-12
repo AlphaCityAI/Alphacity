@@ -1044,20 +1044,25 @@
     }
 
     // Paginated fetch: retrieves all owned objects across multiple RPC pages.
+    // Returns partial results if a mid-pagination RPC call fails.
     async function fetchAllOwnedObjects(address) {
         const allData = [];
         let cursor = null;
-        for (let page = 0; page < MAX_OBJECT_PAGES; page++) {
-            const result = await rpc('suix_getOwnedObjects', [
-                address,
-                { options: { showType: true } },
-                cursor,
-                OBJECTS_PER_PAGE
-            ]);
-            const items = result?.data || [];
-            allData.push(...items);
-            if (!result?.hasNextPage || !result?.nextCursor) break;
-            cursor = result.nextCursor;
+        for (let i = 0; i < MAX_OBJECT_PAGES; i++) {
+            try {
+                const result = await rpc('suix_getOwnedObjects', [
+                    address,
+                    { options: { showType: true } },
+                    cursor,
+                    OBJECTS_PER_PAGE
+                ]);
+                const items = result?.data || [];
+                allData.push(...items);
+                if (!result?.hasNextPage || !result?.nextCursor) break;
+                cursor = result.nextCursor;
+            } catch (_) {
+                break; // return whatever was collected so far
+            }
         }
         return { data: allData };
     }
