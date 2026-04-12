@@ -642,7 +642,8 @@
     // =========================================================
     // CONSTANTS
     // =========================================================
-    const MAX_OBJECTS_TO_FETCH        = 50;    // max owned objects to retrieve per RPC call
+    const OBJECTS_PER_PAGE            = 50;    // max owned objects per single RPC call (SUI limit)
+    const MAX_OBJECT_PAGES            = 10;    // max pages to fetch (prevents runaway for huge wallets)
     const PRICE_FETCH_TIMEOUT_MS      = 5000;  // ms before giving up on the CoinGecko price request
     const MAX_AI_RESPONSE_TOKENS      = 1400;  // OpenAI max_tokens for the analysis response
     const MIN_HOLDING_VALUE_USD       = 0.25;  // minimum tracked holding value when market data is available
@@ -1029,7 +1030,7 @@
                 address,
                 { filter: { StructType: CITY_STAKING_TYPE }, options: { showContent: true } },
                 null,
-                MAX_OBJECTS_TO_FETCH
+                OBJECTS_PER_PAGE
             ]);
             let total = 0n;
             for (const obj of (result?.data || [])) {
@@ -1040,6 +1041,25 @@
         } catch (_) {
             return 0n;
         }
+    }
+
+    // Paginated fetch: retrieves all owned objects across multiple RPC pages.
+    async function fetchAllOwnedObjects(address) {
+        const allData = [];
+        let cursor = null;
+        for (let page = 0; page < MAX_OBJECT_PAGES; page++) {
+            const result = await rpc('suix_getOwnedObjects', [
+                address,
+                { options: { showType: true } },
+                cursor,
+                OBJECTS_PER_PAGE
+            ]);
+            const items = result?.data || [];
+            allData.push(...items);
+            if (!result?.hasNextPage || !result?.nextCursor) break;
+            cursor = result.nextCursor;
+        }
+        return { data: allData };
     }
 
     // =========================================================
@@ -1053,7 +1073,7 @@
         try {
             const [balances, allObjects, stakedCity, suiPriceUsd] = await Promise.all([
                 rpc('suix_getAllBalances', [address]).catch(() => []),
-                rpc('suix_getOwnedObjects', [address, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+                fetchAllOwnedObjects(address).catch(() => ({ data: [] })),
                 fetchStakedCity(address),
                 fetchSuiPriceUsd(),
             ]);
@@ -1080,12 +1100,13 @@
 
     function renderTokenList(balances, suiPrice = latestSuiPriceUsd) {
         const el = document.getElementById('token-list');
-        const filtered = (balances || []).filter(b => shouldTrackHolding(b, suiPrice));
-        if (!filtered.length) {
+        // Show every token with a non-zero balance so no real holdings are hidden.
+        const nonZero = (balances || []).filter(b => b?.coinType && BigInt(b.totalBalance || '0') > 0n);
+        if (!nonZero.length) {
             el.innerHTML = '<p class="text-xs text-gray-500">No token balances found.</p>';
             return;
         }
-        const sorted = [...filtered].sort((a, b) => {
+        const sorted = [...nonZero].sort((a, b) => {
             // Real SUI first, then by token count descending
             const aIsSui = isSuiCoinType(a.coinType);
             const bIsSui = isSuiCoinType(b.coinType);
@@ -1196,7 +1217,7 @@
             setThinkingStatus('Fetching on-chain data…');
             const [balances, allObjects] = await Promise.all([
                 rpc('suix_getAllBalances', [connectedAddress]).catch(() => []),
-                rpc('suix_getOwnedObjects', [connectedAddress, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+                fetchAllOwnedObjects(connectedAddress).catch(() => ({ data: [] })),
             ]);
             const freshData = { address: connectedAddress, balances: balances || [], allObjects };
 
@@ -1306,10 +1327,12 @@ Return ONLY a valid JSON object with two string keys:
     function buildPortfolioSummary(data, suiPrice) {
         const lines = [`Wallet address: ${data.address}`];
 
-        if (data.balances?.length) {
+        // Include every non-zero balance so the AI has the full picture.
+        const nonZero = (data.balances || []).filter(b => b?.coinType && BigInt(b.totalBalance || '0') > 0n);
+
+        if (nonZero.length) {
             lines.push('\nTOKEN BALANCES:');
-            const sorted = [...data.balances]
-                .filter(b => shouldTrackHolding(b, suiPrice))
+            const sorted = [...nonZero]
                 .sort((a, b) => {
                 if (isSuiCoinType(a.coinType)) return -1;
                 if (isSuiCoinType(b.coinType)) return 1;
