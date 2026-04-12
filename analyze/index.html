@@ -1506,7 +1506,7 @@ Return ONLY a valid JSON object with two string keys:
     // =========================================================
     // INTELLIGENCE DASHBOARD — ECOSYSTEM TOKENS (CoinGecko)
     // =========================================================
-    const ECOSYSTEM_CACHE_TTL_MS = 120_000; // 2 min cache for CoinGecko ecosystem data
+    const ECOSYSTEM_CACHE_TTL_MS = 300_000; // 5 min cache for CoinGecko ecosystem data (matches DEX refresh)
     let ecosystemCache = { tokens: null, ts: 0 };
 
     async function fetchEcosystemTokens() {
@@ -1528,9 +1528,7 @@ Return ONLY a valid JSON object with two string keys:
     }
 
     function renderEcoTokenRow(t) {
-        const price = t.current_price != null
-            ? '$' + (t.current_price < 0.01 ? t.current_price.toFixed(6) : t.current_price < 1 ? t.current_price.toFixed(4) : t.current_price.toFixed(2))
-            : '—';
+        const price  = fmtPrice(t.current_price);
         const change = t.price_change_percentage_24h;
         const vol    = fmtUsd(t.total_volume);
         const mcap   = fmtUsd(t.market_cap);
