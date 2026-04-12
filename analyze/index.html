@@ -483,6 +483,7 @@
             <!-- Tab Navigation -->
             <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
                 <button class="intel-tab-btn active" data-tab="trending">🔥 Trending</button>
+                <button class="intel-tab-btn" data-tab="ecosystem">🌐 Ecosystem</button>
                 <button class="intel-tab-btn" data-tab="movers">📈 Top Movers</button>
                 <button class="intel-tab-btn" data-tab="pools">🆕 New Pools</button>
                 <button class="intel-tab-btn" data-tab="watchlist">👀 Watchlist</button>
@@ -497,6 +498,19 @@
                     </div>
                     <div id="trending-content">
                         <p class="text-xs text-gray-600 py-8 text-center">Loading trending data…</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Ecosystem Tokens -->
+            <div id="tab-ecosystem" class="intel-tab-content">
+                <div class="glass-panel p-5 rounded-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-white">SUI Ecosystem Tokens</h3>
+                        <span class="text-[10px] text-gray-500">by market cap • via CoinGecko</span>
+                    </div>
+                    <div id="ecosystem-content">
+                        <p class="text-xs text-gray-600 py-8 text-center">Loading ecosystem data…</p>
                     </div>
                 </div>
             </div>
@@ -1490,18 +1504,108 @@ Return ONLY a valid JSON object with two string keys:
     }
 
     // =========================================================
+    // INTELLIGENCE DASHBOARD — ECOSYSTEM TOKENS (CoinGecko)
+    // =========================================================
+    const ECOSYSTEM_CACHE_TTL_MS = 120_000; // 2 min cache for CoinGecko ecosystem data
+    let ecosystemCache = { tokens: null, ts: 0 };
+
+    async function fetchEcosystemTokens() {
+        const now = Date.now();
+        if (ecosystemCache.tokens && (now - ecosystemCache.ts) < ECOSYSTEM_CACHE_TTL_MS) return ecosystemCache.tokens;
+
+        try {
+            const resp = await fetch(
+                'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=sui-ecosystem&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
+                { signal: AbortSignal.timeout(10000) }
+            );
+            if (!resp.ok) throw new Error('CoinGecko API error');
+            const tokens = await resp.json();
+            ecosystemCache = { tokens, ts: Date.now() };
+            return tokens;
+        } catch (_) {
+            return ecosystemCache.tokens || [];
+        }
+    }
+
+    function renderEcoTokenRow(t) {
+        const price = t.current_price != null
+            ? '$' + (t.current_price < 0.01 ? t.current_price.toFixed(6) : t.current_price < 1 ? t.current_price.toFixed(4) : t.current_price.toFixed(2))
+            : '—';
+        const change = t.price_change_percentage_24h;
+        const vol    = fmtUsd(t.total_volume);
+        const mcap   = fmtUsd(t.market_cap);
+        const imgTag = t.image
+            ? `<img src="${escHtml(t.image)}" alt="" class="w-5 h-5 rounded-full flex-shrink-0" loading="lazy" onerror="this.style.display='none'">`
+            : '';
+        return `
+            <div class="token-row">
+                <div class="flex items-center gap-2">
+                    ${imgTag}
+                    <span class="text-white font-medium">${escHtml(t.symbol?.toUpperCase() || '?')}</span>
+                    <span class="text-gray-500 text-[10px] truncate max-w-[100px]">${escHtml(t.name || '')}</span>
+                </div>
+                <div class="text-white font-mono text-right">${price}</div>
+                <div class="text-right font-mono ${pctClass(change)}">${fmtPct(change)}</div>
+                <div class="text-right text-dark-text-secondary font-mono hide-mobile">${vol}</div>
+                <div class="text-right text-dark-text-secondary font-mono hide-mobile">${mcap}</div>
+            </div>`;
+    }
+
+    function renderEcoTableHeader() {
+        return `<div class="token-row token-row-header">
+            <div>Token</div>
+            <div class="text-right">Price</div>
+            <div class="text-right">24h</div>
+            <div class="text-right hide-mobile">Volume</div>
+            <div class="text-right hide-mobile">Mkt Cap</div>
+        </div>`;
+    }
+
+    async function renderEcosystem() {
+        const el = document.getElementById('ecosystem-content');
+        try {
+            const tokens = await fetchEcosystemTokens();
+            if (!tokens || !tokens.length) {
+                el.innerHTML = '<p class="text-xs text-gray-500 py-4 text-center">No ecosystem data available.</p>';
+                return;
+            }
+            el.innerHTML = renderEcoTableHeader() + tokens.map(renderEcoTokenRow).join('');
+        } catch (_) {
+            el.innerHTML = '<p class="text-xs text-red-400 py-4 text-center">Failed to load ecosystem data.</p>';
+        }
+    }
+
+    // =========================================================
     // INTELLIGENCE DASHBOARD — DEXSCREENER DATA
     // =========================================================
+    // Search terms to broaden DEX pair coverage beyond just "SUI"
+    const DEX_SEARCH_TERMS = ['SUI', 'DEEP', 'CETUS', 'NS', 'WALL', 'NAVX', 'SCA', 'BUCK'];
+
     async function fetchDexData() {
         const now = Date.now();
         if (dexCache.pairs && (now - dexCache.ts) < DEX_CACHE_TTL_MS) return dexCache.pairs;
 
         try {
-            // Search for popular SUI pairs
-            const resp = await fetch('https://api.dexscreener.com/latest/dex/search?q=SUI', { signal: AbortSignal.timeout(10000) });
-            const data = await resp.json();
-            const pairs = (data?.pairs || [])
-                .filter(p => p.chainId === 'sui' && (p.liquidity?.usd || 0) >= MIN_LIQUIDITY_USD);
+            // Search for multiple popular SUI ecosystem tokens in parallel
+            const results = await Promise.all(
+                DEX_SEARCH_TERMS.map(term =>
+                    fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(term)}`, { signal: AbortSignal.timeout(10000) })
+                        .then(r => r.json())
+                        .then(d => d?.pairs || [])
+                        .catch(() => [])
+                )
+            );
+            // Merge all results, filter to SUI chain and minimum liquidity, dedupe by pair address
+            const seen = new Set();
+            const pairs = [];
+            for (const batch of results) {
+                for (const p of batch) {
+                    if (p.chainId === 'sui' && (p.liquidity?.usd || 0) >= MIN_LIQUIDITY_USD && !seen.has(p.pairAddress)) {
+                        seen.add(p.pairAddress);
+                        pairs.push(p);
+                    }
+                }
+            }
             dexCache = { pairs, ts: Date.now() };
             return pairs;
         } catch (_) {
@@ -1813,7 +1917,8 @@ Return ONLY a valid JSON object with two string keys:
         const icon = document.getElementById('intel-refresh-icon');
         icon.classList.add('refresh-spin');
         dexCache = { pairs: null, ts: 0 }; // bust cache
-        await Promise.all([fetchMarketPulse(), fetchTvl(), renderTrending(), renderMovers(), renderNewPools()]);
+        ecosystemCache = { tokens: null, ts: 0 }; // bust ecosystem cache
+        await Promise.all([fetchMarketPulse(), fetchTvl(), renderTrending(), renderEcosystem(), renderMovers(), renderNewPools()]);
         icon.classList.remove('refresh-spin');
     });
 
@@ -1826,6 +1931,7 @@ Return ONLY a valid JSON object with two string keys:
             fetchMarketPulse(),
             fetchTvl(),
             renderTrending(),
+            renderEcosystem(),
             renderMovers(),
             renderNewPools(),
         ]);
@@ -1834,7 +1940,9 @@ Return ONLY a valid JSON object with two string keys:
         pulseTimer = setInterval(fetchMarketPulse, PULSE_REFRESH_MS);
         dexTimer   = setInterval(() => {
             dexCache = { pairs: null, ts: 0 };
+            ecosystemCache = { tokens: null, ts: 0 };
             renderTrending();
+            renderEcosystem();
             renderMovers();
             renderNewPools();
         }, DEX_REFRESH_MS);
