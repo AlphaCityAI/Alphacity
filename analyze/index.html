@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Analyzer - Alpha City</title>
+    <title>CITY Intelligence Terminal - Alpha City</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -109,6 +109,105 @@
         }
         .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
         .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* Intelligence Dashboard */
+        .intel-tab-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            color: #9CA3AF;
+            background: transparent;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .intel-tab-btn:hover { color: #E5E7EB; background: rgba(31,41,55,0.5); }
+        .intel-tab-btn.active {
+            color: #FCD34D;
+            background: rgba(252,211,77,0.08);
+            border-color: rgba(252,211,77,0.25);
+        }
+        .intel-tab-content { display: none; }
+        .intel-tab-content.active { display: block; }
+
+        .pulse-stat {
+            text-align: center;
+            padding: 0.5rem;
+        }
+        .pulse-stat .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; font-weight: 600; }
+        .pulse-stat .value { font-size: 1.1rem; font-weight: 700; color: #fff; font-family: 'Inter', monospace; }
+        .pulse-stat .sub { font-size: 0.7rem; margin-top: 2px; }
+
+        .token-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 0.5rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid rgba(55,65,81,0.5);
+            font-size: 0.75rem;
+            align-items: center;
+        }
+        .token-row:last-child { border-bottom: none; }
+        .token-row-header {
+            color: #6B7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.65rem;
+            border-bottom: 1px solid rgba(55,65,81,0.8);
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        @media (max-width: 640px) {
+            .token-row { grid-template-columns: 2fr 1fr 1fr; }
+            .token-row .hide-mobile { display: none; }
+        }
+
+        .change-positive { color: #34D399; }
+        .change-negative { color: #F87171; }
+
+        .watchlist-input {
+            background: #111827;
+            border: 1px solid #374151;
+            color: #fff;
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-family: monospace;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .watchlist-input:focus { border-color: #3B82F6; }
+        .watchlist-input::placeholder { color: #4B5563; }
+
+        .watchlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(17,24,39,0.5);
+            border: 1px solid rgba(55,65,81,0.5);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            transition: border-color 0.2s;
+        }
+        .watchlist-item:hover { border-color: rgba(59,130,246,0.4); }
+
+        .mini-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+
+        .refresh-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
@@ -121,7 +220,7 @@
                 <a href="/" class="text-2xl font-bold text-white flex items-center gap-2 group">
                     <span>Alpha<span class="text-brand-secondary"> City</span></span>
                     <div class="flex flex-col items-start">
-                        <span class="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded border border-blue-500/30 uppercase tracking-wide font-bold ml-2">AI Analyzer</span>
+                        <span class="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded border border-blue-500/30 uppercase tracking-wide font-bold ml-2">Intelligence</span>
                     </div>
                 </a>
 
@@ -144,14 +243,47 @@
     <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         <!-- Page Hero -->
-        <div class="text-center mb-10">
+        <div class="text-center mb-6">
 
             <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-                Portfolio <span class="text-brand-secondary">Analyzer</span>
+                CITY <span class="text-brand-secondary">Intelligence</span>
             </h1>
             <p class="text-dark-text-secondary text-lg max-w-2xl mx-auto">
-                Connect your SUI wallet and let our AI scan your entire on-chain portfolio — token holdings, NFTs, and yield opportunities — then deliver actionable alpha.
+                Real-time SUI market intelligence — wallet analysis, trending tokens, top movers, new pools, and smart money tracking.
             </p>
+        </div>
+
+        <!-- Market Pulse Bar -->
+        <div id="market-pulse" class="glass-panel p-4 rounded-xl mb-8">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-dark-text-secondary flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse-slow"></span>
+                    Market Pulse
+                </h3>
+                <span id="pulse-updated" class="text-[10px] text-gray-600">Loading…</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="pulse-stat">
+                    <div class="label">SUI Price</div>
+                    <div class="value" id="pulse-price">—</div>
+                </div>
+                <div class="pulse-stat">
+                    <div class="label">24h Change</div>
+                    <div class="value" id="pulse-change">—</div>
+                </div>
+                <div class="pulse-stat">
+                    <div class="label">24h Volume</div>
+                    <div class="value" id="pulse-volume">—</div>
+                </div>
+                <div class="pulse-stat">
+                    <div class="label">Market Cap</div>
+                    <div class="value" id="pulse-mcap">—</div>
+                </div>
+                <div class="pulse-stat">
+                    <div class="label">SUI TVL</div>
+                    <div class="value" id="pulse-tvl">—</div>
+                </div>
+            </div>
         </div>
 
         <!-- Two-column layout -->
@@ -331,6 +463,98 @@
                     </button>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- ===================== INTELLIGENCE DASHBOARD ===================== -->
+        <div class="mt-12">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 gap-3">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+                    <span class="text-brand-secondary">⚡</span> Intelligence Dashboard
+                </h2>
+                <button id="intel-refresh-btn" class="text-xs text-dark-text-secondary hover:text-white flex items-center gap-1.5 transition-colors" title="Refresh data">
+                    <svg id="intel-refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
+                <button class="intel-tab-btn active" data-tab="trending">🔥 Trending</button>
+                <button class="intel-tab-btn" data-tab="movers">📈 Top Movers</button>
+                <button class="intel-tab-btn" data-tab="pools">🆕 New Pools</button>
+                <button class="intel-tab-btn" data-tab="watchlist">👀 Watchlist</button>
+            </div>
+
+            <!-- Tab: Trending Tokens -->
+            <div id="tab-trending" class="intel-tab-content active">
+                <div class="glass-panel p-5 rounded-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-white">Trending SUI Tokens</h3>
+                        <span class="text-[10px] text-gray-500">by 24h volume • via DexScreener</span>
+                    </div>
+                    <div id="trending-content">
+                        <p class="text-xs text-gray-600 py-8 text-center">Loading trending data…</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Top Movers -->
+            <div id="tab-movers" class="intel-tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Gainers -->
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-semibold text-green-400 mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                            Top Gainers (24h)
+                        </h3>
+                        <div id="gainers-content">
+                            <p class="text-xs text-gray-600 py-4 text-center">Loading…</p>
+                        </div>
+                    </div>
+                    <!-- Losers -->
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-semibold text-red-400 mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/></svg>
+                            Top Losers (24h)
+                        </h3>
+                        <div id="losers-content">
+                            <p class="text-xs text-gray-600 py-4 text-center">Loading…</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: New Pools -->
+            <div id="tab-pools" class="intel-tab-content">
+                <div class="glass-panel p-5 rounded-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-white">Recently Created Pools</h3>
+                        <span class="text-[10px] text-gray-500">last 7 days • SUI DEXes</span>
+                    </div>
+                    <div id="pools-content">
+                        <p class="text-xs text-gray-600 py-8 text-center">Loading new pools…</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Watchlist -->
+            <div id="tab-watchlist" class="intel-tab-content">
+                <div class="glass-panel p-5 rounded-xl">
+                    <h3 class="text-sm font-semibold text-white mb-4">Smart Money Watchlist</h3>
+                    <p class="text-xs text-dark-text-secondary mb-4">Track wallets of interest. Data is stored locally in your browser.</p>
+                    <div class="flex gap-2 mb-5">
+                        <input type="text" id="watchlist-input" class="watchlist-input flex-1" placeholder="Enter SUI address (0x…)" maxlength="66" spellcheck="false" autocomplete="off">
+                        <button id="watchlist-add-btn" class="px-4 py-2 bg-brand-primary text-white rounded-lg text-xs font-semibold hover:bg-brand-primary-hover transition-colors whitespace-nowrap">
+                            + Add
+                        </button>
+                    </div>
+                    <div id="watchlist-content">
+                        <p class="text-xs text-gray-500 py-4 text-center">No addresses saved yet. Add a wallet address above to start tracking.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -1170,9 +1394,459 @@ Return ONLY a valid JSON object with two string keys:
     }
 
     // =========================================================
+    // INTELLIGENCE DASHBOARD — MARKET PULSE
+    // =========================================================
+    const PULSE_REFRESH_MS   = 60_000;  // 60 seconds — market pulse auto-refresh
+    const DEX_REFRESH_MS     = 300_000; // 5 minutes — DEX data auto-refresh
+    const DEX_CACHE_TTL_MS   = 60_000;  // 60 seconds — minimum time before re-fetching DexScreener
+    const MIN_LIQUIDITY_USD  = 1_000;   // filter spam pairs
+    const WATCHLIST_STORAGE  = 'ac_intel_watchlist';
+
+    let dexCache = { pairs: null, ts: 0 };
+    let pulseTimer = null;
+    let dexTimer   = null;
+
+    function fmtUsd(n) {
+        if (n == null || !Number.isFinite(n)) return '—';
+        if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+        return '$' + n.toFixed(2);
+    }
+
+    function fmtPct(n) {
+        if (n == null || !Number.isFinite(n)) return '—';
+        const sign = n >= 0 ? '+' : '';
+        return sign + n.toFixed(2) + '%';
+    }
+
+    function pctClass(n) {
+        if (n == null) return '';
+        return n >= 0 ? 'change-positive' : 'change-negative';
+    }
+
+    function fmtPrice(priceUsd) {
+        if (!priceUsd) return '—';
+        const n = parseFloat(priceUsd);
+        if (!Number.isFinite(n)) return '—';
+        return '$' + n.toFixed(n < 0.01 ? 6 : n < 1 ? 4 : 2);
+    }
+
+    function timeAgo(ts) {
+        if (!ts) return '—';
+        const diff = Date.now() - ts;
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return mins + 'm ago';
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + 'h ago';
+        const days = Math.floor(hrs / 24);
+        return days + 'd ago';
+    }
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
+    }
+
+    async function fetchMarketPulse() {
+        try {
+            const resp = await fetch(
+                'https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true',
+                { signal: AbortSignal.timeout(8000) }
+            );
+            const data = await resp.json();
+            const sui = data?.sui;
+            if (!sui) return;
+
+            const priceEl  = document.getElementById('pulse-price');
+            const changeEl = document.getElementById('pulse-change');
+            const volEl    = document.getElementById('pulse-volume');
+            const mcapEl   = document.getElementById('pulse-mcap');
+            const updEl    = document.getElementById('pulse-updated');
+
+            priceEl.textContent  = sui.usd != null ? '$' + sui.usd.toFixed(4) : '—';
+            changeEl.textContent = fmtPct(sui.usd_24h_change);
+            changeEl.className   = 'value ' + pctClass(sui.usd_24h_change);
+            volEl.textContent    = fmtUsd(sui.usd_24h_vol);
+            mcapEl.textContent   = fmtUsd(sui.usd_market_cap);
+            updEl.textContent    = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // Also update the module-level SUI price
+            if (typeof sui.usd === 'number') latestSuiPriceUsd = sui.usd;
+        } catch (_) {}
+    }
+
+    async function fetchTvl() {
+        try {
+            const resp = await fetch('https://api.llama.fi/v2/chains', { signal: AbortSignal.timeout(8000) });
+            const chains = await resp.json();
+            const sui = (chains || []).find(c => (c.name || '').toLowerCase() === 'sui');
+            const tvlEl = document.getElementById('pulse-tvl');
+            tvlEl.textContent = sui?.tvl != null ? fmtUsd(sui.tvl) : '—';
+        } catch (_) {
+            document.getElementById('pulse-tvl').textContent = '—';
+        }
+    }
+
+    // =========================================================
+    // INTELLIGENCE DASHBOARD — DEXSCREENER DATA
+    // =========================================================
+    async function fetchDexData() {
+        const now = Date.now();
+        if (dexCache.pairs && (now - dexCache.ts) < DEX_CACHE_TTL_MS) return dexCache.pairs;
+
+        try {
+            // Search for popular SUI pairs
+            const resp = await fetch('https://api.dexscreener.com/latest/dex/search?q=SUI', { signal: AbortSignal.timeout(10000) });
+            const data = await resp.json();
+            const pairs = (data?.pairs || [])
+                .filter(p => p.chainId === 'sui' && (p.liquidity?.usd || 0) >= MIN_LIQUIDITY_USD);
+            dexCache = { pairs, ts: Date.now() };
+            return pairs;
+        } catch (_) {
+            return dexCache.pairs || [];
+        }
+    }
+
+    // De-duplicate pairs: keep only the highest-liquidity pair per base token
+    function dedupeByBase(pairs) {
+        const map = new Map();
+        for (const p of pairs) {
+            const key = p.baseToken?.address || p.pairAddress;
+            const existing = map.get(key);
+            if (!existing || (p.liquidity?.usd || 0) > (existing.liquidity?.usd || 0)) {
+                map.set(key, p);
+            }
+        }
+        return [...map.values()];
+    }
+
+    function pairLabel(p) {
+        const base  = escHtml(p.baseToken?.symbol || '?');
+        const quote = escHtml(p.quoteToken?.symbol || '?');
+        return `<span class="text-white font-medium">${base}</span><span class="text-gray-500">/${quote}</span>`;
+    }
+
+    function pairLink(p) {
+        return p.url ? `<a href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 text-[10px]">↗ View</a>` : '';
+    }
+
+    function renderTokenRow(p) {
+        const price   = fmtPrice(p.priceUsd);
+        const change  = p.priceChange?.h24;
+        const vol     = fmtUsd(p.volume?.h24);
+        const liq     = fmtUsd(p.liquidity?.usd);
+        return `
+            <div class="token-row">
+                <div class="flex items-center gap-2">
+                    ${pairLabel(p)}
+                    <span class="mini-badge bg-gray-800 text-gray-400">${escHtml(p.dexId || '—')}</span>
+                    ${pairLink(p)}
+                </div>
+                <div class="text-white font-mono text-right">${price}</div>
+                <div class="text-right font-mono ${pctClass(change)}">${fmtPct(change)}</div>
+                <div class="text-right text-dark-text-secondary font-mono hide-mobile">${vol}</div>
+                <div class="text-right text-dark-text-secondary font-mono hide-mobile">${liq}</div>
+            </div>`;
+    }
+
+    function renderTableHeader() {
+        return `<div class="token-row token-row-header">
+            <div>Pair</div>
+            <div class="text-right">Price</div>
+            <div class="text-right">24h</div>
+            <div class="text-right hide-mobile">Volume</div>
+            <div class="text-right hide-mobile">Liquidity</div>
+        </div>`;
+    }
+
+    function renderMoverRow(p) {
+        const price  = fmtPrice(p.priceUsd);
+        const change = p.priceChange?.h24;
+        const vol    = fmtUsd(p.volume?.h24);
+        return `
+            <div class="flex items-center justify-between py-2 border-b border-gray-800/40 last:border-0 text-xs">
+                <div class="flex items-center gap-2">
+                    ${pairLabel(p)}
+                    ${pairLink(p)}
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-white font-mono">${price}</span>
+                    <span class="font-mono font-semibold ${pctClass(change)} w-16 text-right">${fmtPct(change)}</span>
+                </div>
+            </div>`;
+    }
+
+    async function renderTrending() {
+        const el = document.getElementById('trending-content');
+        try {
+            const pairs = await fetchDexData();
+            const deduped = dedupeByBase(pairs);
+            const sorted = [...deduped].sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0)).slice(0, 20);
+            if (!sorted.length) {
+                el.innerHTML = '<p class="text-xs text-gray-500 py-4 text-center">No trending data available.</p>';
+                return;
+            }
+            el.innerHTML = renderTableHeader() + sorted.map(renderTokenRow).join('');
+        } catch (_) {
+            el.innerHTML = '<p class="text-xs text-red-400 py-4 text-center">Failed to load trending data.</p>';
+        }
+    }
+
+    async function renderMovers() {
+        const gainersEl = document.getElementById('gainers-content');
+        const losersEl  = document.getElementById('losers-content');
+        try {
+            const pairs = await fetchDexData();
+            const deduped = dedupeByBase(pairs).filter(p => p.priceChange?.h24 != null);
+
+            const gainers = [...deduped].sort((a, b) => (b.priceChange?.h24 || 0) - (a.priceChange?.h24 || 0)).slice(0, 10);
+            const losers  = [...deduped].sort((a, b) => (a.priceChange?.h24 || 0) - (b.priceChange?.h24 || 0)).slice(0, 10);
+
+            gainersEl.innerHTML = gainers.length
+                ? gainers.map(renderMoverRow).join('')
+                : '<p class="text-xs text-gray-500 py-4 text-center">No data.</p>';
+            losersEl.innerHTML = losers.length
+                ? losers.map(renderMoverRow).join('')
+                : '<p class="text-xs text-gray-500 py-4 text-center">No data.</p>';
+        } catch (_) {
+            gainersEl.innerHTML = '<p class="text-xs text-red-400 py-4 text-center">Failed to load data.</p>';
+            losersEl.innerHTML  = '<p class="text-xs text-red-400 py-4 text-center">Failed to load data.</p>';
+        }
+    }
+
+    async function renderNewPools() {
+        const el = document.getElementById('pools-content');
+        try {
+            const pairs = await fetchDexData();
+            const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            const recent = pairs
+                .filter(p => p.pairCreatedAt && p.pairCreatedAt > weekAgo)
+                .sort((a, b) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0))
+                .slice(0, 20);
+
+            if (!recent.length) {
+                el.innerHTML = '<p class="text-xs text-gray-500 py-4 text-center">No new pools found in the last 7 days.</p>';
+                return;
+            }
+
+            el.innerHTML = `
+                <div class="token-row token-row-header" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
+                    <div>Pair</div>
+                    <div class="text-right">Created</div>
+                    <div class="text-right">Price</div>
+                    <div class="text-right hide-mobile">Volume</div>
+                    <div class="text-right hide-mobile">Liquidity</div>
+                </div>` +
+                recent.map(p => {
+                    const price = fmtPrice(p.priceUsd);
+                    return `
+                    <div class="token-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr;">
+                        <div class="flex items-center gap-2">
+                            ${pairLabel(p)}
+                            <span class="mini-badge bg-green-900/30 text-green-400 border border-green-800/30">NEW</span>
+                            ${pairLink(p)}
+                        </div>
+                        <div class="text-right text-dark-text-secondary">${timeAgo(p.pairCreatedAt)}</div>
+                        <div class="text-right text-white font-mono">${price}</div>
+                        <div class="text-right text-dark-text-secondary font-mono hide-mobile">${fmtUsd(p.volume?.h24)}</div>
+                        <div class="text-right text-dark-text-secondary font-mono hide-mobile">${fmtUsd(p.liquidity?.usd)}</div>
+                    </div>`;
+                }).join('');
+        } catch (_) {
+            el.innerHTML = '<p class="text-xs text-red-400 py-4 text-center">Failed to load new pools.</p>';
+        }
+    }
+
+    // =========================================================
+    // INTELLIGENCE DASHBOARD — WATCHLIST
+    // =========================================================
+    function loadWatchlist() {
+        try {
+            const raw = localStorage.getItem(WATCHLIST_STORAGE);
+            return raw ? JSON.parse(raw) : [];
+        } catch (_) { return []; }
+    }
+
+    function saveWatchlist(list) {
+        try { localStorage.setItem(WATCHLIST_STORAGE, JSON.stringify(list)); } catch (_) {}
+    }
+
+    function addToWatchlist(address) {
+        const list = loadWatchlist();
+        if (list.includes(address)) return false;
+        list.push(address);
+        saveWatchlist(list);
+        return true;
+    }
+
+    function removeFromWatchlist(address) {
+        const list = loadWatchlist().filter(a => a !== address);
+        saveWatchlist(list);
+    }
+
+    async function fetchWalletPreview(address) {
+        try {
+            const balances = await rpc('suix_getAllBalances', [address]);
+            const suiBal = (balances || []).find(b => isSuiCoinType(b.coinType));
+            const suiAmt = suiBal ? fmtBalance(suiBal.totalBalance, 9) : '0';
+            const tokenCount = (balances || []).length;
+            return { suiAmt, tokenCount, error: null };
+        } catch (err) {
+            return { suiAmt: '?', tokenCount: '?', error: err?.message || 'RPC error' };
+        }
+    }
+
+    async function renderWatchlist() {
+        const el = document.getElementById('watchlist-content');
+        const list = loadWatchlist();
+        if (!list.length) {
+            el.innerHTML = '<p class="text-xs text-gray-500 py-4 text-center">No addresses saved yet. Add a wallet address above to start tracking.</p>';
+            return;
+        }
+
+        // Show loading state with skeleton
+        el.innerHTML = list.map(addr => `
+            <div class="watchlist-item mb-2">
+                <div>
+                    <span class="text-white font-mono">${shortAddr(addr)}</span>
+                    <span class="text-gray-600 text-[10px] ml-2">loading…</span>
+                </div>
+                <button class="text-gray-500 hover:text-red-400 text-xs transition-colors wl-remove" data-addr="${escHtml(addr)}">✕</button>
+            </div>`).join('');
+
+        attachWatchlistRemoveHandlers();
+
+        // Fetch data for each address in parallel
+        const results = await Promise.all(list.map(async addr => {
+            const data = await fetchWalletPreview(addr);
+            return { addr, ...data };
+        }));
+
+        el.innerHTML = results.map(r => `
+            <div class="watchlist-item mb-2">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-white font-mono text-xs truncate" title="${escHtml(r.addr)}">${shortAddr(r.addr)}</span>
+                        <button class="text-gray-600 hover:text-blue-400 text-[10px] transition-colors wl-copy" data-addr="${escHtml(r.addr)}" title="Copy address">📋</button>
+                    </div>
+                    <div class="flex gap-3 text-[11px]">
+                        <span class="text-dark-text-secondary">SUI: <span class="text-white font-mono">${escHtml(String(r.suiAmt))}</span></span>
+                        <span class="text-dark-text-secondary">Tokens: <span class="text-white font-mono">${r.tokenCount}</span></span>
+                        ${r.error ? `<span class="text-red-400">${escHtml(r.error)}</span>` : ''}
+                    </div>
+                </div>
+                <button class="text-gray-500 hover:text-red-400 text-sm transition-colors ml-2 wl-remove" data-addr="${escHtml(r.addr)}" title="Remove">✕</button>
+            </div>`).join('');
+
+        attachWatchlistRemoveHandlers();
+        attachWatchlistCopyHandlers();
+    }
+
+    function attachWatchlistRemoveHandlers() {
+        document.querySelectorAll('.wl-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const addr = btn.getAttribute('data-addr');
+                if (addr) { removeFromWatchlist(addr); renderWatchlist(); }
+            });
+        });
+    }
+
+    function attachWatchlistCopyHandlers() {
+        document.querySelectorAll('.wl-copy').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const addr = btn.getAttribute('data-addr');
+                if (addr) {
+                    navigator.clipboard.writeText(addr).catch(() => {});
+                    btn.textContent = '✓';
+                    setTimeout(() => { btn.textContent = '📋'; }, 1500);
+                }
+            });
+        });
+    }
+
+    // =========================================================
+    // INTELLIGENCE DASHBOARD — TAB LOGIC
+    // =========================================================
+    document.querySelectorAll('.intel-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.getAttribute('data-tab');
+            // Update button states
+            document.querySelectorAll('.intel-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Update content visibility
+            document.querySelectorAll('.intel-tab-content').forEach(c => c.classList.remove('active'));
+            const panel = document.getElementById('tab-' + tabId);
+            if (panel) panel.classList.add('active');
+            // Lazy-load tab data on first view
+            if (tabId === 'watchlist') renderWatchlist();
+        });
+    });
+
+    // Watchlist add button
+    document.getElementById('watchlist-add-btn').addEventListener('click', () => {
+        const input = document.getElementById('watchlist-input');
+        const addr  = (input.value || '').trim();
+        if (!isValidSuiAddress(addr)) {
+            input.style.borderColor = '#F87171';
+            setTimeout(() => { input.style.borderColor = ''; }, 2000);
+            return;
+        }
+        if (addToWatchlist(addr)) {
+            input.value = '';
+            renderWatchlist();
+        } else {
+            // Already in list — flash to indicate
+            input.style.borderColor = '#FCD34D';
+            setTimeout(() => { input.style.borderColor = ''; }, 1500);
+        }
+    });
+
+    // Allow Enter key in watchlist input
+    document.getElementById('watchlist-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('watchlist-add-btn').click();
+    });
+
+    // Refresh button
+    document.getElementById('intel-refresh-btn').addEventListener('click', async () => {
+        const icon = document.getElementById('intel-refresh-icon');
+        icon.classList.add('refresh-spin');
+        dexCache = { pairs: null, ts: 0 }; // bust cache
+        await Promise.all([fetchMarketPulse(), fetchTvl(), renderTrending(), renderMovers(), renderNewPools()]);
+        icon.classList.remove('refresh-spin');
+    });
+
+    // =========================================================
+    // INTELLIGENCE DASHBOARD — AUTO INIT
+    // =========================================================
+    async function initIntelDashboard() {
+        // Fire all initial data loads in parallel
+        await Promise.all([
+            fetchMarketPulse(),
+            fetchTvl(),
+            renderTrending(),
+            renderMovers(),
+            renderNewPools(),
+        ]);
+
+        // Set up auto-refresh
+        pulseTimer = setInterval(fetchMarketPulse, PULSE_REFRESH_MS);
+        dexTimer   = setInterval(() => {
+            dexCache = { pairs: null, ts: 0 };
+            renderTrending();
+            renderMovers();
+            renderNewPools();
+        }, DEX_REFRESH_MS);
+    }
+
+    // =========================================================
     // INIT
     // =========================================================
     initWalletStandard();
+
+    // Launch the intelligence dashboard (non-blocking — doesn't delay wallet reconnect)
+    initIntelDashboard();
 
     // Auto-reconnect from persisted session (mirrors staking page behavior)
     (async function autoReconnect() {
