@@ -649,14 +649,13 @@
     const MIN_TRACKED_TOKEN_BALANCE   = 100;   // fallback minimum token count when no price is available
     const MAX_BALANCE_FRACTION_DIGITS = 6;     // fractional precision used for numeric balance calculations
 
-    // Proxy URL is injected at deploy time by the GitHub Actions workflow.
-    // The OpenAI API key is stored server-side in the proxy — never in client code.
-    const PROXY_URL = '__OPENAI_PROXY_URL__';
+    // OpenAI API key is injected at deploy time by the GitHub Actions workflow.
+    const OPENAI_KEY = '__OPENAI_API_KEY__';
 
     // Detect if the placeholder was never replaced (e.g. running from source without
-    // going through the deploy workflow, or the OPENAI_PROXY_URL secret was not set).
-    const PROXY_PLACEHOLDER = '__OPENAI_PROXY' + '_URL__';
-    const isKeyConfigured = PROXY_URL !== PROXY_PLACEHOLDER && PROXY_URL.length > 0;
+    // going through the deploy workflow, or the OPENAI_API_KEY secret was not set).
+    const KEY_PLACEHOLDER = '__OPENAI_API' + '_KEY__';
+    const isKeyConfigured = OPENAI_KEY !== KEY_PLACEHOLDER && OPENAI_KEY.length > 0;
 
     // =========================================================
     // APPLICATION STATE
@@ -1183,7 +1182,7 @@
             return;
         }
         if (!isKeyConfigured) {
-            showError('The AI service is not configured. Please ensure OPENAI_PROXY_URL is set in GitHub Actions secrets.');
+            showError('The AI service is not configured. Please ensure OPENAI_API_KEY is set in GitHub Actions secrets.');
             return;
         }
 
@@ -1267,10 +1266,11 @@ Return ONLY a valid JSON object with two string keys:
   "yield": "<markdown: 4-6 specific yield strategies tailored to these holdings — include protocol, strategy, estimated APY, risk level (Low/Medium/High), and one action item each. Always mention Alpha City $CITY staking if they hold SUI or CITY. Include native SUI staking as a baseline.>"
 }`;
 
-        const resp = await fetch(PROXY_URL, {
+        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_KEY}`,
             },
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
