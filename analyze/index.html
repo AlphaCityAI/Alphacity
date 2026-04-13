@@ -342,6 +342,12 @@
                         </div>
                     </div>
 
+                    <!-- Staked Positions (shown only when positions exist) -->
+                    <div class="glass-panel p-5 rounded-xl hidden" id="staked-panel">
+                        <h3 class="text-dark-text-secondary text-xs font-medium uppercase tracking-wider mb-3">Staked Positions</h3>
+                        <div id="staked-summary"></div>
+                    </div>
+
                 </div>
 
             </div>
@@ -1056,6 +1062,27 @@
         }
     }
 
+    async function fetchStakedSui(address) {
+        try {
+            const result = await rpc('suix_getStakes', [address]);
+            let totalPrincipal = 0n;
+            let totalReward    = 0n;
+            let positionCount  = 0;
+            for (const validator of (result || [])) {
+                for (const stake of (validator.stakes || [])) {
+                    totalPrincipal += BigInt(stake.principal || '0');
+                    if (stake.status === 'Active') {
+                        totalReward += BigInt(stake.estimatedReward || '0');
+                    }
+                    positionCount++;
+                }
+            }
+            return { totalPrincipal, totalReward, positionCount };
+        } catch (_) {
+            return { totalPrincipal: 0n, totalReward: 0n, positionCount: 0 };
+        }
+    }
+
     // =========================================================
     // PORTFOLIO DATA LOADING
     // =========================================================
@@ -1065,14 +1092,15 @@
         document.getElementById('nft-summary').innerHTML = '<p class="text-xs text-gray-600">Loading…</p>';
 
         try {
-            const [balances, allObjects, stakedCity, suiPriceUsd] = await Promise.all([
+            const [balances, allObjects, stakedCity, stakedSui, suiPriceUsd] = await Promise.all([
                 rpc('suix_getAllBalances', [address]).catch(() => []),
                 rpc('suix_getOwnedObjects', [address, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
                 fetchStakedCity(address),
+                fetchStakedSui(address),
                 fetchSuiPriceUsd(),
             ]);
 
-            portfolioData = { address, balances: balances || [], allObjects, stakedCity };
+            portfolioData = { address, balances: balances || [], allObjects, stakedCity, stakedSui };
 
             // Pre-fetch coin metadata (decimals) for all coin types
             const coinTypes = (balances || []).map(b => b.coinType).filter(Boolean);
@@ -1080,6 +1108,7 @@
 
             renderTokenList(balances || [], suiPriceUsd);
             renderObjectSummary(allObjects, balances || []);
+            renderStakedPositions(stakedSui, stakedCity);
         } catch (err) {
             document.getElementById('token-list').innerHTML =
                 `<p class="text-xs text-red-400">Failed to load: ${err?.message || err}</p>`;
@@ -1135,6 +1164,46 @@
                 <span class="text-dark-text-secondary">Coin types held</span>
                 <span class="text-white font-mono">${coinTypes}</span>
             </div>`;
+    }
+
+    function renderStakedPositions(stakedSui, stakedCity) {
+        const panel = document.getElementById('staked-panel');
+        const el    = document.getElementById('staked-summary');
+        const hasSuiStake  = stakedSui?.totalPrincipal > 0n;
+        const hasCityStake = stakedCity && stakedCity > 0n;
+
+        if (!hasSuiStake && !hasCityStake) {
+            panel.classList.add('hidden');
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        const rows = [];
+
+        if (hasSuiStake) {
+            const principal = fmtBalance(stakedSui.totalPrincipal.toString(), 9);
+            const rewardHtml = stakedSui.totalReward > 0n
+                ? `<div class="text-green-400 text-[10px]">+${fmtBalance(stakedSui.totalReward.toString(), 9)} reward</div>`
+                : '';
+            rows.push(`
+                <div class="flex justify-between items-center text-xs py-1.5 border-b border-gray-800/60">
+                    <span class="text-dark-text-secondary">Staked SUI</span>
+                    <div class="text-right">
+                        <span class="text-white font-mono">${principal} SUI</span>
+                        ${rewardHtml}
+                    </div>
+                </div>`);
+        }
+
+        if (hasCityStake) {
+            rows.push(`
+                <div class="flex justify-between items-center text-xs py-1.5">
+                    <span class="text-dark-text-secondary">Staked CITY</span>
+                    <span class="text-brand-secondary font-mono">${fmtBalance(stakedCity.toString(), 9)} CITY</span>
+                </div>`);
+        }
+
+        el.innerHTML = rows.join('');
     }
 
     // =========================================================
@@ -1208,11 +1277,13 @@
         try {
             // 1. Refresh on-chain data
             setThinkingStatus('Fetching on-chain data…');
-            const [balances, allObjects] = await Promise.all([
+            const [balances, allObjects, stakedCity, stakedSui] = await Promise.all([
                 rpc('suix_getAllBalances', [connectedAddress]).catch(() => []),
                 rpc('suix_getOwnedObjects', [connectedAddress, null, null, MAX_OBJECTS_TO_FETCH]).catch(() => null),
+                fetchStakedCity(connectedAddress),
+                fetchStakedSui(connectedAddress),
             ]);
-            const freshData = { address: connectedAddress, balances: balances || [], allObjects };
+            const freshData = { address: connectedAddress, balances: balances || [], allObjects, stakedCity, stakedSui };
 
             // Fetch coin metadata (decimals) for any new coin types
             const coinTypes = (freshData.balances).map(b => b.coinType).filter(Boolean);
@@ -1224,6 +1295,7 @@
 
             renderTokenList(freshData.balances, suiPriceUsd);
             renderObjectSummary(freshData.allObjects, freshData.balances);
+            renderStakedPositions(freshData.stakedSui, freshData.stakedCity);
             portfolioData = freshData;
 
             // 3. Call OpenAI
@@ -1354,6 +1426,19 @@ Return ONLY a valid JSON object with two string keys:
             });
             lines.push('Object breakdown:');
             Object.entries(typeCount).slice(0, 10).forEach(([t, n]) => lines.push(`  - ${t}: ${n}`));
+        }
+
+        if (data.stakedSui?.totalPrincipal > 0n) {
+            lines.push(`\nSTAKED SUI (native validator staking):`);
+            lines.push(`  - Principal: ${fmtBalance(data.stakedSui.totalPrincipal.toString(), 9)} SUI`);
+            if (data.stakedSui.totalReward > 0n) {
+                lines.push(`  - Accrued rewards: ${fmtBalance(data.stakedSui.totalReward.toString(), 9)} SUI`);
+            }
+            lines.push(`  - Active positions: ${data.stakedSui.positionCount}`);
+        }
+
+        if (data.stakedCity && data.stakedCity > 0n) {
+            lines.push(`\nSTAKED CITY: ${fmtBalance(data.stakedCity.toString(), 9)} CITY (Alpha City $CITY staking)`);
         }
 
         return lines.join('\n');
@@ -1794,9 +1879,25 @@ Return ONLY a valid JSON object with two string keys:
             const suiBal = (balances || []).find(b => isSuiCoinType(b.coinType));
             const suiAmt = suiBal ? fmtBalance(suiBal.totalBalance, 9) : '0';
             const tokenCount = (balances || []).length;
-            return { suiAmt, tokenCount, error: null };
+
+            // Top non-SUI token holdings (up to 4) sorted by raw balance
+            const holdings = (balances || [])
+                .filter(b => !isSuiCoinType(b.coinType) && hasMinimumTokenCount(b.totalBalance, coinDecimals(b.coinType)))
+                .sort((a, b) => {
+                    const aAmt = balanceAmountNumber(a.totalBalance, coinDecimals(a.coinType));
+                    const bAmt = balanceAmountNumber(b.totalBalance, coinDecimals(b.coinType));
+                    return bAmt - aAmt;
+                })
+                .slice(0, 4)
+                .map(b => ({
+                    symbol: coinSymbol(b.coinType),
+                    amount: fmtBalance(b.totalBalance, coinDecimals(b.coinType)),
+                    isCity: b.coinType === CITY_TYPE,
+                }));
+
+            return { suiAmt, tokenCount, holdings, error: null };
         } catch (err) {
-            return { suiAmt: '?', tokenCount: '?', error: err?.message || 'RPC error' };
+            return { suiAmt: '?', tokenCount: '?', holdings: [], error: err?.message || 'RPC error' };
         }
     }
 
@@ -1826,21 +1927,26 @@ Return ONLY a valid JSON object with two string keys:
             return { addr, ...data };
         }));
 
-        el.innerHTML = results.map(r => `
+        el.innerHTML = results.map(r => {
+            const holdingsHtml = (r.holdings && r.holdings.length > 0)
+                ? r.holdings.map(h => `<span class="text-dark-text-secondary">${escHtml(h.symbol)}: <span class="${h.isCity ? 'text-brand-secondary' : 'text-white'} font-mono">${escHtml(h.amount)}</span></span>`).join(' <span class="text-gray-700">·</span> ')
+                : '';
+            return `
             <div class="watchlist-item mb-2">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-white font-mono text-xs truncate" title="${escHtml(r.addr)}">${shortAddr(r.addr)}</span>
                         <button class="text-gray-600 hover:text-blue-400 text-[10px] transition-colors wl-copy" data-addr="${escHtml(r.addr)}" title="Copy address">📋</button>
                     </div>
-                    <div class="flex gap-3 text-[11px]">
+                    <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
                         <span class="text-dark-text-secondary">SUI: <span class="text-white font-mono">${escHtml(String(r.suiAmt))}</span></span>
-                        <span class="text-dark-text-secondary">Tokens: <span class="text-white font-mono">${r.tokenCount}</span></span>
+                        ${holdingsHtml}
                         ${r.error ? `<span class="text-red-400">${escHtml(r.error)}</span>` : ''}
                     </div>
                 </div>
                 <button class="text-gray-500 hover:text-red-400 text-sm transition-colors ml-2 wl-remove" data-addr="${escHtml(r.addr)}" title="Remove">✕</button>
-            </div>`).join('');
+            </div>`;
+        }).join('');
 
         attachWatchlistRemoveHandlers();
         attachWatchlistCopyHandlers();
@@ -1959,31 +2065,43 @@ Return ONLY a valid JSON object with two string keys:
         const session = loadPersistedSession();
         if (!session) return;
 
-        // Give wallets a moment to register via wallet-standard events
-        await new Promise(r => setTimeout(r, 300));
-
-        const wallets = discoverWallets();
-        const entry = wallets.find(w => w.name === session.providerName);
+        // Retry wallet discovery with increasing delays — wallet extensions register asynchronously.
+        // This mirrors the retry pattern used in connectWallet() for manual connects.
+        let entry = null;
+        for (const delay of [600, 1200]) {
+            await new Promise(r => setTimeout(r, delay));
+            const wallets = discoverWallets();
+            entry = wallets.find(w => w.name === session.providerName);
+            if (entry) break;
+        }
         if (!entry) { clearPersistedSession(); return; }
 
         try {
-            let accounts;
+            let accounts = [];
             if (entry.source === 'standard') {
-                const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
-                accounts = r?.accounts || entry.wallet.accounts || [];
+                try {
+                    // silent:true reconnects without prompting the user
+                    const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                    accounts = r?.accounts || entry.wallet.accounts || [];
+                } catch (_) {
+                    // Some wallets don't support silent mode — fall back to persisted address
+                }
             } else {
                 const p = entry.provider;
-                if (typeof p.connect === 'function') await p.connect();
-                let addrs = [];
-                if (typeof p.getAccounts === 'function') {
-                    const ac = await p.getAccounts();
-                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
-                }
-                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
-                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
-                accounts = addrs.map(addr => ({ address: addr }));
+                try {
+                    if (typeof p.connect === 'function') await p.connect();
+                    let addrs = [];
+                    if (typeof p.getAccounts === 'function') {
+                        const ac = await p.getAccounts();
+                        addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                    }
+                    if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                    if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                    accounts = addrs.map(addr => ({ address: addr }));
+                } catch (_) {}
             }
 
+            // Prefer the persisted address so reconnect works even when silent mode returns nothing
             const address = session.accountAddress ||
                             String(accounts?.[0]?.address || accounts?.[0] || '').trim();
             if (!isValidSuiAddress(address)) { clearPersistedSession(); return; }
@@ -2001,7 +2119,8 @@ Return ONLY a valid JSON object with two string keys:
 
             await loadPortfolioData(address);
         } catch (_) {
-            clearPersistedSession();
+            // Only clear on auth/address validation failures (handled above).
+            // Network errors from loadPortfolioData should not clear the session.
         }
     })();
     </script>
