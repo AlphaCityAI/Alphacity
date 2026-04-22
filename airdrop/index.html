@@ -202,7 +202,7 @@
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
                         <div>
                             <h2 class="text-white font-bold text-lg">Top $CITY Holders</h2>
-                            <p class="text-dark-text-secondary text-xs mt-0.5">Combined liquid + staked $CITY across all known staker wallets</p>
+                            <p class="text-dark-text-secondary text-xs mt-0.5">Top 20 by combined liquid + staked $CITY</p>
                         </div>
                         <button id="load-holders-btn"
                             class="px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary-hover transition-colors flex items-center gap-2">
@@ -226,9 +226,6 @@
                         <span class="text-xs text-dark-text-secondary uppercase tracking-wide font-medium">Select top:</span>
                         <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="10">Top 10</button>
                         <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="20">Top 20</button>
-                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="50">Top 50</button>
-                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="100">Top 100</button>
-                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="all">All</button>
                         <button id="holders-deselect-all-btn" class="ml-auto px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-red-500 hover:text-red-400 transition-colors">Deselect All</button>
                         <span class="text-xs text-dark-text-secondary ml-1">
                             <span id="holders-selected-count">0</span> selected
@@ -556,6 +553,27 @@
         }
     }
 
+    /** Enumerate every coin object of the given type and return a Set of owner addresses. */
+    async function queryAllCoinHolders(coinType, onProgress) {
+        const PAGE_SIZE = 50;
+        const owners = new Set();
+        let cursor = null;
+        for (;;) {
+            const r = await rpc('suix_queryObjects', [
+                { filter: { StructType: `0x2::coin::Coin<${coinType}>` }, options: { showOwner: true } },
+                cursor, PAGE_SIZE, false
+            ]);
+            for (const item of (r.data || [])) {
+                const addr = item.data?.owner?.AddressOwner;
+                if (addr) owners.add(addr);
+            }
+            if (onProgress) onProgress(owners.size);
+            if (!r.hasNextPage) break;
+            cursor = r.nextCursor;
+        }
+        return owners;
+    }
+
     // ================================================================
     // LEADERBOARD
     // ================================================================
@@ -814,7 +832,7 @@
             let completed = 0;
             const updateEventProgress = (msg) => {
                 completed++;
-                const pct = Math.round((completed / (totalPackages * 3)) * 30);
+                const pct = Math.round((completed / (totalPackages * 3)) * 20);
                 progBar.style.width = pct + '%';
                 progText.textContent = msg;
             };
@@ -825,7 +843,7 @@
                 queryAllEvents(`${pkg}::city_staking::Unstaked`).then(r       => { updateEventProgress('Processing Unstaked…');       return r; }),
             ]));
 
-            progBar.style.width = '30%';
+            progBar.style.width = '20%';
             progText.textContent = 'Computing staked balances…';
 
             // Process staking events to compute per-wallet staked CITY
@@ -868,13 +886,21 @@
                 walletStaked.set(owner, (walletStaked.get(owner) || 0n) + amount);
             }
 
-            // Collect all unique addresses from staking history
-            const allAddresses = [...new Set(stakeOwners.values())];
+            // Step 2: Enumerate all on-chain CITY coin object owners (includes non-stakers)
+            progBar.style.width = '25%';
+            progText.textContent = 'Scanning $CITY coin holders on-chain…';
+            const coinHolderAddresses = await queryAllCoinHolders(CITY_TYPE, (found) => {
+                progText.textContent = `Scanning $CITY coin holders… (${found} found so far)`;
+            });
+
+            // Union: stakers + coin object owners
+            for (const addr of stakeOwners.values()) coinHolderAddresses.add(addr);
+            const allAddresses = [...coinHolderAddresses];
 
             progBar.style.width = '40%';
             progText.textContent = `Fetching $CITY balances for ${allAddresses.length} wallets…`;
 
-            // Step 2: Batch-fetch liquid CITY balances (20 at a time)
+            // Step 3: Batch-fetch liquid CITY balances (20 at a time)
             const BATCH_SIZE = 20;
             const walletLiquid = new Map();
             const batchCount = Math.max(1, Math.ceil(allAddresses.length / BATCH_SIZE));
@@ -898,7 +924,7 @@
             progBar.style.width = '98%';
             progText.textContent = 'Building holders leaderboard…';
 
-            // Step 3: Combine liquid + staked, filter zero balances, sort by total descending
+            // Step 4: Combine liquid + staked, filter zero balances, sort by total descending, cap at 20
             holdersData = allAddresses
                 .map(address => {
                     const liquidAtomic = walletLiquid.get(address) || 0n;
@@ -907,10 +933,11 @@
                     return { address, liquidAtomic, stakedAtomic, totalAtomic };
                 })
                 .filter(e => e.totalAtomic > 0n)
-                .sort((a, b) => a.totalAtomic > b.totalAtomic ? -1 : a.totalAtomic < b.totalAtomic ? 1 : a.address.localeCompare(b.address));
+                .sort((a, b) => a.totalAtomic > b.totalAtomic ? -1 : a.totalAtomic < b.totalAtomic ? 1 : a.address.localeCompare(b.address))
+                .slice(0, 20);
 
             progBar.style.width = '100%';
-            progText.textContent = `Loaded ${holdersData.length} holders.`;
+            progText.textContent = `Loaded top ${holdersData.length} holders.`;
 
             renderHoldersLeaderboard();
             document.getElementById('holders-topn-bar').classList.remove('hidden');
