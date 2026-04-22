@@ -553,23 +553,49 @@
         }
     }
 
-    /** Enumerate every coin object of the given type and return a Set of owner addresses. */
+    /** Enumerate every coin object of the given type and return a Set of owner addresses.
+     *  Uses the Sui GraphQL API because suix_queryObjects is indexer-only and not
+     *  available on the standard public fullnode.
+     */
     async function queryAllCoinHolders(coinType, onProgress) {
         const PAGE_SIZE = 50;
-        const owners = new Set();
-        let cursor = null;
+        const GQL_URL   = 'https://api.mainnet.sui.io/graphql';
+        const owners    = new Set();
+        let cursor      = null;
+        const query = `query($filter: ObjectFilter!, $first: Int!, $after: String) {
+  objects(filter: $filter, first: $first, after: $after) {
+    nodes {
+      owner {
+        ... on AddressOwner {
+          owner { address }
+        }
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}`;
         for (;;) {
-            const r = await rpc('suix_queryObjects', [
-                { filter: { StructType: `0x2::coin::Coin<${coinType}>` }, options: { showOwner: true } },
-                cursor, PAGE_SIZE, false
-            ]);
-            for (const item of (r.data || [])) {
-                const addr = item.data?.owner?.AddressOwner;
+            const variables = {
+                filter: { type: `0x2::coin::Coin<${coinType}>` },
+                first:  PAGE_SIZE,
+                after:  cursor,
+            };
+            const res = await fetch(GQL_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ query, variables }),
+            });
+            if (!res.ok) throw new Error(`SUI GraphQL HTTP ${res.status}`);
+            const data = await res.json();
+            if (data.errors?.length) throw new Error(`SUI GraphQL: ${data.errors[0].message}`);
+            const objects = data.data?.objects;
+            for (const node of (objects?.nodes || [])) {
+                const addr = node.owner?.owner?.address;
                 if (addr) owners.add(addr);
             }
             if (onProgress) onProgress(owners.size);
-            if (!r.hasNextPage) break;
-            cursor = r.nextCursor;
+            if (!objects?.pageInfo?.hasNextPage) break;
+            cursor = objects.pageInfo.endCursor;
         }
         return owners;
     }
