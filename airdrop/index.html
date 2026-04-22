@@ -329,8 +329,12 @@
     }
 
     function formatAmount(amount, decimals) {
-        const mult = 10n ** BigInt(decimals);
-        const atomic = BigInt(Math.round(amount * Number(mult)));
+        // Use string-based parsing to avoid floating-point precision loss with BigInt
+        const amountStr = typeof amount === 'string' ? amount : amount.toString();
+        const [wholePart, fracPart = ''] = amountStr.split('.');
+        const mult       = 10n ** BigInt(decimals);
+        const fracPadded = fracPart.slice(0, decimals).padEnd(decimals, '0');
+        const atomic     = BigInt(wholePart || '0') * mult + BigInt(fracPadded || '0');
         const whole = atomic / mult;
         const frac  = atomic % mult;
         if (frac === 0n) return whole.toLocaleString();
@@ -512,10 +516,10 @@
                 stakerCredits.set(staker, (stakerCredits.get(staker) || 0n) + claimed);
             }
 
-            // Sort descending by credits
+            // Sort descending by credits (highest first)
             leaderboardData = [...stakerCredits.entries()]
                 .map(([address, creditsAtomic]) => ({ address, creditsAtomic }))
-                .sort((a, b) => b.creditsAtomic > a.creditsAtomic ? 1 : b.creditsAtomic < a.creditsAtomic ? -1 : a.address.localeCompare(b.address));
+                .sort((a, b) => a.creditsAtomic > b.creditsAtomic ? -1 : a.creditsAtomic < b.creditsAtomic ? 1 : a.address.localeCompare(b.address));
 
             progBar.style.width = '100%';
             progText.textContent = `Loaded ${leaderboardData.length} stakers.`;
@@ -626,6 +630,17 @@
             cb.checked       = false;
             cb.indeterminate = true;
         }
+    }
+
+    function deselectAll() {
+        selectedAddresses.clear();
+        document.querySelectorAll('.row-cb').forEach(cb => {
+            cb.checked = false;
+            const tr = cb.closest('tr');
+            if (tr) tr.classList.remove('bg-brand-primary/5');
+        });
+        updateSelectedCount();
+        updateSelectAllState();
     }
 
     function selectTopN(n) {
@@ -1252,7 +1267,7 @@
     });
 
     // Deselect all button
-    document.getElementById('deselect-all-btn').addEventListener('click', () => selectTopN(0));
+    document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
 
     // Top-N buttons
     document.querySelectorAll('.topn-btn').forEach(btn => {
