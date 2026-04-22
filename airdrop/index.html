@@ -121,6 +121,18 @@
             <!-- LEFT: Leaderboard -->
             <div class="xl:col-span-2 space-y-6">
 
+                <!-- Tab switcher -->
+                <div class="flex space-x-2 bg-dark-bg p-1 rounded-xl border border-gray-800 inline-flex">
+                    <button id="tab-credits" class="px-6 py-2 rounded-lg font-bold text-sm transition-all bg-brand-primary text-white shadow-lg">
+                        Citizen Credits
+                    </button>
+                    <button id="tab-holders" class="px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white">
+                        Top $CITY Holders
+                    </button>
+                </div>
+
+                <!-- CREDITS PANE -->
+                <div id="credits-pane">
                 <!-- Leaderboard Card -->
                 <div class="bg-dark-card rounded-2xl border border-gray-800 overflow-hidden">
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
@@ -182,6 +194,73 @@
                         </table>
                     </div>
                 </div>
+                </div><!-- end credits-pane -->
+
+                <!-- HOLDERS PANE -->
+                <div id="holders-pane" class="hidden">
+                <div class="bg-dark-card rounded-2xl border border-gray-800 overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                        <div>
+                            <h2 class="text-white font-bold text-lg">Top $CITY Holders</h2>
+                            <p class="text-dark-text-secondary text-xs mt-0.5">Combined liquid + staked $CITY across all known staker wallets</p>
+                        </div>
+                        <button id="load-holders-btn"
+                            class="px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary-hover transition-colors flex items-center gap-2">
+                            <svg id="holders-lb-icon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+                            </svg>
+                            <span id="holders-lb-btn-text">Load Holders</span>
+                        </button>
+                    </div>
+
+                    <!-- Loading bar -->
+                    <div id="holders-progress" class="hidden px-6 py-3 border-b border-gray-700 bg-dark-bg/40">
+                        <p id="holders-progress-text" class="text-xs text-dark-text-secondary mb-1">Fetching on-chain data…</p>
+                        <div class="w-full bg-gray-700 rounded-full h-1.5">
+                            <div id="holders-progress-bar" class="bg-brand-primary h-1.5 rounded-full transition-all duration-300" style="width:0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Top-N Quick Select -->
+                    <div id="holders-topn-bar" class="hidden px-6 py-3 border-b border-gray-700 bg-dark-bg/20 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-dark-text-secondary uppercase tracking-wide font-medium">Select top:</span>
+                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="10">Top 10</button>
+                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="20">Top 20</button>
+                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="50">Top 50</button>
+                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="100">Top 100</button>
+                        <button class="holders-topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="all">All</button>
+                        <button id="holders-deselect-all-btn" class="ml-auto px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-red-500 hover:text-red-400 transition-colors">Deselect All</button>
+                        <span class="text-xs text-dark-text-secondary ml-1">
+                            <span id="holders-selected-count">0</span> selected
+                        </span>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700 bg-dark-bg/40">
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider w-10">
+                                        <input type="checkbox" id="holders-select-all-cb" class="rounded accent-brand-primary cursor-pointer" disabled>
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider w-12">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Address</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Liquid $CITY</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Staked $CITY</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Total $CITY</th>
+                                </tr>
+                            </thead>
+                            <tbody id="holders-tbody">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-dark-text-secondary text-sm">
+                                        Click "Load Holders" to fetch combined liquid + staked $CITY balances.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div><!-- end holders-pane -->
 
             </div>
 
@@ -308,8 +387,50 @@
     let connectedAccount     = null;
     let connectedWalletEntry = null;
     let leaderboardData      = [];   // [{address, creditsAtomic}]
+    let holdersData          = [];   // [{address, liquidAtomic, stakedAtomic, totalAtomic}]
+    let activeTab            = 'credits'; // 'credits' | 'holders'
     let selectedAddresses    = new Set();
     let currentTokenType     = 'city';  // 'city' | 'sui' | 'custom'
+
+    // ================================================================
+    // TAB HELPERS
+    // ================================================================
+    function getActiveLeaderboardData() {
+        return activeTab === 'credits' ? leaderboardData : holdersData;
+    }
+
+    function getActiveSelectAllCb() {
+        return activeTab === 'credits'
+            ? document.getElementById('select-all-cb')
+            : document.getElementById('holders-select-all-cb');
+    }
+
+    function getActiveRowCbSelector() {
+        return activeTab === 'credits' ? '.row-cb' : '.holders-row-cb';
+    }
+
+    function switchTab(tab) {
+        activeTab = tab;
+        const creditsBtn = document.getElementById('tab-credits');
+        const holdersBtn = document.getElementById('tab-holders');
+        const activeClass   = 'px-6 py-2 rounded-lg font-bold text-sm transition-all bg-brand-primary text-white shadow-lg';
+        const inactiveClass = 'px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white';
+        if (tab === 'credits') {
+            creditsBtn.className = activeClass;
+            holdersBtn.className = inactiveClass;
+            document.getElementById('credits-pane').classList.remove('hidden');
+            document.getElementById('holders-pane').classList.add('hidden');
+        } else {
+            holdersBtn.className = activeClass;
+            creditsBtn.className = inactiveClass;
+            document.getElementById('holders-pane').classList.remove('hidden');
+            document.getElementById('credits-pane').classList.add('hidden');
+        }
+        selectedAddresses.clear();
+        updateSelectedCount();
+        updateSelectAllState();
+        updateExecuteBtn();
+    }
 
     document.getElementById('current-year').textContent = new Date().getFullYear();
 
@@ -613,17 +734,22 @@
     }
 
     function updateSelectedCount() {
-        document.getElementById('selected-count').textContent = selectedAddresses.size;
+        const count = selectedAddresses.size;
+        const el1 = document.getElementById('selected-count');
+        const el2 = document.getElementById('holders-selected-count');
+        if (el1) el1.textContent = count;
+        if (el2) el2.textContent = count;
         updateSummary();
         updateExecuteBtn();
     }
 
     function updateSelectAllState() {
-        const cb = document.getElementById('select-all-cb');
+        const cb = getActiveSelectAllCb();
+        if (!cb) return;
         if (selectedAddresses.size === 0) {
             cb.checked       = false;
             cb.indeterminate = false;
-        } else if (selectedAddresses.size === leaderboardData.length) {
+        } else if (selectedAddresses.size === getActiveLeaderboardData().length) {
             cb.checked       = true;
             cb.indeterminate = false;
         } else {
@@ -634,7 +760,7 @@
 
     function deselectAll() {
         selectedAddresses.clear();
-        document.querySelectorAll('.row-cb').forEach(cb => {
+        document.querySelectorAll(getActiveRowCbSelector()).forEach(cb => {
             cb.checked = false;
             const tr = cb.closest('tr');
             if (tr) tr.classList.remove('bg-brand-primary/5');
@@ -644,11 +770,12 @@
     }
 
     function selectTopN(n) {
+        const data = getActiveLeaderboardData();
         selectedAddresses.clear();
-        const limit = (n === 'all') ? leaderboardData.length : Math.min(n, leaderboardData.length);
-        for (let i = 0; i < limit; i++) selectedAddresses.add(leaderboardData[i].address);
+        const limit = (n === 'all') ? data.length : Math.min(n, data.length);
+        for (let i = 0; i < limit; i++) selectedAddresses.add(data[i].address);
         // Re-render checkboxes without full re-render
-        document.querySelectorAll('.row-cb').forEach(cb => {
+        document.querySelectorAll(getActiveRowCbSelector()).forEach(cb => {
             const addr = cb.dataset.address;
             cb.checked = selectedAddresses.has(addr);
             const tr = cb.closest('tr');
@@ -659,6 +786,222 @@
         });
         updateSelectedCount();
         updateSelectAllState();
+    }
+
+    // ================================================================
+    // HOLDERS LEADERBOARD
+    // ================================================================
+    async function loadHoldersLeaderboard() {
+        const btn      = document.getElementById('load-holders-btn');
+        const icon     = document.getElementById('holders-lb-icon');
+        const text     = document.getElementById('holders-lb-btn-text');
+        const prog     = document.getElementById('holders-progress');
+        const progText = document.getElementById('holders-progress-text');
+        const progBar  = document.getElementById('holders-progress-bar');
+        const tbody    = document.getElementById('holders-tbody');
+
+        btn.disabled = true;
+        icon.classList.add('spin');
+        text.textContent = 'Loading…';
+        prog.classList.remove('hidden');
+        progText.textContent = 'Fetching staking events…';
+        progBar.style.width = '0%';
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-dark-text-secondary text-sm">Fetching on-chain events…</td></tr>`;
+
+        try {
+            // Step 1: Fetch StakeCreated, StakeIncreased, Unstaked events
+            const totalPackages = STAKING_PKGS.length;
+            let completed = 0;
+            const updateEventProgress = (msg) => {
+                completed++;
+                const pct = Math.round((completed / (totalPackages * 3)) * 30);
+                progBar.style.width = pct + '%';
+                progText.textContent = msg;
+            };
+
+            const eventResults = await Promise.all(STAKING_PKGS.flatMap(pkg => [
+                queryAllEvents(`${pkg}::city_staking::StakeCreated`).then(r  => { updateEventProgress('Processing StakeCreated…');  return r; }),
+                queryAllEvents(`${pkg}::city_staking::StakeIncreased`).then(r => { updateEventProgress('Processing StakeIncreased…'); return r; }),
+                queryAllEvents(`${pkg}::city_staking::Unstaked`).then(r       => { updateEventProgress('Processing Unstaked…');       return r; }),
+            ]));
+
+            progBar.style.width = '30%';
+            progText.textContent = 'Computing staked balances…';
+
+            // Process staking events to compute per-wallet staked CITY
+            const stakeAmounts = new Map(); // stakeId → staked CITY atomic
+            const stakeOwners  = new Map(); // stakeId → address
+
+            for (let i = 0; i < totalPackages; i++) {
+                const stakeCreated   = eventResults[i * 3 + 0];
+                const stakeIncreased = eventResults[i * 3 + 1];
+                const unstaked       = eventResults[i * 3 + 2];
+
+                stakeCreated.forEach(ev => {
+                    const p = ev.parsedJson || {};
+                    if (!p.stake_id) return;
+                    const amount = BigInt(p.amount || '0');
+                    stakeAmounts.set(p.stake_id, (stakeAmounts.get(p.stake_id) || 0n) + amount);
+                    if (p.staker) stakeOwners.set(p.stake_id, p.staker);
+                });
+
+                stakeIncreased.forEach(ev => {
+                    const p = ev.parsedJson || {};
+                    if (!p.stake_id) return;
+                    const added = BigInt(p.added_amount || '0');
+                    stakeAmounts.set(p.stake_id, (stakeAmounts.get(p.stake_id) || 0n) + added);
+                });
+
+                unstaked.forEach(ev => {
+                    const p = ev.parsedJson || {};
+                    if (!p.stake_id) return;
+                    stakeAmounts.set(p.stake_id, 0n);
+                    if (p.staker) stakeOwners.set(p.stake_id, p.staker);
+                });
+            }
+
+            // Sum staked per wallet
+            const walletStaked = new Map(); // address → total staked CITY atomic
+            for (const [stakeId, amount] of stakeAmounts.entries()) {
+                const owner = stakeOwners.get(stakeId);
+                if (!owner) continue;
+                walletStaked.set(owner, (walletStaked.get(owner) || 0n) + amount);
+            }
+
+            // Collect all unique addresses from staking history
+            const allAddresses = [...new Set(stakeOwners.values())];
+
+            progBar.style.width = '40%';
+            progText.textContent = `Fetching $CITY balances for ${allAddresses.length} wallets…`;
+
+            // Step 2: Batch-fetch liquid CITY balances (20 at a time)
+            const BATCH_SIZE = 20;
+            const walletLiquid = new Map();
+            const batchCount = Math.max(1, Math.ceil(allAddresses.length / BATCH_SIZE));
+            const progressPerBatch = 55 / batchCount;
+            let progressCurrent = 40;
+
+            for (let i = 0; i < allAddresses.length; i += BATCH_SIZE) {
+                const batch = allAddresses.slice(i, i + BATCH_SIZE);
+                const results = await Promise.allSettled(
+                    batch.map(addr => fetchCoinBalance(addr, CITY_TYPE))
+                );
+                batch.forEach((addr, j) => {
+                    const r = results[j];
+                    walletLiquid.set(addr, r.status === 'fulfilled' ? r.value : 0n);
+                });
+                progressCurrent += progressPerBatch;
+                progBar.style.width = Math.min(Math.round(progressCurrent), 95) + '%';
+                progText.textContent = `Fetching balances… (${Math.min(i + BATCH_SIZE, allAddresses.length)}/${allAddresses.length})`;
+            }
+
+            progBar.style.width = '98%';
+            progText.textContent = 'Building holders leaderboard…';
+
+            // Step 3: Combine liquid + staked, filter zero balances, sort by total descending
+            holdersData = allAddresses
+                .map(address => {
+                    const liquidAtomic = walletLiquid.get(address) || 0n;
+                    const stakedAtomic = walletStaked.get(address) || 0n;
+                    const totalAtomic  = liquidAtomic + stakedAtomic;
+                    return { address, liquidAtomic, stakedAtomic, totalAtomic };
+                })
+                .filter(e => e.totalAtomic > 0n)
+                .sort((a, b) => a.totalAtomic > b.totalAtomic ? -1 : a.totalAtomic < b.totalAtomic ? 1 : a.address.localeCompare(b.address));
+
+            progBar.style.width = '100%';
+            progText.textContent = `Loaded ${holdersData.length} holders.`;
+
+            renderHoldersLeaderboard();
+            document.getElementById('holders-topn-bar').classList.remove('hidden');
+            document.getElementById('holders-select-all-cb').disabled = false;
+
+        } catch (err) {
+            console.error('[airdrop] loadHoldersLeaderboard error:', err);
+            showStatus('Failed to load holders: ' + (err?.message || String(err)), 'error');
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-400 text-sm">Error loading holders. See status bar below.</td></tr>`;
+        } finally {
+            btn.disabled = false;
+            icon.classList.remove('spin');
+            text.textContent = 'Refresh';
+            setTimeout(() => prog.classList.add('hidden'), 2000);
+        }
+    }
+
+    function formatCityAmount(atomic) {
+        const n = typeof atomic === 'bigint' ? atomic : BigInt(atomic);
+        const divisor = 10n ** BigInt(CITY_DECIMALS);
+        const whole = n / divisor;
+        const frac  = n % divisor;
+        if (frac === 0n) return whole.toLocaleString();
+        const fracStr = frac.toString().padStart(CITY_DECIMALS, '0').replace(/0+$/, '').slice(0, 4);
+        return `${whole.toLocaleString()}.${fracStr}`;
+    }
+
+    function renderHoldersLeaderboard() {
+        const tbody = document.getElementById('holders-tbody');
+        if (!holdersData.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-dark-text-secondary text-sm">No $CITY holder data found on-chain.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        holdersData.forEach((entry, idx) => {
+            const rank = idx + 1;
+            const isSelected = selectedAddresses.has(entry.address);
+
+            const tr = document.createElement('tr');
+            tr.className = `border-b border-gray-700/50 hover:bg-dark-bg/30 transition-colors ${isSelected ? 'bg-brand-primary/5' : ''}`;
+            tr.dataset.address = entry.address;
+
+            const tdCb = document.createElement('td');
+            tdCb.className = 'px-4 py-3';
+            const cb = document.createElement('input');
+            cb.type      = 'checkbox';
+            cb.checked   = isSelected;
+            cb.className = 'rounded accent-brand-primary cursor-pointer holders-row-cb';
+            cb.dataset.address = entry.address;
+            cb.addEventListener('change', () => onRowCheckbox(entry.address, cb.checked, tr));
+            tdCb.appendChild(cb);
+
+            const tdRank = document.createElement('td');
+            tdRank.className = 'px-4 py-3 text-dark-text-secondary font-mono text-xs';
+            tdRank.textContent = rank;
+
+            const tdAddr = document.createElement('td');
+            tdAddr.className = 'px-4 py-3';
+            const addrSpan = document.createElement('span');
+            addrSpan.className = 'font-mono text-brand-primary text-xs';
+            addrSpan.textContent = shortAddr(entry.address);
+            addrSpan.title = entry.address;
+            const fullDiv = document.createElement('div');
+            fullDiv.className = 'hidden lg:block text-dark-text-secondary text-xs mt-0.5 font-mono';
+            fullDiv.textContent = entry.address;
+            tdAddr.appendChild(addrSpan);
+            tdAddr.appendChild(fullDiv);
+
+            const tdLiquid = document.createElement('td');
+            tdLiquid.className = 'px-4 py-3 text-right text-dark-text-secondary font-mono text-xs';
+            tdLiquid.textContent = formatCityAmount(entry.liquidAtomic);
+
+            const tdStaked = document.createElement('td');
+            tdStaked.className = 'px-4 py-3 text-right text-dark-text-secondary font-mono text-xs';
+            tdStaked.textContent = formatCityAmount(entry.stakedAtomic);
+
+            const tdTotal = document.createElement('td');
+            tdTotal.className = 'px-4 py-3 text-right text-white font-mono text-xs font-bold';
+            tdTotal.textContent = formatCityAmount(entry.totalAtomic);
+
+            tr.appendChild(tdCb);
+            tr.appendChild(tdRank);
+            tr.appendChild(tdAddr);
+            tr.appendChild(tdLiquid);
+            tr.appendChild(tdStaked);
+            tr.appendChild(tdTotal);
+            tbody.appendChild(tr);
+        });
+
+        updateSelectedCount();
     }
 
     // ================================================================
@@ -706,7 +1049,7 @@
             btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
             return;
         }
-        if (!leaderboardData.length) {
+        if (!getActiveLeaderboardData().length) {
             btn.textContent = 'Load Leaderboard First';
             btn.disabled    = true;
             btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
@@ -1244,6 +1587,10 @@
     // EVENT LISTENERS
     // ================================================================
 
+    // Tab switching
+    document.getElementById('tab-credits').addEventListener('click', () => switchTab('credits'));
+    document.getElementById('tab-holders').addEventListener('click', () => switchTab('holders'));
+
     // Load leaderboard button
     document.getElementById('load-leaderboard-btn').addEventListener('click', loadLeaderboard);
 
@@ -1268,6 +1615,46 @@
 
     // Deselect all button
     document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
+
+    // Load holders button
+    document.getElementById('load-holders-btn').addEventListener('click', loadHoldersLeaderboard);
+
+    // Holders select all checkbox
+    document.getElementById('holders-select-all-cb').addEventListener('change', function () {
+        const checked = this.checked;
+        if (checked) {
+            holdersData.forEach(e => selectedAddresses.add(e.address));
+        } else {
+            selectedAddresses.clear();
+        }
+        document.querySelectorAll('.holders-row-cb').forEach(cb => {
+            cb.checked = checked;
+            const tr = cb.closest('tr');
+            if (tr) {
+                if (checked) tr.classList.add('bg-brand-primary/5');
+                else         tr.classList.remove('bg-brand-primary/5');
+            }
+        });
+        updateSelectedCount();
+    });
+
+    // Holders deselect all button
+    document.getElementById('holders-deselect-all-btn').addEventListener('click', deselectAll);
+
+    // Holders Top-N buttons
+    document.querySelectorAll('.holders-topn-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const n = btn.dataset.n === 'all' ? 'all' : parseInt(btn.dataset.n, 10);
+            selectTopN(n);
+            // Highlight active button
+            document.querySelectorAll('.holders-topn-btn').forEach(b => {
+                b.classList.remove('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+                b.classList.add('border-gray-700', 'text-dark-text-secondary');
+            });
+            btn.classList.remove('border-gray-700', 'text-dark-text-secondary');
+            btn.classList.add('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+        });
+    });
 
     // Top-N buttons
     document.querySelectorAll('.topn-btn').forEach(btn => {
