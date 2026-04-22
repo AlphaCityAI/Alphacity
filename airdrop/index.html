@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airdrop Tool - Alpha City (Admin)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fix for SUI SDK globals -->
+    <script>window.global = window;</script>
+
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'brand-primary':         tailwind.colors.blue[500],
+                        'brand-primary-hover':   tailwind.colors.blue[400],
+                        'brand-secondary':       tailwind.colors.yellow[400],
+                        'brand-secondary-hover': tailwind.colors.yellow[300],
+                        'dark-bg':               '#111827',
+                        'dark-card':             '#1F2937',
+                        'dark-text':             '#E5E7EB',
+                        'dark-text-secondary':   '#9CA3AF',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Remove number input spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+    </style>
+
+    <script type="module">
+        window._suiTxReady = import('https://esm.sh/@mysten/sui@1.25.0/transactions')
+            .then(mod => { window._SuiTransaction = mod.Transaction; return mod; })
+            .catch(err => { console.warn('[airdrop] Could not load @mysten/sui Transaction:', err); return null; });
+    </script>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- ============================================================
+         Navigation
+         ============================================================ -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="/" class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>Alpha<span class="text-brand-secondary"> City</span></span>
+                    <span class="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded border border-red-500/30 uppercase tracking-wide font-bold ml-2">Admin</span>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="/" class="text-dark-text-secondary hover:text-white transition-colors text-sm">Back to Home</a>
+                    <button id="connect-wallet-btn"
+                        class="bg-brand-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-brand-primary-hover shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="wallet-text">Connect Wallet</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        <!-- Page Title -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white">Airdrop Tool</h1>
+            <p class="text-dark-text-secondary mt-1">Send tokens to the top $CITY stakers by accumulated Citizen Credits.</p>
+        </div>
+
+        <!-- Warning Banner -->
+        <div class="mb-8 p-4 rounded-xl border border-yellow-500/40 bg-yellow-500/10 flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-yellow-300 text-sm leading-relaxed">
+                <strong class="text-yellow-200">Caution:</strong> Transactions submitted from this page will spend tokens from your connected wallet and cannot be reversed. Verify all settings before executing the airdrop.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+
+            <!-- LEFT: Leaderboard -->
+            <div class="xl:col-span-2 space-y-6">
+
+                <!-- Leaderboard Card -->
+                <div class="bg-dark-card rounded-2xl border border-gray-800 overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                        <div>
+                            <h2 class="text-white font-bold text-lg">Citizen Credits Leaderboard</h2>
+                            <p class="text-dark-text-secondary text-xs mt-0.5">Based on total lifetime claimed credits from staking events</p>
+                        </div>
+                        <button id="load-leaderboard-btn"
+                            class="px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary-hover transition-colors flex items-center gap-2">
+                            <svg id="lb-icon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+                            </svg>
+                            <span id="lb-btn-text">Load Leaderboard</span>
+                        </button>
+                    </div>
+
+                    <!-- Loading bar -->
+                    <div id="lb-progress" class="hidden px-6 py-3 border-b border-gray-700 bg-dark-bg/40">
+                        <p id="lb-progress-text" class="text-xs text-dark-text-secondary mb-1">Fetching on-chain events…</p>
+                        <div class="w-full bg-gray-700 rounded-full h-1.5">
+                            <div id="lb-progress-bar" class="bg-brand-primary h-1.5 rounded-full transition-all duration-300" style="width:0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Top-N Quick Select -->
+                    <div id="topn-bar" class="hidden px-6 py-3 border-b border-gray-700 bg-dark-bg/20 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-dark-text-secondary uppercase tracking-wide font-medium">Select top:</span>
+                        <button class="topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="10">Top 10</button>
+                        <button class="topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="20">Top 20</button>
+                        <button class="topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="50">Top 50</button>
+                        <button class="topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="100">Top 100</button>
+                        <button class="topn-btn px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-brand-primary hover:text-white transition-colors" data-n="all">All</button>
+                        <button id="deselect-all-btn" class="ml-auto px-3 py-1 text-xs rounded border border-gray-700 text-dark-text-secondary hover:border-red-500 hover:text-red-400 transition-colors">Deselect All</button>
+                        <span class="text-xs text-dark-text-secondary ml-1">
+                            <span id="selected-count">0</span> selected
+                        </span>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700 bg-dark-bg/40">
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider w-10">
+                                        <input type="checkbox" id="select-all-cb" class="rounded accent-brand-primary cursor-pointer" disabled>
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider w-12">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Address</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-dark-text-secondary uppercase tracking-wider">Claimed Credits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-tbody">
+                                <tr>
+                                    <td colspan="4" class="px-6 py-12 text-center text-dark-text-secondary text-sm">
+                                        Connect your wallet and click "Load Leaderboard" to fetch on-chain staking data.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT: Airdrop Config -->
+            <div class="space-y-6">
+
+                <!-- Token Config Card -->
+                <div class="bg-dark-card rounded-2xl border border-gray-800 p-6">
+                    <h2 class="text-white font-bold text-lg mb-5">Airdrop Configuration</h2>
+
+                    <!-- Token Type -->
+                    <div class="mb-5">
+                        <label class="block text-xs font-medium text-dark-text-secondary uppercase tracking-wider mb-2">Token</label>
+                        <div class="grid grid-cols-3 gap-2 mb-3">
+                            <button class="token-preset-btn px-3 py-2 text-sm rounded-lg border border-brand-primary bg-brand-primary/10 text-white font-medium transition-all" data-type="city">$CITY</button>
+                            <button class="token-preset-btn px-3 py-2 text-sm rounded-lg border border-gray-700 text-dark-text-secondary hover:border-gray-500 transition-all" data-type="sui">SUI</button>
+                            <button class="token-preset-btn px-3 py-2 text-sm rounded-lg border border-gray-700 text-dark-text-secondary hover:border-gray-500 transition-all" data-type="custom">Custom</button>
+                        </div>
+                        <div id="custom-token-fields" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-xs text-dark-text-secondary mb-1">Coin Type</label>
+                                <input id="custom-coin-type" type="text" placeholder="0xPACKAGE::module::TYPE"
+                                    class="w-full bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary transition-colors font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-dark-text-secondary mb-1">Decimals</label>
+                                <input id="custom-decimals" type="number" placeholder="9" value="9"
+                                    class="w-full bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-primary transition-colors">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Amount Per Recipient -->
+                    <div class="mb-5">
+                        <label class="block text-xs font-medium text-dark-text-secondary uppercase tracking-wider mb-2">Amount Per Recipient</label>
+                        <div class="bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 flex items-center gap-2 focus-within:border-brand-primary transition-colors">
+                            <input id="amount-input" type="number" placeholder="0" min="0"
+                                class="bg-transparent text-white text-lg font-bold w-full outline-none placeholder-gray-700">
+                            <span id="token-symbol" class="text-dark-text-secondary text-sm font-medium shrink-0">$CITY</span>
+                        </div>
+                    </div>
+
+                    <!-- Sender Balance -->
+                    <div id="sender-balance-row" class="hidden mb-5 p-3 bg-dark-bg rounded-lg border border-gray-700 flex justify-between items-center text-sm">
+                        <span class="text-dark-text-secondary">Your Balance</span>
+                        <span id="sender-balance-display" class="text-white font-mono">—</span>
+                    </div>
+
+                    <!-- Summary Box -->
+                    <div id="airdrop-summary" class="mb-5 p-4 bg-dark-bg rounded-xl border border-gray-700 space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-dark-text-secondary">Recipients</span>
+                            <span id="summary-count" class="text-white font-mono">0</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-dark-text-secondary">Amount each</span>
+                            <span id="summary-each" class="text-white font-mono">0</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-t border-gray-700 pt-2 mt-2">
+                            <span class="text-dark-text-secondary font-medium">Total to send</span>
+                            <span id="summary-total" class="text-brand-secondary font-bold font-mono">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Execute Button -->
+                    <button id="execute-btn" disabled
+                        class="w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base">
+                        Connect Wallet to Continue
+                    </button>
+                </div>
+
+                <!-- How it works -->
+                <div class="bg-dark-bg rounded-xl border border-gray-800 p-5">
+                    <h3 class="text-brand-secondary font-bold mb-3 flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        How it works
+                    </h3>
+                    <ol class="space-y-2 text-xs text-dark-text-secondary list-none">
+                        <li class="flex gap-2"><span class="text-brand-primary font-bold">1.</span> Load the leaderboard to pull live staking credit data from the Sui blockchain.</li>
+                        <li class="flex gap-2"><span class="text-brand-primary font-bold">2.</span> Select the recipients using Top-N presets or individual checkboxes.</li>
+                        <li class="flex gap-2"><span class="text-brand-primary font-bold">3.</span> Choose the token and amount to send per address.</li>
+                        <li class="flex gap-2"><span class="text-brand-primary font-bold">4.</span> Click Execute — your wallet will ask you to confirm a single transaction that distributes to all selected addresses.</li>
+                    </ol>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Status Log -->
+        <div id="status-area" class="mt-8 hidden">
+            <div id="status-box" class="p-4 rounded-xl text-sm border"></div>
+        </div>
+
+        <!-- TX Log -->
+        <div id="tx-log" class="mt-4 space-y-2"></div>
+
+    </main>
+
+    <footer class="bg-dark-bg border-t border-gray-800 py-8 mt-auto">
+        <div class="container mx-auto px-4 text-center text-dark-text-secondary text-sm">
+            &copy; <span id="current-year"></span> Alpha City. All rights reserved.
+        </div>
+    </footer>
+
+    <script type="module">
+    'use strict';
+
+    // ================================================================
+    // CONSTANTS
+    // ================================================================
+    const SUI_RPC      = 'https://fullnode.mainnet.sui.io:443';
+    const CITY_TYPE    = '0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY';
+    const SUI_TYPE     = '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI';
+    const STAKING_PKGS = ['0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9'];
+    const CITY_DECIMALS = 9;
+    const SUI_DECIMALS  = 9;
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    let connectedAddress     = null;
+    let connectedAccount     = null;
+    let connectedWalletEntry = null;
+    let leaderboardData      = [];   // [{address, creditsAtomic}]
+    let selectedAddresses    = new Set();
+    let currentTokenType     = 'city';  // 'city' | 'sui' | 'custom'
+
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    function isValidSuiAddress(a) { return /^0x[0-9a-fA-F]{40,64}$/.test((a || '').trim()); }
+    function shortAddr(a) { return (!a || a.length < 11) ? a : a.slice(0, 6) + '…' + a.slice(-4); }
+
+    function formatCredits(atomic) {
+        const n = typeof atomic === 'bigint' ? atomic : BigInt(atomic);
+        const whole = n / 1_000_000_000n;
+        const frac  = n % 1_000_000_000n;
+        if (frac === 0n) return whole.toLocaleString();
+        const fracStr = frac.toString().padStart(9, '0').replace(/0+$/, '');
+        return `${whole.toLocaleString()}.${fracStr}`;
+    }
+
+    function formatAmount(amount, decimals) {
+        // Use string-based parsing to avoid floating-point precision loss with BigInt
+        const amountStr = typeof amount === 'string' ? amount : amount.toString();
+        const [wholePart, fracPart = ''] = amountStr.split('.');
+        const mult       = 10n ** BigInt(decimals);
+        const fracPadded = fracPart.slice(0, decimals).padEnd(decimals, '0');
+        const atomic     = BigInt(wholePart || '0') * mult + BigInt(fracPadded || '0');
+        const whole = atomic / mult;
+        const frac  = atomic % mult;
+        if (frac === 0n) return whole.toLocaleString();
+        const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
+        return `${whole.toLocaleString()}.${fracStr}`;
+    }
+
+    function makeOverlay() {
+        const d = document.createElement('div');
+        d.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
+        return d;
+    }
+
+    function showStatus(msg, type = 'info') {
+        const area = document.getElementById('status-area');
+        const box  = document.getElementById('status-box');
+        area.classList.remove('hidden');
+        const styles = {
+            info:    'bg-blue-900/40 border-blue-700 text-blue-300',
+            success: 'bg-green-900/40 border-green-700 text-green-300',
+            error:   'bg-red-900/40 border-red-700 text-red-300',
+            warning: 'bg-yellow-900/40 border-yellow-700 text-yellow-300',
+        };
+        box.className = `p-4 rounded-xl text-sm border animate-fade-in ${styles[type] || styles.info}`;
+        box.textContent = msg;
+    }
+
+    function appendTxLog(digest) {
+        const log = document.getElementById('tx-log');
+        const row = document.createElement('div');
+        row.className = 'p-3 bg-dark-card rounded-lg border border-gray-700 text-sm flex items-center gap-3 animate-fade-in';
+        const icon = document.createElement('span');
+        icon.textContent = '✅';
+        const text = document.createElement('span');
+        text.className = 'text-dark-text-secondary';
+        text.textContent = 'Transaction: ';
+        const link = document.createElement('a');
+        link.href      = `https://suiscan.xyz/mainnet/tx/${digest}`;
+        link.target    = '_blank';
+        link.rel       = 'noopener noreferrer';
+        link.className = 'text-brand-primary hover:text-brand-primary-hover font-mono underline';
+        link.textContent = digest.slice(0, 20) + '…';
+        row.appendChild(icon);
+        row.appendChild(text);
+        row.appendChild(link);
+        log.appendChild(row);
+    }
+
+    // ================================================================
+    // SUI RPC
+    // ================================================================
+    async function rpc(method, params) {
+        const res = await fetch(SUI_RPC, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+        if (!res.ok) throw new Error(`SUI RPC HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(`SUI RPC: ${data.error.message}`);
+        return data.result;
+    }
+
+    async function queryAllEvents(eventType) {
+        const all = [];
+        let cursor = null;
+        for (;;) {
+            const r = await rpc('suix_queryEvents', [
+                { MoveEventType: eventType },
+                cursor, 100, false
+            ]);
+            all.push(...(r.data || []));
+            if (!r.hasNextPage) break;
+            cursor = r.nextCursor;
+        }
+        return all;
+    }
+
+    /** Fetch all coin objects of a type for an address (handles pagination) */
+    async function fetchAllCoins(address, coinType) {
+        const all = [];
+        let cursor = null;
+        for (;;) {
+            const r = await rpc('suix_getCoins', [address, coinType, cursor, 50]);
+            all.push(...(r.data || []));
+            if (!r.hasNextPage) break;
+            cursor = r.nextCursor;
+        }
+        return all;
+    }
+
+    async function fetchCoinBalance(address, coinType) {
+        try {
+            const r = await rpc('suix_getBalance', [address, coinType]);
+            return BigInt(r.totalBalance || '0');
+        } catch (_) {
+            return 0n;
+        }
+    }
+
+    // ================================================================
+    // LEADERBOARD
+    // ================================================================
+    async function loadLeaderboard() {
+        const btn  = document.getElementById('load-leaderboard-btn');
+        const icon = document.getElementById('lb-icon');
+        const text = document.getElementById('lb-btn-text');
+        const prog = document.getElementById('lb-progress');
+        const progText = document.getElementById('lb-progress-text');
+        const progBar  = document.getElementById('lb-progress-bar');
+        const tbody    = document.getElementById('leaderboard-tbody');
+
+        btn.disabled    = true;
+        icon.classList.add('spin');
+        text.textContent = 'Loading…';
+        prog.classList.remove('hidden');
+        progText.textContent = 'Fetching staking events…';
+        progBar.style.width  = '0%';
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-dark-text-secondary text-sm">Fetching on-chain events…</td></tr>`;
+
+        try {
+            // Fetch all four event types for each staking package
+            const totalPackages = STAKING_PKGS.length;
+            const perPkg = 4;
+            let completed = 0;
+            const updateProgress = (msg) => {
+                completed++;
+                const pct = Math.round((completed / (totalPackages * perPkg)) * 80);
+                progBar.style.width = pct + '%';
+                progText.textContent = msg;
+            };
+
+            const eventGroups = await Promise.all(STAKING_PKGS.flatMap(pkg => [
+                queryAllEvents(`${pkg}::city_staking::StakeCreated`).then(r  => { updateProgress('Processing StakeCreated events…'); return r; }),
+                queryAllEvents(`${pkg}::city_staking::StakeIncreased`).then(r => { updateProgress('Processing StakeIncreased events…'); return r; }),
+                queryAllEvents(`${pkg}::city_staking::Unstaked`).then(r       => { updateProgress('Processing Unstaked events…'); return r; }),
+                queryAllEvents(`${pkg}::city_staking::CreditsClaimed`).then(r => { updateProgress('Processing CreditsClaimed events…'); return r; }),
+            ]));
+
+            progText.textContent = 'Building leaderboard…';
+            progBar.style.width  = '90%';
+
+            // Aggregate per-staker credits from events
+            // stakeIdToStaker: Map<stake_id, address>
+            // stakeIdToCredits: Map<stake_id, lifetime_claimed BigInt>
+            const stakeIdToStaker  = new Map();
+            const stakeIdToCredits = new Map();
+
+            const pkgCount = STAKING_PKGS.length;
+            for (let i = 0; i < pkgCount; i++) {
+                const stakeCreated   = eventGroups[i * 4 + 0];
+                const stakeIncreased = eventGroups[i * 4 + 1];
+                // stakeIncreased not needed for credits; stakeCreated gives us staker per stake_id
+                stakeCreated.forEach(ev => {
+                    const d = ev.parsedJson || {};
+                    if (d.stake_id && d.staker) stakeIdToStaker.set(d.stake_id, d.staker);
+                });
+                stakeIncreased.forEach(ev => {
+                    // StakeIncreased may not have staker — use existing mapping
+                });
+                const creditsClaimed = eventGroups[i * 4 + 3];
+                creditsClaimed.forEach(ev => {
+                    const d = ev.parsedJson || {};
+                    if (!d.stake_id) return;
+                    // Some events include staker directly
+                    if (d.staker) stakeIdToStaker.set(d.stake_id, d.staker);
+                    const prev = stakeIdToCredits.get(d.stake_id) || 0n;
+                    const claimed = BigInt(d.lifetime_claimed || '0');
+                    // lifetime_claimed is the all-time total for this stake — take max to handle re-emitted events
+                    if (claimed > prev) stakeIdToCredits.set(d.stake_id, claimed);
+                });
+            }
+
+            // Sum credits per staker address
+            const stakerCredits = new Map();
+            for (const [stakeId, claimed] of stakeIdToCredits.entries()) {
+                const staker = stakeIdToStaker.get(stakeId);
+                if (!staker) continue;
+                stakerCredits.set(staker, (stakerCredits.get(staker) || 0n) + claimed);
+            }
+
+            // Sort descending by credits (highest first)
+            leaderboardData = [...stakerCredits.entries()]
+                .map(([address, creditsAtomic]) => ({ address, creditsAtomic }))
+                .sort((a, b) => a.creditsAtomic > b.creditsAtomic ? -1 : a.creditsAtomic < b.creditsAtomic ? 1 : a.address.localeCompare(b.address));
+
+            progBar.style.width = '100%';
+            progText.textContent = `Loaded ${leaderboardData.length} stakers.`;
+
+            renderLeaderboard();
+            document.getElementById('topn-bar').classList.remove('hidden');
+            document.getElementById('select-all-cb').disabled = false;
+
+        } catch (err) {
+            console.error('[airdrop] loadLeaderboard error:', err);
+            showStatus('Failed to load leaderboard: ' + (err?.message || String(err)), 'error');
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-red-400 text-sm">Error loading leaderboard. See status bar below.</td></tr>`;
+        } finally {
+            btn.disabled = false;
+            icon.classList.remove('spin');
+            text.textContent = 'Refresh';
+            setTimeout(() => prog.classList.add('hidden'), 2000);
+        }
+    }
+
+    function renderLeaderboard() {
+        const tbody = document.getElementById('leaderboard-tbody');
+        if (!leaderboardData.length) {
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-dark-text-secondary text-sm">No staking data found on-chain.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        leaderboardData.forEach((entry, idx) => {
+            const rank = idx + 1;
+            const isSelected = selectedAddresses.has(entry.address);
+
+            const tr = document.createElement('tr');
+            tr.className = `border-b border-gray-700/50 hover:bg-dark-bg/30 transition-colors ${isSelected ? 'bg-brand-primary/5' : ''}`;
+            tr.dataset.address = entry.address;
+
+            const tdCb = document.createElement('td');
+            tdCb.className = 'px-4 py-3';
+            const cb = document.createElement('input');
+            cb.type      = 'checkbox';
+            cb.checked   = isSelected;
+            cb.className = 'rounded accent-brand-primary cursor-pointer row-cb';
+            cb.dataset.address = entry.address;
+            cb.addEventListener('change', () => onRowCheckbox(entry.address, cb.checked, tr));
+            tdCb.appendChild(cb);
+
+            const tdRank = document.createElement('td');
+            tdRank.className = 'px-4 py-3 text-dark-text-secondary font-mono text-xs';
+            tdRank.textContent = rank;
+
+            const tdAddr = document.createElement('td');
+            tdAddr.className = 'px-4 py-3';
+            const addrSpan = document.createElement('span');
+            addrSpan.className = 'font-mono text-brand-primary text-xs';
+            addrSpan.textContent = shortAddr(entry.address);
+            addrSpan.title = entry.address;
+            const fullSpan = document.createElement('span');
+            fullSpan.className = 'hidden sm:inline text-dark-text-secondary text-xs ml-2';
+            fullSpan.textContent = entry.address;
+            tdAddr.appendChild(addrSpan);
+            // On larger screens, show full address
+            const fullDiv = document.createElement('div');
+            fullDiv.className = 'hidden lg:block text-dark-text-secondary text-xs mt-0.5 font-mono';
+            fullDiv.textContent = entry.address;
+            tdAddr.appendChild(fullDiv);
+
+            const tdCredits = document.createElement('td');
+            tdCredits.className = 'px-4 py-3 text-right text-white font-mono text-xs';
+            tdCredits.textContent = formatCredits(entry.creditsAtomic);
+
+            tr.appendChild(tdCb);
+            tr.appendChild(tdRank);
+            tr.appendChild(tdAddr);
+            tr.appendChild(tdCredits);
+            tbody.appendChild(tr);
+        });
+
+        updateSelectedCount();
+    }
+
+    function onRowCheckbox(address, checked, tr) {
+        if (checked) {
+            selectedAddresses.add(address);
+            tr.classList.add('bg-brand-primary/5');
+        } else {
+            selectedAddresses.delete(address);
+            tr.classList.remove('bg-brand-primary/5');
+        }
+        updateSelectedCount();
+        updateSelectAllState();
+    }
+
+    function updateSelectedCount() {
+        document.getElementById('selected-count').textContent = selectedAddresses.size;
+        updateSummary();
+        updateExecuteBtn();
+    }
+
+    function updateSelectAllState() {
+        const cb = document.getElementById('select-all-cb');
+        if (selectedAddresses.size === 0) {
+            cb.checked       = false;
+            cb.indeterminate = false;
+        } else if (selectedAddresses.size === leaderboardData.length) {
+            cb.checked       = true;
+            cb.indeterminate = false;
+        } else {
+            cb.checked       = false;
+            cb.indeterminate = true;
+        }
+    }
+
+    function deselectAll() {
+        selectedAddresses.clear();
+        document.querySelectorAll('.row-cb').forEach(cb => {
+            cb.checked = false;
+            const tr = cb.closest('tr');
+            if (tr) tr.classList.remove('bg-brand-primary/5');
+        });
+        updateSelectedCount();
+        updateSelectAllState();
+    }
+
+    function selectTopN(n) {
+        selectedAddresses.clear();
+        const limit = (n === 'all') ? leaderboardData.length : Math.min(n, leaderboardData.length);
+        for (let i = 0; i < limit; i++) selectedAddresses.add(leaderboardData[i].address);
+        // Re-render checkboxes without full re-render
+        document.querySelectorAll('.row-cb').forEach(cb => {
+            const addr = cb.dataset.address;
+            cb.checked = selectedAddresses.has(addr);
+            const tr = cb.closest('tr');
+            if (tr) {
+                if (cb.checked) tr.classList.add('bg-brand-primary/5');
+                else            tr.classList.remove('bg-brand-primary/5');
+            }
+        });
+        updateSelectedCount();
+        updateSelectAllState();
+    }
+
+    // ================================================================
+    // TOKEN CONFIG
+    // ================================================================
+    function getSelectedCoinType() {
+        if (currentTokenType === 'city')   return CITY_TYPE;
+        if (currentTokenType === 'sui')    return SUI_TYPE;
+        return (document.getElementById('custom-coin-type').value || '').trim();
+    }
+
+    function getSelectedDecimals() {
+        if (currentTokenType === 'city') return CITY_DECIMALS;
+        if (currentTokenType === 'sui')  return SUI_DECIMALS;
+        return parseInt(document.getElementById('custom-decimals').value || '9', 10) || 9;
+    }
+
+    function getTokenSymbol() {
+        if (currentTokenType === 'city') return '$CITY';
+        if (currentTokenType === 'sui')  return 'SUI';
+        const ct = (document.getElementById('custom-coin-type').value || '').trim();
+        if (!ct) return 'TOKEN';
+        const parts = ct.split('::');
+        return parts[parts.length - 1] || 'TOKEN';
+    }
+
+    function updateSummary() {
+        const count  = selectedAddresses.size;
+        const amount = parseFloat(document.getElementById('amount-input').value) || 0;
+        const sym    = getTokenSymbol();
+        document.getElementById('summary-count').textContent = count;
+        document.getElementById('summary-each').textContent  = `${amount.toLocaleString()} ${sym}`;
+        document.getElementById('summary-total').textContent = `${(count * amount).toLocaleString()} ${sym}`;
+    }
+
+    function updateExecuteBtn() {
+        const btn     = document.getElementById('execute-btn');
+        const count   = selectedAddresses.size;
+        const amount  = parseFloat(document.getElementById('amount-input').value) || 0;
+        const coinType = getSelectedCoinType();
+
+        if (!connectedAddress) {
+            btn.textContent = 'Connect Wallet to Continue';
+            btn.disabled    = true;
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
+            return;
+        }
+        if (!leaderboardData.length) {
+            btn.textContent = 'Load Leaderboard First';
+            btn.disabled    = true;
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
+            return;
+        }
+        if (count === 0) {
+            btn.textContent = 'Select Recipients';
+            btn.disabled    = true;
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
+            return;
+        }
+        if (amount <= 0) {
+            btn.textContent = 'Enter Amount';
+            btn.disabled    = true;
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
+            return;
+        }
+        if (currentTokenType === 'custom' && !coinType) {
+            btn.textContent = 'Enter Coin Type';
+            btn.disabled    = true;
+            btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
+            return;
+        }
+
+        btn.textContent = `🚀 Execute Airdrop (${count} addresses)`;
+        btn.disabled    = false;
+        btn.className   = 'w-full py-4 bg-brand-primary text-white font-bold rounded-xl hover:bg-brand-primary-hover transition-all text-base shadow-lg shadow-blue-500/20 cursor-pointer';
+    }
+
+    async function refreshSenderBalance() {
+        if (!connectedAddress) return;
+        const coinType = getSelectedCoinType();
+        if (!coinType) return;
+        try {
+            const bal     = await fetchCoinBalance(connectedAddress, coinType);
+            const dec     = getSelectedDecimals();
+            const sym     = getTokenSymbol();
+            const divisor = 10n ** BigInt(dec);
+            const whole   = bal / divisor;
+            const frac    = bal % divisor;
+            let display;
+            if (frac === 0n) {
+                display = whole.toLocaleString();
+            } else {
+                const fracStr = frac.toString().padStart(dec, '0').replace(/0+$/, '');
+                display = `${whole.toLocaleString()}.${fracStr}`;
+            }
+            document.getElementById('sender-balance-display').textContent = `${display} ${sym}`;
+            document.getElementById('sender-balance-row').classList.remove('hidden');
+        } catch (_) {}
+    }
+
+    // ================================================================
+    // AIRDROP TRANSACTION
+    // ================================================================
+    async function executeAirdrop() {
+        const recipients = [...selectedAddresses];
+        const amount     = parseFloat(document.getElementById('amount-input').value) || 0;
+        const coinType   = getSelectedCoinType();
+        const decimals   = getSelectedDecimals();
+
+        if (!recipients.length || amount <= 0 || !coinType || !connectedAddress) return;
+
+        // Validate all recipient addresses
+        const invalidAddrs = recipients.filter(a => !isValidSuiAddress(a));
+        if (invalidAddrs.length > 0) {
+            showStatus(`Invalid recipient addresses found: ${invalidAddrs.slice(0, 3).join(', ')}`, 'error');
+            return;
+        }
+
+        const btn = document.getElementById('execute-btn');
+        btn.disabled  = true;
+        btn.textContent = 'Building transaction…';
+
+        try {
+            // Load @mysten/sui Transaction
+            let Transaction = window._SuiTransaction;
+            if (!Transaction && window._suiTxReady) {
+                const mod = await window._suiTxReady;
+                Transaction = mod?.Transaction;
+            }
+            if (!Transaction) throw new Error('@mysten/sui SDK not loaded — please refresh and try again.');
+
+            // Convert amount to atomic units
+            const mult         = 10n ** BigInt(decimals);
+            // Use integer arithmetic to avoid floating-point precision issues
+            const amountStr    = document.getElementById('amount-input').value.trim();
+            const [whole, frac = ''] = amountStr.split('.');
+            const fracPadded   = frac.slice(0, decimals).padEnd(decimals, '0');
+            const amountAtomic = BigInt(whole || '0') * mult + BigInt(fracPadded || '0');
+
+            if (amountAtomic <= 0n) throw new Error('Amount must be greater than zero.');
+
+            showStatus('Fetching your coin objects…', 'info');
+
+            // Fetch sender's coin objects
+            const coins = await fetchAllCoins(connectedAddress, coinType);
+            if (coins.length === 0) throw new Error(`No ${getTokenSymbol()} coins found in your wallet.`);
+
+            const totalBalance = coins.reduce((s, c) => s + BigInt(c.balance), 0n);
+            const totalNeeded  = amountAtomic * BigInt(recipients.length);
+            if (totalBalance < totalNeeded) {
+                const sym = getTokenSymbol();
+                const dec = getSelectedDecimals();
+                const div = 10n ** BigInt(dec);
+                const haveDisplay = `${(totalBalance / div).toLocaleString()}`;
+                const needDisplay = `${(totalNeeded  / div).toLocaleString()}`;
+                throw new Error(`Insufficient balance. Have ${haveDisplay} ${sym}, need ${needDisplay} ${sym}.`);
+            }
+
+            showStatus('Please confirm the transaction in your wallet…', 'info');
+            btn.textContent = 'Confirm in wallet…';
+
+            // Build PTB
+            const tx = new Transaction();
+            tx.setSender(connectedAddress);
+
+            // Reference coin objects in the transaction
+            const primaryCoin = tx.object(coins[0].coinObjectId);
+
+            // Merge remaining coins into the primary (if any)
+            if (coins.length > 1) {
+                tx.mergeCoins(primaryCoin, coins.slice(1).map(c => tx.object(c.coinObjectId)));
+            }
+
+            // Split out one coin per recipient
+            const splitAmounts = recipients.map(() => amountAtomic);
+            const splitCoins   = tx.splitCoins(primaryCoin, splitAmounts);
+
+            // Transfer each split coin to its recipient
+            recipients.forEach((addr, i) => {
+                tx.transferObjects([splitCoins[i]], addr);
+            });
+
+            // Sign and execute
+            const txResult = await signAndExecuteTx(tx);
+
+            const digest = txResult?.digest
+                        ?? txResult?.certificate?.transactionDigest
+                        ?? txResult?.effects?.transactionDigest;
+
+            if (digest) {
+                showStatus(`✅ Airdrop successful! Sent ${getTokenSymbol()} to ${recipients.length} addresses.`, 'success');
+                appendTxLog(digest);
+            } else {
+                showStatus('Transaction submitted. Check your wallet for confirmation.', 'info');
+            }
+
+        } catch (err) {
+            console.error('[airdrop] executeAirdrop error:', err);
+            showStatus('Airdrop failed: ' + (err?.message || String(err)), 'error');
+        } finally {
+            btn.disabled = false;
+            updateExecuteBtn();
+        }
+    }
+
+    // ================================================================
+    // TRANSACTION SIGNING (same pattern as swap page)
+    // ================================================================
+    async function signAndExecuteTx(txb) {
+        const wallet = connectedWalletEntry;
+        if (!wallet) throw new Error('Wallet disconnected');
+
+        txb.setSender(connectedAddress);
+
+        let txResult;
+
+        if (wallet.source === 'standard') {
+            const newFeature    = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
+            const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
+
+            if (newFeature) {
+                txResult = await newFeature.signAndExecuteTransaction({
+                    transaction: txb,
+                    account:     connectedAccount,
+                    chain:       'sui:mainnet',
+                });
+            } else if (legacyFeature) {
+                txResult = await legacyFeature.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    account:          connectedAccount,
+                    chain:            'sui:mainnet',
+                    options:          { showEffects: true },
+                });
+            } else {
+                throw new Error('Wallet does not support transaction signing');
+            }
+
+        } else if (wallet.source === 'legacy') {
+            const p = wallet.provider;
+            if (typeof p.signAndExecuteTransactionBlock === 'function') {
+                txResult = await p.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options:          { showEffects: true },
+                });
+            } else if (typeof p.signAndExecuteTransaction === 'function') {
+                txResult = await p.signAndExecuteTransaction({ transaction: txb });
+            } else {
+                throw new Error('Legacy wallet does not support transaction signing');
+            }
+        }
+
+        return txResult;
+    }
+
+    // ================================================================
+    // WALLET-STANDARD DISCOVERY
+    // ================================================================
+    const registeredWallets = new Set();
+    let walletListCache;
+
+    function registerWallet(w) { walletListCache = undefined; registeredWallets.add(w); }
+    function getRegisteredWallets() {
+        if (!walletListCache) walletListCache = [...registeredWallets];
+        return walletListCache;
+    }
+
+    class WalletStandardEvent extends Event {
+        #api;
+        get detail() { return this.#api; }
+        get type()   { return 'wallet-standard:app-ready'; }
+        constructor(api) {
+            super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
+            this.#api = api;
+        }
+    }
+
+    function initWalletStandard() {
+        const appApi = Object.freeze({ register: (...ws) => ws.forEach(registerWallet) });
+        try { window.addEventListener('wallet-standard:register-wallet', e => e.detail(appApi)); } catch (_) {}
+        try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
+    }
+
+    function isSuiWallet(w) {
+        if (!w.features?.['standard:connect']) return false;
+        const chains = w.chains || [];
+        if (chains.length === 0) return true;
+        return chains.some(c => typeof c === 'string' && c.startsWith('sui:'));
+    }
+
+    function discoverWallets() {
+        const found = [], seen = new Set();
+        for (const w of getRegisteredWallets()) {
+            if (isSuiWallet(w) && !seen.has(w.name)) {
+                seen.add(w.name);
+                found.push({ source: 'standard', name: w.name, wallet: w });
+            }
+        }
+        const legacy = [
+            { name: 'Slush',      obj: window.slush?.sui || window.slush },
+            { name: 'Sui Wallet', obj: window.suiWallet },
+            { name: 'Sui',        obj: window.sui },
+            { name: 'Martian',    obj: window.martian?.sui || window.martian },
+            { name: 'Ethos',      obj: window.ethos?.sui || window.ethos },
+        ];
+        for (const c of legacy) {
+            if (c.obj && !seen.has(c.name)) {
+                seen.add(c.name);
+                found.push({ source: 'legacy', name: c.name, provider: c.obj });
+            }
+        }
+        return found;
+    }
+
+    // ================================================================
+    // WALLET CONNECTION
+    // ================================================================
+    const connectBtn  = document.getElementById('connect-wallet-btn');
+    const walletLabel = document.getElementById('wallet-text');
+
+    connectBtn.addEventListener('click', () => {
+        if (connectedAddress) showWalletOptions();
+        else connectWallet().catch(err => showStatus('Wallet connection failed: ' + (err?.message || err), 'error'));
+    });
+
+    function showWalletOptions() {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            const panel = document.createElement('div');
+            panel.className = 'bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl';
+
+            const title = document.createElement('h3');
+            title.className   = 'text-white font-bold text-lg mb-4';
+            title.textContent = 'Wallet Options';
+            panel.appendChild(title);
+
+            const list = document.createElement('div');
+            list.className = 'space-y-2';
+
+            const switchBtn = document.createElement('button');
+            switchBtn.className   = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
+            switchBtn.textContent = 'Switch Wallet';
+            switchBtn.addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                connectWallet().catch(e => showStatus('Wallet error: ' + e.message, 'error'));
+                resolve('switch');
+            });
+
+            const disconnectBtn = document.createElement('button');
+            disconnectBtn.className   = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-red-500 text-red-400 rounded-lg transition-colors font-medium text-sm';
+            disconnectBtn.textContent = 'Disconnect';
+            disconnectBtn.addEventListener('click', async () => {
+                document.body.removeChild(overlay);
+                await performDisconnect();
+                resolve('disconnect');
+            });
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className   = 'mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(null); });
+
+            list.appendChild(switchBtn);
+            list.appendChild(disconnectBtn);
+            panel.appendChild(list);
+            panel.appendChild(cancelBtn);
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        });
+    }
+
+    async function performDisconnect() {
+        if (connectedWalletEntry?.source === 'standard') {
+            try {
+                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
+                if (disc?.disconnect) await disc.disconnect();
+            } catch (_) {}
+        } else if (connectedWalletEntry?.source === 'legacy') {
+            try {
+                if (typeof connectedWalletEntry.provider?.disconnect === 'function')
+                    await connectedWalletEntry.provider.disconnect();
+            } catch (_) {}
+        }
+        disconnectWallet();
+    }
+
+    function disconnectWallet() {
+        connectedAddress     = null;
+        connectedAccount     = null;
+        connectedWalletEntry = null;
+        try { localStorage.removeItem('alphacity_airdrop_wallet'); } catch (_) {}
+        walletLabel.textContent = 'Connect Wallet';
+        connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
+        connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
+        document.getElementById('sender-balance-row').classList.add('hidden');
+        updateExecuteBtn();
+    }
+
+    async function connectWallet() {
+        let wallets = discoverWallets();
+        if (!wallets.length) { await new Promise(r => setTimeout(r, 600));  wallets = discoverWallets(); }
+        if (!wallets.length) { await new Promise(r => setTimeout(r, 1200)); wallets = discoverWallets(); }
+        if (!wallets.length) throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
+
+        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
+        if (!entry) return;
+
+        walletLabel.textContent = 'Connecting…';
+        connectBtn.disabled     = true;
+
+        try {
+            let accounts;
+            if (entry.source === 'standard') {
+                try { const disc = entry.wallet.features?.['standard:disconnect']; if (disc?.disconnect) await disc.disconnect(); } catch (_) {}
+                const r = await entry.wallet.features['standard:connect'].connect();
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+            const all         = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) throw new Error('Wallet provided no accounts.');
+
+            const account = all.length === 1 ? all[0] : await pickAccount(all);
+            const address = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
+
+            connectedAddress     = address;
+            connectedAccount     = account;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(address);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_airdrop_wallet', JSON.stringify({ walletName: entry.name, address })); } catch (_) {}
+
+            updateExecuteBtn();
+            refreshSenderBalance();
+
+        } finally {
+            connectBtn.disabled = false;
+        }
+    }
+
+    function pickWallet(wallets) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            const panel = document.createElement('div');
+            panel.className = 'bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl';
+
+            const title = document.createElement('h3');
+            title.className   = 'text-white font-bold text-lg mb-4';
+            title.textContent = 'Select Wallet';
+            panel.appendChild(title);
+
+            const list = document.createElement('div');
+            list.id        = '_wp_list';
+            list.className = 'space-y-2';
+            panel.appendChild(list);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className   = 'mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(null); });
+            panel.appendChild(cancelBtn);
+
+            wallets.forEach(entry => {
+                const btn       = document.createElement('button');
+                btn.type        = 'button';
+                btn.className   = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
+                btn.textContent = entry.name;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(entry); });
+                list.appendChild(btn);
+            });
+
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        });
+    }
+
+    function pickAccount(accounts) {
+        return new Promise(resolve => {
+            const overlay = makeOverlay();
+            const panel = document.createElement('div');
+            panel.className = 'bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl';
+
+            const title = document.createElement('h3');
+            title.className   = 'text-white font-bold text-lg mb-4';
+            title.textContent = 'Select Account';
+            panel.appendChild(title);
+
+            const list = document.createElement('div');
+            list.className = 'space-y-2';
+            panel.appendChild(list);
+
+            accounts.forEach(account => {
+                const addr = account?.address || account;
+                const btn  = document.createElement('button');
+                btn.type        = 'button';
+                btn.className   = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
+                btn.textContent = shortAddr(addr);
+                btn.title       = addr;
+                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(account); });
+                list.appendChild(btn);
+            });
+
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        });
+    }
+
+    // ================================================================
+    // AUTO-RECONNECT
+    // ================================================================
+    async function tryAutoReconnect() {
+        try {
+            const saved = localStorage.getItem('alphacity_airdrop_wallet');
+            if (!saved) return;
+            const { walletName, address } = JSON.parse(saved);
+            if (!walletName || !isValidSuiAddress(address)) return;
+
+            await new Promise(r => setTimeout(r, 400));
+
+            const wallets = discoverWallets();
+            const entry   = wallets.find(w => w.name === walletName);
+            if (!entry) return;
+
+            walletLabel.textContent = 'Connecting…';
+
+            let accounts;
+            if (entry.source === 'standard') {
+                const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
+                accounts = r?.accounts || entry.wallet.accounts || [];
+            } else {
+                const p = entry.provider;
+                if (typeof p.connect === 'function') await p.connect();
+                let addrs = [];
+                if (typeof p.getAccounts === 'function') {
+                    const ac = await p.getAccounts();
+                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
+                }
+                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
+                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
+                accounts = addrs.map(addr => ({ address: addr }));
+            }
+
+            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
+            const all = suiAccounts.length ? suiAccounts : accounts;
+            if (!all.length) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            const account = all.find(a => String(a?.address || a).trim() === address) || all[0];
+            const reconnectAddress = String(account?.address || account || '').trim();
+            if (!isValidSuiAddress(reconnectAddress)) { walletLabel.textContent = 'Connect Wallet'; return; }
+
+            connectedAddress     = reconnectAddress;
+            connectedAccount     = account;
+            connectedWalletEntry = entry;
+            walletLabel.textContent = shortAddr(reconnectAddress);
+            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
+            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            try { localStorage.setItem('alphacity_airdrop_wallet', JSON.stringify({ walletName, address: reconnectAddress })); } catch (_) {}
+
+            updateExecuteBtn();
+            refreshSenderBalance();
+
+        } catch (_) {
+            walletLabel.textContent = 'Connect Wallet';
+        }
+    }
+
+    // ================================================================
+    // EVENT LISTENERS
+    // ================================================================
+
+    // Load leaderboard button
+    document.getElementById('load-leaderboard-btn').addEventListener('click', loadLeaderboard);
+
+    // Select all checkbox
+    document.getElementById('select-all-cb').addEventListener('change', function () {
+        const checked = this.checked;
+        if (checked) {
+            leaderboardData.forEach(e => selectedAddresses.add(e.address));
+        } else {
+            selectedAddresses.clear();
+        }
+        document.querySelectorAll('.row-cb').forEach(cb => {
+            cb.checked = checked;
+            const tr = cb.closest('tr');
+            if (tr) {
+                if (checked) tr.classList.add('bg-brand-primary/5');
+                else         tr.classList.remove('bg-brand-primary/5');
+            }
+        });
+        updateSelectedCount();
+    });
+
+    // Deselect all button
+    document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
+
+    // Top-N buttons
+    document.querySelectorAll('.topn-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const n = btn.dataset.n === 'all' ? 'all' : parseInt(btn.dataset.n, 10);
+            selectTopN(n);
+            // Highlight active button
+            document.querySelectorAll('.topn-btn').forEach(b => {
+                b.classList.remove('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+                b.classList.add('border-gray-700', 'text-dark-text-secondary');
+            });
+            btn.classList.remove('border-gray-700', 'text-dark-text-secondary');
+            btn.classList.add('border-brand-primary', 'text-brand-primary', 'bg-brand-primary/10');
+        });
+    });
+
+    // Token preset buttons
+    document.querySelectorAll('.token-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentTokenType = btn.dataset.type;
+            document.querySelectorAll('.token-preset-btn').forEach(b => {
+                b.classList.remove('border-brand-primary', 'bg-brand-primary/10', 'text-white');
+                b.classList.add('border-gray-700', 'text-dark-text-secondary');
+            });
+            btn.classList.remove('border-gray-700', 'text-dark-text-secondary');
+            btn.classList.add('border-brand-primary', 'bg-brand-primary/10', 'text-white');
+
+            const customFields = document.getElementById('custom-token-fields');
+            if (currentTokenType === 'custom') customFields.classList.remove('hidden');
+            else                               customFields.classList.add('hidden');
+
+            document.getElementById('token-symbol').textContent = getTokenSymbol();
+            updateSummary();
+            updateExecuteBtn();
+            refreshSenderBalance();
+        });
+    });
+
+    // Amount input
+    document.getElementById('amount-input').addEventListener('input', () => {
+        updateSummary();
+        updateExecuteBtn();
+    });
+
+    // Custom coin type input
+    document.getElementById('custom-coin-type').addEventListener('input', () => {
+        document.getElementById('token-symbol').textContent = getTokenSymbol();
+        updateSummary();
+        updateExecuteBtn();
+        refreshSenderBalance();
+    });
+
+    // Custom decimals input
+    document.getElementById('custom-decimals').addEventListener('input', () => {
+        updateSummary();
+        updateExecuteBtn();
+    });
+
+    // Execute button
+    document.getElementById('execute-btn').addEventListener('click', () => {
+        if (!document.getElementById('execute-btn').disabled) executeAirdrop();
+    });
+
+    // ================================================================
+    // INIT
+    // ================================================================
+    initWalletStandard();
+    tryAutoReconnect();
+
+    </script>
+</body>
+</html>
