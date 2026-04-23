@@ -526,7 +526,14 @@
     function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
     function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
-    function pickN(arr, n) { const a = [...arr].sort(() => Math.random()-0.5); return a.slice(0, n); }
+    function pickN(arr, n) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a.slice(0, n);
+    }
 
     function rollLuck() {
         const r = rnd(1, 10);
@@ -554,7 +561,10 @@
         return clamp(gameState.gauntletBonusAttempted + gameState.gauntletBonusDefeated, 0, 60);
     }
 
-    function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+    function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj, (k, v) => v === Infinity ? '__INFINITY__' : v),
+            (k, v) => v === '__INFINITY__' ? Infinity : v);
+    }
 
     // Apply boss damage modifiers (strengths & weaknesses)
     function applyBossDamageModifiers(damage, damageType) {
@@ -618,9 +628,6 @@
     }
 
     function goToMenuFromReward() {
-        if (gameState.pendingRewardType) {
-            // came from gauntlet, ask about continuing
-        }
         showScreen('menu');
     }
 
@@ -972,7 +979,7 @@
     function animateBossHit() {
         const panel = document.getElementById('boss-panel');
         panel.classList.remove('shake');
-        void panel.offsetWidth; // reflow
+        void panel.offsetWidth; // force reflow to restart animation
         panel.classList.add('shake');
         setTimeout(() => panel.classList.remove('shake'), 400);
     }
@@ -980,7 +987,7 @@
     function animatePlayerHit() {
         const panel = document.getElementById('player-panel');
         panel.classList.remove('shake');
-        void panel.offsetWidth;
+        void panel.offsetWidth; // force reflow to restart animation
         panel.classList.add('shake');
         setTimeout(() => panel.classList.remove('shake'), 400);
     }
