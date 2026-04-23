@@ -556,10 +556,14 @@
     /** Enumerate every coin object of the given type and return a Set of owner addresses.
      *  Uses the Sui GraphQL API because suix_queryObjects is indexer-only and not
      *  available on the standard public fullnode.
+     *  NOTE: The Sui GraphQL endpoint does not currently support CORS for browser
+     *  requests from arbitrary origins.  The caller should catch errors from this
+     *  function and fall back gracefully (e.g. to staker-address data from events).
      */
     async function queryAllCoinHolders(coinType, onProgress) {
         const PAGE_SIZE = 50;
-        const GQL_URL   = 'https://api.mainnet.sui.io/graphql';
+        const GQL_URL   = 'https://graphql.mainnet.sui.io/graphql';
+        const TIMEOUT_MS = 15000;
         const owners    = new Set();
         let cursor      = null;
         const query = `query($filter: ObjectFilter!, $first: Int!, $after: String) {
@@ -580,11 +584,19 @@
                 first:  PAGE_SIZE,
                 after:  cursor,
             };
-            const res = await fetch(GQL_URL, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ query, variables }),
-            });
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            let res;
+            try {
+                res = await fetch(GQL_URL, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ query, variables }),
+                    signal:  controller.signal,
+                });
+            } finally {
+                clearTimeout(timer);
+            }
             if (!res.ok) throw new Error(`SUI GraphQL HTTP ${res.status}`);
             const data = await res.json();
             if (data.errors?.length) throw new Error(`SUI GraphQL: ${data.errors[0].message}`);
@@ -912,14 +924,25 @@
                 walletStaked.set(owner, (walletStaked.get(owner) || 0n) + amount);
             }
 
-            // Step 2: Enumerate all on-chain CITY coin object owners (includes non-stakers)
+            // Step 2: Enumerate all on-chain CITY coin object owners (includes non-stakers).
+            // The Sui GraphQL endpoint may not support CORS for browser requests, so we
+            // attempt this but fall back to staker-addresses-only if it fails.
             progBar.style.width = '25%';
             progText.textContent = 'Scanning $CITY coin holders on-chain…';
-            const coinHolderAddresses = await queryAllCoinHolders(CITY_TYPE, (found) => {
-                progText.textContent = `Scanning $CITY coin holders… (${found} found so far)`;
-            });
+            let coinHolderAddresses = new Set();
+            try {
+                coinHolderAddresses = await queryAllCoinHolders(CITY_TYPE, (found) => {
+                    progText.textContent = `Scanning $CITY coin holders… (${found} found so far)`;
+                });
+            } catch (scanErr) {
+                const reason = scanErr?.name === 'AbortError'
+                    ? 'request timed out'
+                    : (scanErr?.message || String(scanErr));
+                console.warn(`[airdrop] queryAllCoinHolders failed (${reason}); falling back to staker addresses only:`, scanErr);
+                progText.textContent = 'On-chain scan unavailable – showing staker addresses…';
+            }
 
-            // Union: stakers + coin object owners
+            // Union: stakers + coin object owners (stakers always included even in fallback)
             for (const addr of stakeOwners.values()) coinHolderAddresses.add(addr);
             const allAddresses = [...coinHolderAddresses];
 
