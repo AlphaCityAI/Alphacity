@@ -122,12 +122,15 @@
             <div class="xl:col-span-2 space-y-6">
 
                 <!-- Tab switcher -->
-                <div class="flex space-x-2 bg-dark-bg p-1 rounded-xl border border-gray-800 inline-flex">
+                <div class="flex flex-wrap gap-2 bg-dark-bg p-1 rounded-xl border border-gray-800 inline-flex">
                     <button id="tab-credits" class="px-6 py-2 rounded-lg font-bold text-sm transition-all bg-brand-primary text-white shadow-lg">
                         Citizen Credits
                     </button>
                     <button id="tab-holders" class="px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white">
                         Top $CITY Holders
+                    </button>
+                    <button id="tab-custom" class="px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white">
+                        Custom Airdrop
                     </button>
                 </div>
 
@@ -259,6 +262,27 @@
                 </div>
                 </div><!-- end holders-pane -->
 
+                <!-- CUSTOM AIRDROP PANE -->
+                <div id="custom-pane" class="hidden">
+                <div class="bg-dark-card rounded-2xl border border-gray-800 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-700">
+                        <h2 class="text-white font-bold text-lg">Custom Airdrop</h2>
+                        <p class="text-dark-text-secondary text-xs mt-0.5">Paste up to 20 SUI addresses — one per line, or comma-separated</p>
+                    </div>
+                    <div class="p-6">
+                        <label class="block text-xs font-medium text-dark-text-secondary uppercase tracking-wider mb-2">Recipient Addresses</label>
+                        <textarea id="custom-addresses-input"
+                            placeholder="0x1a2b3c…&#10;0x4d5e6f…&#10;&#10;Paste up to 20 addresses, one per line or comma-separated."
+                            class="w-full h-48 bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary transition-colors font-mono resize-none"></textarea>
+                        <div class="mt-2 flex justify-between items-center">
+                            <span id="custom-addr-count" class="text-xs text-dark-text-secondary">0 / 20 valid addresses</span>
+                            <button id="custom-addr-clear" class="text-xs text-dark-text-secondary hover:text-red-400 transition-colors">Clear All</button>
+                        </div>
+                        <div id="custom-addr-list" class="mt-4 space-y-1.5"></div>
+                    </div>
+                </div>
+                </div><!-- end custom-pane -->
+
             </div>
 
             <!-- RIGHT: Airdrop Config -->
@@ -279,13 +303,13 @@
                         <div id="custom-token-fields" class="hidden space-y-3">
                             <div>
                                 <label class="block text-xs text-dark-text-secondary mb-1">Coin Type</label>
-                                <input id="custom-coin-type" type="text" placeholder="0xPACKAGE::module::TYPE"
-                                    class="w-full bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary transition-colors font-mono">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-dark-text-secondary mb-1">Decimals</label>
-                                <input id="custom-decimals" type="number" placeholder="9" value="9"
-                                    class="w-full bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-primary transition-colors">
+                                <div class="relative">
+                                    <input id="custom-coin-type" type="text" placeholder="Search by symbol or paste coin type…"
+                                        autocomplete="off"
+                                        class="w-full bg-dark-bg border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-primary transition-colors font-mono">
+                                    <div id="coin-type-dropdown" class="hidden absolute z-20 w-full mt-1 bg-dark-card border border-gray-700 rounded-lg shadow-xl overflow-y-auto" style="max-height:200px"></div>
+                                </div>
+                                <p id="custom-coin-decimals-hint" class="mt-1 text-xs text-dark-text-secondary hidden">Decimals detected: <span id="custom-coin-decimals-val" class="text-white font-mono"></span></p>
                             </div>
                         </div>
                     </div>
@@ -377,6 +401,24 @@
     const CITY_DECIMALS = 9;
     const SUI_DECIMALS  = 9;
 
+    // Known prominent SUI coins for the searchable dropdown
+    const KNOWN_COINS = [
+        { symbol: 'LOFI',   name: 'LOFI',               type: '0xf22da9a24ad027cccb5f2d496cbe91de953d363513db08a3a734d361c7c17503::LOFI::LOFI',          decimals: 9 },
+        { symbol: 'DEEP',   name: 'DeepBook Token',      type: '0x0deeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946311::deep::DEEP',          decimals: 6 },
+        { symbol: 'CETUS',  name: 'Cetus',               type: '0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',       decimals: 9 },
+        { symbol: 'USDC',   name: 'USD Coin',            type: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',         decimals: 6 },
+        { symbol: 'NAVX',   name: 'Navi Protocol',       type: '0xa99b8952d4f7d947ea77fe0ecdcc9e5fc0bcab2841d6e2a5aa00c3044e5544b5::navx::NAVX',         decimals: 9 },
+        { symbol: 'BUCK',   name: 'Bucket USD',          type: '0xce7ff77a83ea0cb6fd39bd8748e2ec89a3f41e8efdc3f4eb123e0ca37b184db2::buck::BUCK',         decimals: 9 },
+        { symbol: 'BLUB',   name: 'BLUB',                type: '0xfa7ac3951fdca92c5200d468d31a365eb03b2be9936fde615e69f0c1274ad3a0::BLUB::BLUB',         decimals: 2 },
+        { symbol: 'TURBOS', name: 'Turbos Finance',      type: '0x5d1f47ea69bb0de31c313d7928bf3f2999a5c4e3b25e793278b2ec50f4168e78::turbos::TURBOS',     decimals: 9 },
+        { symbol: 'AFSUI',  name: 'afSUI',               type: '0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc::afsui::AFSUI',       decimals: 9 },
+        { symbol: 'HASUI',  name: 'haSUI',               type: '0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI',       decimals: 9 },
+        { symbol: 'NS',     name: 'Sui Name Service',    type: '0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS',             decimals: 6 },
+        { symbol: 'FUD',    name: 'FUD the Pug',         type: '0x76cb819b01abed502bee8a702b4c2d547532c12f25522b28b9d1364096426a55::fud::FUD',          decimals: 5 },
+        { symbol: 'SPAM',   name: 'SPAM',                type: '0x30a644c3485ee9b604f52165668895092191fcaf5489a846afa7fc11cdb9b24a::spam::SPAM',          decimals: 0 },
+        { symbol: 'SCA',    name: 'Scallop',             type: '0x07016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac::sca::SCA',            decimals: 9 },
+    ];
+
     // ================================================================
     // STATE
     // ================================================================
@@ -385,45 +427,65 @@
     let connectedWalletEntry = null;
     let leaderboardData      = [];   // [{address, creditsAtomic}]
     let holdersData          = [];   // [{address, liquidAtomic, stakedAtomic, totalAtomic}]
-    let activeTab            = 'credits'; // 'credits' | 'holders'
+    let activeTab            = 'credits'; // 'credits' | 'holders' | 'custom'
     let selectedAddresses    = new Set();
     let currentTokenType     = 'city';  // 'city' | 'sui' | 'custom'
+    let customAddresses      = [];      // up to 20 manually-entered SUI addresses
+    let customTokenDecimals  = 9;       // auto-fetched from coin metadata
 
     // ================================================================
     // TAB HELPERS
     // ================================================================
     function getActiveLeaderboardData() {
-        return activeTab === 'credits' ? leaderboardData : holdersData;
+        if (activeTab === 'credits') return leaderboardData;
+        if (activeTab === 'holders') return holdersData;
+        return [];
     }
 
     function getActiveSelectAllCb() {
-        return activeTab === 'credits'
-            ? document.getElementById('select-all-cb')
-            : document.getElementById('holders-select-all-cb');
+        if (activeTab === 'credits') return document.getElementById('select-all-cb');
+        if (activeTab === 'holders') return document.getElementById('holders-select-all-cb');
+        return null;
     }
 
     function getActiveRowCbSelector() {
-        return activeTab === 'credits' ? '.row-cb' : '.holders-row-cb';
+        if (activeTab === 'credits') return '.row-cb';
+        if (activeTab === 'holders') return '.holders-row-cb';
+        return '.custom-row-cb';
+    }
+
+    function getRecipients() {
+        return activeTab === 'custom' ? [...customAddresses] : [...selectedAddresses];
+    }
+
+    function getRecipientCount() {
+        return activeTab === 'custom' ? customAddresses.length : selectedAddresses.size;
     }
 
     function switchTab(tab) {
         activeTab = tab;
         const creditsBtn = document.getElementById('tab-credits');
         const holdersBtn = document.getElementById('tab-holders');
+        const customBtn  = document.getElementById('tab-custom');
         const activeClass   = 'px-6 py-2 rounded-lg font-bold text-sm transition-all bg-brand-primary text-white shadow-lg';
         const inactiveClass = 'px-6 py-2 rounded-lg font-bold text-sm transition-all text-dark-text-secondary hover:text-white';
+        creditsBtn.className = inactiveClass;
+        holdersBtn.className = inactiveClass;
+        customBtn.className  = inactiveClass;
+        document.getElementById('credits-pane').classList.add('hidden');
+        document.getElementById('holders-pane').classList.add('hidden');
+        document.getElementById('custom-pane').classList.add('hidden');
         if (tab === 'credits') {
             creditsBtn.className = activeClass;
-            holdersBtn.className = inactiveClass;
             document.getElementById('credits-pane').classList.remove('hidden');
-            document.getElementById('holders-pane').classList.add('hidden');
-        } else {
+        } else if (tab === 'holders') {
             holdersBtn.className = activeClass;
-            creditsBtn.className = inactiveClass;
             document.getElementById('holders-pane').classList.remove('hidden');
-            document.getElementById('credits-pane').classList.add('hidden');
+        } else {
+            customBtn.className = activeClass;
+            document.getElementById('custom-pane').classList.remove('hidden');
         }
-        selectedAddresses.clear();
+        if (tab !== 'custom') selectedAddresses.clear();
         updateSelectedCount();
         updateSelectAllState();
         updateExecuteBtn();
@@ -1092,7 +1154,7 @@
     function getSelectedDecimals() {
         if (currentTokenType === 'city') return CITY_DECIMALS;
         if (currentTokenType === 'sui')  return SUI_DECIMALS;
-        return parseInt(document.getElementById('custom-decimals').value || '9', 10) || 9;
+        return customTokenDecimals;
     }
 
     function getTokenSymbol() {
@@ -1104,8 +1166,150 @@
         return parts[parts.length - 1] || 'TOKEN';
     }
 
+    // ================================================================
+    // COIN METADATA / DECIMALS AUTO-DETECTION
+    // ================================================================
+    async function fetchCoinDecimals(coinType) {
+        try {
+            const r = await rpc('suix_getCoinMetadata', [coinType]);
+            return typeof r?.decimals === 'number' ? r.decimals : 9;
+        } catch (_) {
+            return 9;
+        }
+    }
+
+    function showDecimalsHint(dec) {
+        const hint = document.getElementById('custom-coin-decimals-hint');
+        const val  = document.getElementById('custom-coin-decimals-val');
+        if (!hint || !val) return;
+        val.textContent = dec;
+        hint.classList.remove('hidden');
+    }
+
+    // ================================================================
+    // COIN TYPE SEARCH DROPDOWN
+    // ================================================================
+    function renderCoinDropdown(query) {
+        const dropdown = document.getElementById('coin-type-dropdown');
+        if (!dropdown) return;
+        // Don't show dropdown if user has pasted a full coin type
+        if (query.startsWith('0x') && query.includes('::')) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+        const q = query.toLowerCase().trim();
+        const matches = q.length === 0
+            ? KNOWN_COINS
+            : KNOWN_COINS.filter(c =>
+                c.symbol.toLowerCase().includes(q) ||
+                c.name.toLowerCase().includes(q)
+              );
+        if (!matches.length) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+        dropdown.innerHTML = '';
+        matches.forEach(coin => {
+            const item = document.createElement('button');
+            item.type      = 'button';
+            item.className = 'w-full text-left px-3 py-2 hover:bg-dark-bg/80 transition-colors border-b border-gray-700/50 last:border-0';
+            const symSpan  = document.createElement('span');
+            symSpan.className   = 'text-white font-bold text-sm';
+            symSpan.textContent = coin.symbol;
+            const nameSpan = document.createElement('span');
+            nameSpan.className   = 'text-dark-text-secondary text-xs ml-1.5';
+            nameSpan.textContent = coin.name;
+            const typeDiv  = document.createElement('div');
+            typeDiv.className   = 'text-gray-500 font-mono text-xs mt-0.5';
+            typeDiv.textContent = coin.type.slice(0, 28) + '…';
+            item.appendChild(symSpan);
+            item.appendChild(nameSpan);
+            item.appendChild(typeDiv);
+            item.addEventListener('mousedown', e => { e.preventDefault(); selectKnownCoin(coin); });
+            dropdown.appendChild(item);
+        });
+        dropdown.classList.remove('hidden');
+    }
+
+    function selectKnownCoin(coin) {
+        const input = document.getElementById('custom-coin-type');
+        if (input) input.value = coin.type;
+        document.getElementById('coin-type-dropdown')?.classList.add('hidden');
+        customTokenDecimals = coin.decimals;
+        showDecimalsHint(coin.decimals);
+        document.getElementById('token-symbol').textContent = getTokenSymbol();
+        updateSummary();
+        updateExecuteBtn();
+        refreshSenderBalance();
+    }
+
+    // ================================================================
+    // CUSTOM AIRDROP PANE
+    // ================================================================
+    function parseCustomAddresses() {
+        const raw = (document.getElementById('custom-addresses-input')?.value) || '';
+        const tokens = raw.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean);
+        const seen = new Set();
+        const result = [];
+        for (const t of tokens) {
+            const lower = t.toLowerCase();
+            if (isValidSuiAddress(t) && !seen.has(lower)) {
+                seen.add(lower);
+                result.push(t);
+                if (result.length >= 20) break;
+            }
+        }
+        return result;
+    }
+
+    function renderCustomAddresses() {
+        customAddresses = parseCustomAddresses();
+        const list    = document.getElementById('custom-addr-list');
+        const countEl = document.getElementById('custom-addr-count');
+        if (!list || !countEl) return;
+        countEl.textContent = `${customAddresses.length} / 20 valid addresses`;
+        list.innerHTML = '';
+        customAddresses.forEach((addr, idx) => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 py-1.5 px-3 bg-dark-bg rounded-lg text-xs';
+
+            const short = document.createElement('span');
+            short.className   = 'font-mono text-brand-primary shrink-0';
+            short.textContent = shortAddr(addr);
+            short.title       = addr;
+
+            const full = document.createElement('span');
+            full.className   = 'font-mono text-dark-text-secondary truncate hidden lg:block';
+            full.textContent = addr;
+
+            const rank = document.createElement('span');
+            rank.className   = 'text-dark-text-secondary shrink-0 ml-auto';
+            rank.textContent = `#${idx + 1}`;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type        = 'button';
+            removeBtn.className   = 'text-gray-600 hover:text-red-400 transition-colors shrink-0';
+            removeBtn.textContent = '×';
+            removeBtn.title       = 'Remove';
+            removeBtn.addEventListener('click', () => {
+                const remaining = customAddresses.filter((_, i) => i !== idx);
+                const textarea = document.getElementById('custom-addresses-input');
+                if (textarea) textarea.value = remaining.join('\n');
+                renderCustomAddresses();
+            });
+
+            row.appendChild(short);
+            row.appendChild(full);
+            row.appendChild(rank);
+            row.appendChild(removeBtn);
+            list.appendChild(row);
+        });
+        updateSummary();
+        updateExecuteBtn();
+    }
+
     function updateSummary() {
-        const count  = selectedAddresses.size;
+        const count  = getRecipientCount();
         const amount = parseFloat(document.getElementById('amount-input').value) || 0;
         const sym    = getTokenSymbol();
         document.getElementById('summary-count').textContent = count;
@@ -1115,7 +1319,7 @@
 
     function updateExecuteBtn() {
         const btn     = document.getElementById('execute-btn');
-        const count   = selectedAddresses.size;
+        const count   = getRecipientCount();
         const amount  = parseFloat(document.getElementById('amount-input').value) || 0;
         const coinType = getSelectedCoinType();
 
@@ -1125,14 +1329,14 @@
             btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
             return;
         }
-        if (!getActiveLeaderboardData().length) {
+        if (activeTab !== 'custom' && !getActiveLeaderboardData().length) {
             btn.textContent = 'Load Leaderboard First';
             btn.disabled    = true;
             btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
             return;
         }
         if (count === 0) {
-            btn.textContent = 'Select Recipients';
+            btn.textContent = activeTab === 'custom' ? 'Enter Addresses' : 'Select Recipients';
             btn.disabled    = true;
             btn.className   = 'w-full py-4 bg-gray-700 text-gray-400 font-bold rounded-xl cursor-not-allowed transition-all text-base';
             return;
@@ -1182,7 +1386,7 @@
     // AIRDROP TRANSACTION
     // ================================================================
     async function executeAirdrop() {
-        const recipients = [...selectedAddresses];
+        const recipients = getRecipients();
         const amount     = parseFloat(document.getElementById('amount-input').value) || 0;
         const coinType   = getSelectedCoinType();
         const decimals   = getSelectedDecimals();
@@ -1666,6 +1870,7 @@
     // Tab switching
     document.getElementById('tab-credits').addEventListener('click', () => switchTab('credits'));
     document.getElementById('tab-holders').addEventListener('click', () => switchTab('holders'));
+    document.getElementById('tab-custom').addEventListener('click',  () => switchTab('custom'));
 
     // Load leaderboard button
     document.getElementById('load-leaderboard-btn').addEventListener('click', loadLeaderboard);
@@ -1762,6 +1967,12 @@
             if (currentTokenType === 'custom') customFields.classList.remove('hidden');
             else                               customFields.classList.add('hidden');
 
+            if (currentTokenType === 'custom') {
+                // Reset decimals state when switching to custom
+                customTokenDecimals = 9;
+                document.getElementById('custom-coin-decimals-hint')?.classList.add('hidden');
+            }
+
             document.getElementById('token-symbol').textContent = getTokenSymbol();
             updateSummary();
             updateExecuteBtn();
@@ -1775,18 +1986,54 @@
         updateExecuteBtn();
     });
 
-    // Custom coin type input
+    // Custom coin type input — searchable dropdown + decimals auto-detection
+    let _decimalsDebounce = null;
     document.getElementById('custom-coin-type').addEventListener('input', () => {
+        const val = document.getElementById('custom-coin-type').value.trim();
+        renderCoinDropdown(val);
         document.getElementById('token-symbol').textContent = getTokenSymbol();
         updateSummary();
         updateExecuteBtn();
+        // Auto-detect decimals for full coin type strings
+        if (val.startsWith('0x') && val.includes('::')) {
+            const known = KNOWN_COINS.find(c => c.type === val);
+            if (known) {
+                customTokenDecimals = known.decimals;
+                showDecimalsHint(known.decimals);
+            } else {
+                // Debounce to avoid an RPC call on every keystroke
+                clearTimeout(_decimalsDebounce);
+                _decimalsDebounce = setTimeout(async () => {
+                    const dec = await fetchCoinDecimals(val);
+                    customTokenDecimals = dec;
+                    showDecimalsHint(dec);
+                    refreshSenderBalance();
+                }, 600);
+            }
+        } else {
+            document.getElementById('custom-coin-decimals-hint')?.classList.add('hidden');
+        }
         refreshSenderBalance();
     });
 
-    // Custom decimals input
-    document.getElementById('custom-decimals').addEventListener('input', () => {
-        updateSummary();
-        updateExecuteBtn();
+    document.getElementById('custom-coin-type').addEventListener('focus', () => {
+        renderCoinDropdown(document.getElementById('custom-coin-type').value.trim());
+    });
+
+    document.getElementById('custom-coin-type').addEventListener('blur', () => {
+        setTimeout(() => {
+            document.getElementById('coin-type-dropdown')?.classList.add('hidden');
+        }, 150);
+    });
+
+    // Custom airdrop pane — address textarea
+    document.getElementById('custom-addresses-input').addEventListener('input', renderCustomAddresses);
+
+    // Custom airdrop pane — clear button
+    document.getElementById('custom-addr-clear').addEventListener('click', () => {
+        const textarea = document.getElementById('custom-addresses-input');
+        if (textarea) textarea.value = '';
+        renderCustomAddresses();
     });
 
     // Execute button
