@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guild Venture - Alpha City</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'brand-primary': '#3B82F6',
+                        'brand-secondary': '#FBBF24',
+                        'dark-bg': '#111827',
+                        'dark-card': '#1F2937',
+                        'dark-text': '#E5E7EB',
+                        'dark-muted': '#9CA3AF',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        .hp-bar-fill { transition: width 0.4s ease; }
+        .ability-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .ability-btn { transition: all 0.15s ease; }
+        .ability-btn:not(:disabled):hover { transform: translateY(-1px); }
+
+        .faction-card { transition: all 0.15s ease; cursor: pointer; }
+        .faction-card:hover { transform: translateY(-2px); }
+        .faction-card.selected { border-color: #3B82F6; background: rgba(59,130,246,0.15); }
+
+        .route-btn { transition: all 0.15s ease; }
+        .route-btn:hover { transform: translateY(-1px); }
+
+        .log-entry { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        .shake { animation: shake 0.35s ease; }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        .pulse-once { animation: pulseOnce 0.5s ease; }
+        @keyframes pulseOnce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+
+        .rarity-salvage     { color: #9CA3AF; }
+        .rarity-guttertech  { color: #22C55E; }
+        .rarity-streetmod   { color: #60A5FA; }
+        .rarity-blackmarket { color: #A78BFA; }
+        .rarity-nodeforged  { color: #FDE047; }
+        .rarity-peerless    { color: #F97316; }
+
+        .boss-hp-bar { background: linear-gradient(90deg, #EF4444, #F97316); }
+        .player-hp-bar { background: linear-gradient(90deg, #3B82F6, #06B6D4); }
+
+        .bg-grid {
+            background-image:
+                linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-dark-text font-sans antialiased min-h-screen bg-grid">
+
+    <!-- ═══ HEADER ═══ -->
+    <header class="bg-dark-bg/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800">
+        <div class="max-w-4xl mx-auto px-4 flex items-center justify-between h-16">
+            <a href="/" class="text-xl font-bold text-white">Alpha<span class="text-brand-secondary"> City</span></a>
+            <span class="text-xs text-dark-muted bg-gray-800 px-2 py-1 rounded border border-gray-700 tracking-wide uppercase">Guild Venture</span>
+        </div>
+    </header>
+
+    <!-- ═══ MAIN WRAPPER ═══ -->
+    <main class="max-w-4xl mx-auto px-4 py-8">
+
+        <!-- ───── SCREEN: MAIN MENU ───── -->
+        <div id="screen-menu" class="screen active">
+            <div class="text-center mb-12">
+                <p class="text-brand-secondary text-sm font-semibold uppercase tracking-widest mb-3">Alpha City Underground</p>
+                <h1 class="text-5xl font-bold text-white mb-4">Guild Venture</h1>
+                <p class="text-dark-muted max-w-lg mx-auto leading-relaxed">
+                    Dive into the underbelly of Alpha City. Choose your faction, battle through the Gauntlet, and claim your reward from the ruins of the Overcity.
+                </p>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+                <button onclick="startGauntlet()" class="col-span-2 glass-panel rounded-xl p-5 border border-yellow-500/30 hover:border-yellow-400/60 text-left group transition-all hover:-translate-y-0.5">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-2xl">🏆</span>
+                        <span class="font-bold text-white text-lg group-hover:text-yellow-300 transition-colors">Gauntlet</span>
+                    </div>
+                    <p class="text-dark-muted text-sm">Face a series of bosses across escalating floors. Defeat them all — or bank your winnings and escape.</p>
+                </button>
+                <button onclick="doHireHelp()" class="glass-panel rounded-xl p-5 border border-blue-500/20 hover:border-blue-400/40 text-left group transition-all hover:-translate-y-0.5">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-2xl">🤝</span>
+                        <span class="font-bold text-white group-hover:text-blue-300 transition-colors">Hire Help</span>
+                    </div>
+                    <p class="text-dark-muted text-sm">Roll for a new character from the underground.</p>
+                </button>
+                <button onclick="doDigTreasure()" class="glass-panel rounded-xl p-5 border border-purple-500/20 hover:border-purple-400/40 text-left group transition-all hover:-translate-y-0.5">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-2xl">💎</span>
+                        <span class="font-bold text-white group-hover:text-purple-300 transition-colors">Dig for Treasure</span>
+                    </div>
+                    <p class="text-dark-muted text-sm">Roll for a random piece of gear from the black market.</p>
+                </button>
+            </div>
+            <!-- Lore blurb -->
+            <div class="mt-10 glass-panel rounded-xl p-5 border border-gray-700/50 max-w-xl mx-auto">
+                <p class="text-xs text-dark-muted leading-relaxed italic">
+                    "World: Alpha City — a dystopia built on a twisted version of blockchain. The Overcity tightens its grip with neural implants and surveillance. The Underground fights back."
+                </p>
+            </div>
+        </div>
+
+        <!-- ───── SCREEN: SCOUTING ───── -->
+        <div id="screen-scouting" class="screen">
+            <button onclick="showScreen('menu')" class="text-dark-muted hover:text-white text-sm mb-6 flex items-center gap-1 transition-colors">
+                ← Back to Menu
+            </button>
+            <h2 class="text-2xl font-bold text-white mb-1">📡 Scouting Report</h2>
+            <p class="text-dark-muted text-sm mb-6">Intel from the data-stream. Study the odds, then choose your route.</p>
+            <div class="grid md:grid-cols-2 gap-5 mb-6">
+                <div class="glass-panel rounded-xl p-5 border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-3">Likely Bosses</h3>
+                    <div id="scout-odds" class="space-y-2"></div>
+                </div>
+                <div class="glass-panel rounded-xl p-5 border border-gray-700/50">
+                    <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-3">Global Hazard</h3>
+                    <p id="scout-hazard" class="text-red-400 font-medium"></p>
+                    <div class="mt-4">
+                        <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-1">Run Bonus</h3>
+                        <p id="scout-bonus" class="text-green-400 font-medium text-sm"></p>
+                    </div>
+                </div>
+            </div>
+            <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-3">Choose Your Route</h3>
+            <div class="grid sm:grid-cols-3 gap-3 mb-4" id="route-buttons"></div>
+        </div>
+
+        <!-- ───── SCREEN: FACTION SELECT ───── -->
+        <div id="screen-faction" class="screen">
+            <h2 class="text-2xl font-bold text-white mb-1">Choose Your Faction</h2>
+            <p class="text-dark-muted text-sm mb-6">Each faction grants a starting HP pool and a stat specialty.</p>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6" id="faction-grid"></div>
+            <button id="faction-confirm-btn" onclick="confirmFaction()" disabled class="w-full sm:w-auto bg-brand-primary hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-8 py-3 rounded-lg transition-all">
+                Enter the Gauntlet →
+            </button>
+        </div>
+
+        <!-- ───── SCREEN: COMBAT ───── -->
+        <div id="screen-combat" class="screen">
+            <!-- Floor / location header -->
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <span id="combat-floor-label" class="text-brand-secondary font-bold text-sm uppercase tracking-wider"></span>
+                    <h2 id="combat-location-name" class="text-white font-bold text-lg"></h2>
+                </div>
+                <div id="combat-route-badge" class="text-xs px-2 py-1 rounded border border-gray-600 text-dark-muted"></div>
+            </div>
+
+            <!-- Boss panel -->
+            <div id="boss-panel" class="glass-panel rounded-xl p-5 border border-red-900/40 mb-4">
+                <div class="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                        <h3 id="boss-name" class="text-red-400 font-bold text-xl"></h3>
+                        <p id="boss-desc" class="text-dark-muted text-xs mt-1 max-w-prose"></p>
+                    </div>
+                    <button onclick="showBossInfo()" class="text-xs text-dark-muted hover:text-white border border-gray-700 hover:border-gray-500 px-2 py-1 rounded transition-colors whitespace-nowrap">📋 Info</button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-dark-muted w-14 shrink-0">Boss HP</span>
+                    <div class="flex-1 bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div id="boss-hp-bar" class="boss-hp-bar h-full rounded-full hp-bar-fill" style="width:100%"></div>
+                    </div>
+                    <span id="boss-hp-text" class="text-xs text-white font-mono w-16 text-right shrink-0"></span>
+                </div>
+            </div>
+
+            <!-- Player panel -->
+            <div id="player-panel" class="glass-panel rounded-xl p-5 border border-blue-900/40 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 id="player-faction-name" class="text-blue-400 font-bold"></h3>
+                        <p id="player-faction-desc" class="text-dark-muted text-xs mt-0.5"></p>
+                    </div>
+                    <div class="text-right">
+                        <span id="player-faction-icon" class="text-lg"></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-xs text-dark-muted w-14 shrink-0">Your HP</span>
+                    <div class="flex-1 bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div id="player-hp-bar" class="player-hp-bar h-full rounded-full hp-bar-fill" style="width:100%"></div>
+                    </div>
+                    <span id="player-hp-text" class="text-xs text-white font-mono w-16 text-right shrink-0"></span>
+                </div>
+                <!-- Abilities -->
+                <h4 class="text-xs font-semibold text-white uppercase tracking-wider mb-2">Abilities</h4>
+                <div id="ability-buttons" class="grid gap-2"></div>
+            </div>
+
+            <!-- Location interaction -->
+            <div id="env-interaction" class="hidden glass-panel rounded-xl p-4 border border-yellow-700/40 mb-4">
+                <p class="text-xs text-yellow-400 uppercase tracking-wider font-semibold mb-1">⚡ Environmental Action Available</p>
+                <div class="flex items-center justify-between gap-3">
+                    <p id="env-action-desc" class="text-sm text-dark-muted"></p>
+                    <button onclick="useEnvInteraction()" id="env-action-btn" class="shrink-0 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 text-xs font-semibold px-3 py-1.5 rounded transition-colors"></button>
+                </div>
+            </div>
+
+            <!-- Combat log -->
+            <div class="glass-panel rounded-xl border border-gray-700/50">
+                <div class="flex items-center justify-between px-4 py-2 border-b border-gray-700/50">
+                    <span class="text-xs font-semibold text-dark-muted uppercase tracking-wider">Combat Log</span>
+                    <button onclick="clearLog()" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
+                </div>
+                <div id="combat-log" class="p-4 space-y-1.5 max-h-64 overflow-y-auto text-sm"></div>
+            </div>
+        </div>
+
+        <!-- ───── SCREEN: BOSS INFO MODAL (overlay) ───── -->
+        <div id="overlay-boss-info" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+            <div class="glass-panel rounded-2xl p-6 border border-gray-600/50 max-w-md w-full">
+                <div class="flex items-start justify-between mb-4">
+                    <h3 id="bossinfo-name" class="text-red-400 font-bold text-xl"></h3>
+                    <button onclick="closeBossInfo()" class="text-dark-muted hover:text-white transition-colors text-lg leading-none">✕</button>
+                </div>
+                <div id="bossinfo-body" class="space-y-3 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- ───── SCREEN: VICTORY ───── -->
+        <div id="screen-victory" class="screen text-center">
+            <div class="mb-8">
+                <div class="text-6xl mb-4" id="victory-icon">🏆</div>
+                <h2 id="victory-title" class="text-3xl font-bold text-white mb-2"></h2>
+                <p id="victory-desc" class="text-dark-muted max-w-sm mx-auto"></p>
+            </div>
+            <div id="victory-buttons" class="flex flex-col sm:flex-row gap-3 justify-center"></div>
+        </div>
+
+        <!-- ───── SCREEN: DEFEAT ───── -->
+        <div id="screen-defeat" class="screen text-center">
+            <div class="mb-8">
+                <div class="text-6xl mb-4">💀</div>
+                <h2 class="text-3xl font-bold text-white mb-2">Run Over</h2>
+                <p id="defeat-desc" class="text-dark-muted max-w-sm mx-auto"></p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onclick="startGauntlet()" class="bg-brand-primary hover:bg-blue-400 text-white font-semibold px-8 py-3 rounded-lg transition-colors">Try Again</button>
+                <button onclick="showScreen('menu')" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold px-8 py-3 rounded-lg transition-colors">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- ───── SCREEN: REWARD ───── -->
+        <div id="screen-reward" class="screen">
+            <h2 class="text-2xl font-bold text-white mb-6 text-center">🎁 Your Reward</h2>
+            <div id="reward-card" class="glass-panel rounded-2xl p-6 border border-gray-700/50 max-w-md mx-auto mb-6"></div>
+            <div class="flex gap-3 justify-center">
+                <button onclick="goToMenuFromReward()" class="bg-brand-primary hover:bg-blue-400 text-white font-semibold px-8 py-3 rounded-lg transition-colors">Back to Menu</button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════
+    //  GAME DATA  (ported from Python source)
+    // ═══════════════════════════════════════════════════════════
+
+    const FACTIONS = {
+        Nodewalker:   { hp: 20, description: "Hackers of early implants, blockchain-mystics who bend data and identities.", modifier_type: "technology",    modifier_value: 1, icon: "🟢", alignment: "underground" },
+        Coinbroker:   { hp: 19, description: "Black-market financiers fueling the rebellion with forbidden tokens and off-chain wealth.", modifier_type: "communication", modifier_value: 1, icon: "🟢", alignment: "underground" },
+        Glitchborn:   { hp: 21, description: "Unregistered, implant-free \"ghosts\" — unseen saboteurs and assassins.", modifier_type: "stealth",       modifier_value: 1, icon: "🟢", alignment: "underground" },
+        Chainbreaker: { hp: 24, description: "Augmented warriors who survived implant destruction, wielding weaponized mods against the Overcity.", modifier_type: "strength", modifier_value: 1, icon: "🟢", alignment: "underground" },
+        Singularity:  { hp: 20, description: "An AI council that serves as the digital judge, jury, and executioner of Alpha City.", modifier_type: "technology",    modifier_value: 1, icon: "🔴", alignment: "overcity" },
+        Overlord:     { hp: 18, description: "Trillionaire dynasties who wield immense financial and political power to enforce their will.", modifier_type: "communication", modifier_value: 1, icon: "🔴", alignment: "overcity" },
+        Neuralife:    { hp: 19, description: "The indoctrinated masses of Alpha City, their minds shaped by mandatory neural implants.", modifier_type: "stealth", modifier_value: 1, icon: "🔴", alignment: "overcity" },
+    };
+
+    const ABILITIES = {
+        Nodewalker: [
+            { name: "Ping Attack",    description: "A weak data ping that deals damage.",               effect: { type: "direct_damage", value: 4,  damage_type: "Enertech" } },
+            { name: "Data Spike",     description: "Inject hostile code to overload enemy nodes.",       charges: 2, effect: { type: "direct_damage", value: 14, damage_type: "Enertech" } },
+            { name: "System Restore", description: "Recompile your stack and purge junk data, healing yourself.", charges: 1, effect: { type: "heal", value: 8 } },
+        ],
+        Coinbroker: [
+            { name: "Market Fluctuation", description: "Exploit a minor market opening to cause a distraction.", effect: { type: "direct_damage", value: 4, damage_type: "Mercantile" } },
+            { name: "Hostile Liquidation", description: "Force an asset sell-off, dealing economic shock.", charges: 2, effect: { type: "direct_damage", value: 13, damage_type: "Mercantile" } },
+            { name: "Bailout", description: "Liquidate emergency funds, healing yourself.", charges: 2, effect: { type: "heal", value: 5 } },
+        ],
+        Glitchborn: [
+            { name: "Flicker Strike", description: "A quick, disorienting jab from the shadows.", effect: { type: "direct_damage", value: 5, damage_type: "Umbral" } },
+            { name: "Ambush",         description: "Step from blind data-zones and strike.", charges: 3, effect: { type: "direct_damage", value: 10, damage_type: "Umbral" } },
+            { name: "Unmake",         description: "Briefly de-rez a target's core code.", charges: 1, effect: { type: "direct_damage", value: 9, damage_type: "Umbral" } },
+        ],
+        Chainbreaker: [
+            { name: "Scrap Punch",    description: "A heavy blow with augmented knuckles.", effect: { type: "direct_damage", value: 6, damage_type: "Kinetic" } },
+            { name: "Overcharge",     description: "Route raw current through combat mods for a brutal hit.", charges: 2, effect: { type: "direct_damage", value: 15, damage_type: "Kinetic" } },
+            { name: "Adrenaline Surge", description: "Trigger combat stims and reinforce plating, healing yourself.", charges: 1, effect: { type: "heal", value: 6 } },
+        ],
+        Singularity: [
+            { name: "Process Query", description: "Run a low-level diagnostic attack.", effect: { type: "direct_damage", value: 5, damage_type: "Mechanical" } },
+            { name: "Logic Bomb",    description: "Recursive payload detonates inside target heuristics.", charges: 2, effect: { type: "direct_damage", value: 12, damage_type: "Mechanical" } },
+            { name: "Recursive Deletion", description: "Flag a target for total data erasure.", charges: 2, effect: { type: "direct_damage", value: 6, damage_type: "Mechanical" } },
+        ],
+        Overlord: [
+            { name: "Asset Forfeiture", description: "A minor, legally-backed seizure of processing power.", effect: { type: "direct_damage", value: 3, damage_type: "Archon" } },
+            { name: "Sanction Strike",  description: "Call in a targeted orbital strike.", charges: 2, effect: { type: "direct_damage", value: 8, damage_type: "Archon" } },
+            { name: "Private Security", description: "Activate a personal shield and med-kit, healing yourself.", charges: 2, effect: { type: "heal", value: 12 } },
+        ],
+        Neuralife: [
+            { name: "Frantic Headbutt",     description: "An uncontrolled, desperate physical strike.", effect: { type: "direct_damage", value: 3, damage_type: "Neural" } },
+            { name: "Ghost in the Machine", description: "Hijack implant drift and strike from noise.", charges: 3, effect: { type: "direct_damage", value: 8, damage_type: "Neural" } },
+            { name: "Synaptic Overload",    description: "Flood the target's neural link with raw data.", charges: 3, effect: { type: "direct_damage", value: 7, damage_type: "Neural" } },
+        ],
+    };
+
+    const BOSS_TRAITS = {
+        "Mech-Warden": {
+            description: "A chrome executioner deployed by the Singularity. Walking fortress built to end uprisings.",
+            abilities: [
+                { name: "Siege Cannon",      description: "Charged plasma beam annihilates a priority target.",         effects: [{ type:"direct_damage", target:"single", value:12 }] },
+                { name: "Repulsor Shield",   description: "Kinetic surge shoves the squad off-balance while the Warden resets.", effects: [{ type:"heal", target:"self", value:8 }] },
+                { name: "Suppressing Fire",  description: "Disciplined volleys rake the battlefield.",                  effects: [{ type:"direct_damage", target:"single", value:5 }] },
+            ],
+            strengths:  [{ damage_type:"Kinetic",  value:0.75, narrative:"Its heavy plating deflects physical force." }],
+            weaknesses: [{ damage_type:"Enertech", value:1.25, narrative:"Energy attacks can overload its sophisticated systems." }],
+        },
+        "Data-Wraith": {
+            description: "A ghost-process born of crashed minds and orphaned code. It hunts intent, not flesh.",
+            abilities: [
+                { name: "Recursive Curse", description: "Paradox logic unthreads a victim's defenses.", effects: [{ type:"direct_damage", target:"single", value:9 }] },
+                { name: "Bit Drain",       description: "Siphons charge from everyone, surging stronger.", effects: [{ type:"direct_damage", target:"single", value:3 }, { type:"heal", target:"self", value:6 }] },
+                { name: "Ghost Protocol",  description: "Phases thin — computations align.",               effects: [{ type:"heal", target:"self", value:5 }] },
+            ],
+            strengths:  [{ damage_type:"Umbral",  value:0.75, narrative:"As a being of shadow data, it resists Umbral energies." }],
+            weaknesses: [{ damage_type:"Neural",  value:1.25, narrative:"Focused psionic attacks disrupt its non-physical form." }],
+        },
+        "Bio-Titan": {
+            description: "Illegal wetlab horror — muscle braided with actuator cable, always flexing toward the kill.",
+            abilities: [
+                { name: "Caustic Spew",          description: "Corrosive bile scalds a target, then the beast pounces.",    effects: [{ type:"direct_damage", target:"single", value:10 }] },
+                { name: "Frenzied Regeneration", description: "Plates knit; wounds close mid-charge.",                       effects: [{ type:"heal", target:"self", value:10 }] },
+                { name: "Ground Slam",           description: "Shockwave buckles footing; the squad staggers.",              effects: [{ type:"direct_damage", target:"single", value:7 }] },
+            ],
+            strengths:  [{ damage_type:"Neural",   value:0.75, narrative:"Its primal rage makes psionics difficult." }],
+            weaknesses: [{ damage_type:"Kinetic",  value:1.25, narrative:"Its organic body is vulnerable to brute force." }],
+        },
+        "Dynastic Scion": {
+            description: "Heir to obscene wealth in a sovereign-grade exosuit; battlefield is just another market.",
+            abilities: [
+                { name: "Hostile Takeover", description: "Locks options and dictates the next exchange.",     effects: [{ type:"direct_damage", target:"single", value:8 }] },
+                { name: "Market Crash",     description: "Volatility floods the local net; hesitation is punished.", effects: [{ type:"direct_damage", target:"single", value:6 }] },
+                { name: "Golden Handshake", description: "Calls in favors and processes a fast refurbishment.", effects: [{ type:"heal", target:"self", value:6 }] },
+            ],
+            strengths:  [{ damage_type:"Archon",    value:0.75, narrative:"An Overlord's authority resists its own kind." }],
+            weaknesses: [{ damage_type:"Mercantile",value:1.25, narrative:"Its market reliance makes it vulnerable to economic warfare." }],
+        },
+        "Psionic Prophet": {
+            description: "A Neuralife who tore out their leash and learned to weaponize the echo of belief.",
+            abilities: [
+                { name: "Mind Shatter",      description: "Splinters a single mind with a focused scream.", effects: [{ type:"direct_damage", target:"single", value:9 }] },
+                { name: "Collective Agony",  description: "Harvests team pain and returns it with interest.", effects: [{ type:"direct_damage", target:"single", value:4 }, { type:"heal", target:"self", value:4 }] },
+                { name: "Prophetic Vision",  description: "Steps aside just before the strike.",             effects: [{ type:"heal", target:"self", value:6 }] },
+            ],
+            strengths:  [{ damage_type:"Mercantile",value:0.75, narrative:"Having transcended material wealth, economic attacks have little effect." }],
+            weaknesses: [{ damage_type:"Umbral",    value:1.25, narrative:"Its hyper-focused mind is open to shadow attacks." }],
+        },
+        "Glitch Abomination": {
+            description: "A heap of data-rot congealed into teeth and noise; reality is just a suggestion nearby.",
+            abilities: [
+                { name: "Data Cascade",    description: "Bursts of chaotic packets hammer the team.",               effects: [{ type:"direct_damage", target:"single", value:7 }] },
+                { name: "Unstable Matrix", description: "Reconfigures mid-lunge; grows hungrier.",                   effects: [{ type:"heal", target:"self", value:8 }] },
+                { name: "Reality Tear",    description: "Rips a straight line through space and anything in it.",    effects: [{ type:"direct_damage", target:"single", value:12 }] },
+            ],
+            strengths:  [{ damage_type:"Enertech",   value:0.75, narrative:"Its chaotic code corrupts clean energy attacks." }],
+            weaknesses: [{ damage_type:"Mechanical", value:1.25, narrative:"Pure logic can stabilize and delete its glitched form." }],
+        },
+        "Syndicate Enforcer": {
+            description: "Coinbroker warlord with bought loyalties and illegal hardware, entrenched behind favors.",
+            abilities: [
+                { name: "Call Enforcers",    description: "Signals muscle; suppressive fire pins you while the boss advances.", effects: [{ type:"direct_damage", target:"single", value:6 }] },
+                { name: "Flashbang Drone",   description: "Blinds sensors and rattles nerves.",                                 effects: [{ type:"direct_damage", target:"single", value:4 }] },
+                { name: "Asset Liquidation", description: "Sacrifices a pawn to hammer a priority target.",                     effects: [{ type:"direct_damage", target:"single", value:11 }] },
+            ],
+            strengths:  [{ damage_type:"Mechanical", value:0.75, narrative:"Its black-market tech counters Singularity systems." }],
+            weaknesses: [{ damage_type:"Archon",     value:1.25, narrative:"Overlord authority bypasses any bought loyalty." }],
+        },
+    };
+
+    const LOCATIONS = [
+        { name: "The Overlord's Spire",    description: "Chrome-and-onyx fortress where The Singularity processes the master ledger.",  effect: { type:"modifier", category:"technology", value:15, narrative:"The Spire's dense data-streams empower your tech." }, interaction: { name:"Overload Spire Core", category:"technology", success_effect:{ type:"damage", value:25 }, narrative:"You interface with the Spire's core, unleashing a crippling feedback loop!" } },
+        { name: "The Rust-Grave Piers",    description: "A maze of corroded shipping containers and cranes where toxic canals meet the city's edge.", effect: null, interaction: { name:"Topple Crane", category:"strength", success_effect:{ type:"damage", value:30 }, narrative:"You bring a cargo crane crashing down onto the enemy!" } },
+        { name: "The Tangle",              description: "A knot of forgotten infrastructure — ancient subway lines, data conduits, and sewers.", effect: { type:"modifier", category:"stealth", value:15, narrative:"The labyrinthine tunnels conceal your movements." }, interaction: { name:"Trigger Tunnel Collapse", category:"strength", success_effect:{ type:"damage", value:25 }, narrative:"You detonate a support structure, burying the boss under tons of rubble!" } },
+        { name: "The Ticker's Bazaar",     description: "Housed in an abandoned stock exchange, the rebellion's black-market heart.", effect: { type:"modifier", category:"communication", value:15, narrative:"In the chaotic bazaar, your words carry the weight of a thousand deals." }, interaction: { name:"Incite Market Panic", category:"communication", success_effect:{ type:"damage", value:20 }, narrative:"You spread a rumor that crashes the boss's financial backing!" } },
+        { name: "The Data Morgue",         description: "A cold, silent necropolis of obsolete server farms — perfect hiding place.", effect: null, interaction: { name:"Purge Server Racks", category:"technology", success_effect:{ type:"damage", value:25 }, narrative:"You trigger a mass data-wipe, the cascading energy tears through the boss!" } },
+        { name: "The Corrective",          description: "A sterile white tower where Neuralifes are sent for 'recalibration'.", effect: null, interaction: { name:"Broadcast Subversive Signal", category:"technology", success_effect:{ type:"damage", value:20 }, narrative:"You hijack the broadcast system, hitting the boss with a debilitating psychic frequency!" } },
+        { name: "The Foundry of Defiance", description: "A geothermal-powered complex deep underground, where Chainbreakers are made.", effect: null, interaction: { name:"Vent Geothermal Steam", category:"strength", success_effect:{ type:"damage", value:30 }, narrative:"You force open a pressure valve, scalding the boss with superheated geothermal steam!" } },
+        { name: "The Oracle's Relay",      description: "A forgotten radio telescope complex repurposed by Nodewalkers.", effect: null, interaction: { name:"Focus Relay Dish", category:"technology", success_effect:{ type:"damage", value:28 }, narrative:"You focus the entire relay on the boss, bombarding it with a focused beam of cosmic data!" } },
+        { name: "BlissHaven",              description: "A self-contained habitat where privileged Neuralifes live in a monitored paradise.", effect: { type:"modifier", category:"communication", value:-10, narrative:"Every word is weighed and measured here, making genuine connection difficult." }, interaction: { name:"Crash Social Credit System", category:"communication", success_effect:{ type:"damage", value:22 }, narrative:"You find an exploit in the social credit system, bankrupting the boss!" } },
+    ];
+
+    const HAZARDS = [
+        { category: "stealth",       value: -10, label: "Low visibility: -10 Stealth" },
+        { category: "technology",    value: -10, label: "Signal jamming: -10 Technology" },
+        { category: "communication", value: -10, label: "Data choke: -10 Communication" },
+        { category: "strength",      value: -10, label: "Kinetic dampeners: -10 Strength" },
+    ];
+
+    const GAUNTLET_ROUTES = {
+        adrenal:  { name: "Adrenal",   description: "All damage increased by 50%. Doubles the risk.", icon: "💥", color: "border-red-500/40 hover:border-red-400/70" },
+        juiced_up:{ name: "Juiced-Up", description: "All healing doubled. Survive longer.",           icon: "🧪", color: "border-green-500/40 hover:border-green-400/70" },
+        default:  { name: "Default",   description: "Standard parameters. No global modifiers.",       icon: "⚙️", color: "border-gray-500/40 hover:border-gray-400/70" },
+    };
+
+    const RARITIES = [
+        { name:"Salvage",     icon:"⚪️", color:"rarity-salvage",     minRoll:0,  maxRoll:35  },
+        { name:"Gutter-Tech", icon:"🟢", color:"rarity-guttertech",  minRoll:36, maxRoll:60  },
+        { name:"Street Mod",  icon:"🔵", color:"rarity-streetmod",   minRoll:61, maxRoll:80  },
+        { name:"Black Market",icon:"🟣", color:"rarity-blackmarket", minRoll:81, maxRoll:94  },
+        { name:"Node-Forged", icon:"🟡", color:"rarity-nodeforged",  minRoll:95, maxRoll:99  },
+        { name:"Peerless",    icon:"💥", color:"rarity-peerless",    minRoll:100,maxRoll:100 },
+    ];
+
+    const ITEM_SLOTS = ["Cranial","Chassis","Equipment","Mobility","Companion"];
+    const ITEM_SPECIALTIES = ["Umbral","Blockchain","Kinetic","Enertech","Archon","Neural","Mechanical"];
+
+    const SLOT_ICONS      = { Cranial:"🧠", Chassis:"🛡️", Equipment:"🔧", Mobility:"🦿", Companion:"🐾" };
+    const SPECIALTY_ICONS = { Umbral:"🌑", Blockchain:"⛓️", Kinetic:"💥", Enertech:"⚡", Archon:"👑", Neural:"🔮", Mechanical:"⚙️" };
+
+    // Procedural name parts for items
+    const ITEM_ADJ  = ["Neural","Chrome","Shadow","Data","Glitch","Plasma","Quantum","Void","Rogue","Neon","Rusted","Black-Core","Overcity","Static","Ghost","Pulse","Arc","Fractured"];
+    const ITEM_NOUN = { Cranial:["Implant","Interface","Uplink","Skullplate","Visor","Chip","Crown"], Chassis:["Vest","Plating","Rig","Exo-Frame","Shell","Weave","Mantle"], Equipment:["Module","Device","Grenade","Emitter","Pack","Tool","Scanner"], Mobility:["Boots","Grav-Pads","Striders","Jets","Step","Drives","Lace"], Companion:["Drone","Familiar","Proxy","Bot","Shade","Ghost","Runner"] };
+    const CHAR_ADJ  = ["Iron","Ghost","Cipher","Null","Void","Static","Delta","Chrome","Hex","Phantom","Rogue","Silent"];
+    const CHAR_NOUN = ["Runner","Walker","Breaker","Node","Hack","Wraith","Cipher","Splice","Wire","Glitch","Drifter","Zero"];
+
+    // Predefined combat narratives keyed by luck outcome
+    const LUCK_NARRATIVES = {
+        0.0:  ["Your move fizzles, the target unmoved.", "The signal misfires — nothing lands.", "A critical malfunction. Your attack has no effect."],
+        0.75: ["The strike connects, but your form was off.", "A glancing blow. Less damage than expected.", "Weaker than anticipated, but it still hurts them."],
+        1.0:  ["Clean contact. The move lands exactly as planned.", "Textbook execution — your training pays off.", "The attack lands true, damage as expected."],
+        1.25: ["A solid hit — you found an opening.", "The blow connects harder than expected!", "Excellent timing — the enemy staggers from the impact!"],
+        2.0:  ["CRITICAL HIT! The enemy reels from the devastating strike!", "PERFECT STRIKE — the target's systems are overwhelmed!", "CRITICAL SUCCESS! Maximum damage delivered!"],
+    };
+
+    const BOSS_NARRATIVES = {
+        attack: [
+            "The boss retaliates with terrifying precision!",
+            "With a roar, the enemy lunges — you barely brace in time!",
+            "The boss's attack slams through your defenses!",
+            "An explosion of force — you scramble to absorb the impact!",
+            "The enemy strikes true, leaving you gasping.",
+        ],
+        heal: [
+            "The boss regenerates, wounds knitting shut in real-time.",
+            "Emergency systems kick in — the enemy restores itself.",
+            "The boss draws power from the environment, recovering HP.",
+            "A shimmering pulse — the enemy's damage fades as it heals.",
+        ],
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    //  GAME STATE
+    // ═══════════════════════════════════════════════════════════
+
+    let gameState = {};
+
+    function initGameState() {
+        gameState = {
+            // Gauntlet run data
+            gauntletLevel: 1,
+            gauntletBonusAttempted: 0,
+            gauntletBonusDefeated: 0,
+            selectedRoute: "default",
+            // Player
+            player: null,           // { faction, hp, maxHp, abilities[] }
+            // Boss
+            boss: null,             // { name, archetype, hp, maxHp, abilities[], strengths[], weaknesses[] }
+            // Location
+            location: null,
+            hazard: null,
+            locationInteractionUsed: false,
+            // Scout odds
+            scoutOdds: [],
+            // Temp
+            pendingRewardType: null,
+            pendingGauntletBonus: 0,
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  UTILITIES
+    // ═══════════════════════════════════════════════════════════
+
+    function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+    function pickN(arr, n) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a.slice(0, n);
+    }
+
+    function rollLuck() {
+        const r = rnd(1, 10);
+        if (r === 1)               return { roll: r, mult: 0.0,  label: "Critical Failure",  class: "text-red-400" };
+        if (r >= 2 && r <= 4)      return { roll: r, mult: 0.75, label: "Weaker Than Expected", class: "text-orange-400" };
+        if (r === 5)               return { roll: r, mult: 1.0,  label: "As Expected",       class: "text-white" };
+        if (r >= 6 && r <= 9)      return { roll: r, mult: 1.25, label: "Stronger Than Expected", class: "text-green-400" };
+        /* r === 10 */              return { roll: r, mult: 2.0,  label: "🎯 Critical Success!", class: "text-yellow-300" };
+    }
+
+    function getLuckNarrative(mult) {
+        const key = mult.toString();
+        const pool = LUCK_NARRATIVES[parseFloat(key)] || LUCK_NARRATIVES["1.0"];
+        return randItem(pool);
+    }
+
+    function getRarityFromRoll(roll) {
+        for (const r of RARITIES.slice().reverse()) {
+            if (roll >= r.minRoll) return r;
+        }
+        return RARITIES[0];
+    }
+
+    function computeRunBonus() {
+        return clamp(gameState.gauntletBonusAttempted + gameState.gauntletBonusDefeated, 0, 60);
+    }
+
+    function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj, (k, v) => v === Infinity ? '__INFINITY__' : v),
+            (k, v) => v === '__INFINITY__' ? Infinity : v);
+    }
+
+    // Apply boss damage modifiers (strengths & weaknesses)
+    function applyBossDamageModifiers(damage, damageType) {
+        if (!gameState.boss) return damage;
+        let result = damage;
+        for (const s of gameState.boss.strengths || []) {
+            if (s.damage_type === damageType) {
+                result = Math.round(result * s.value);
+                return result;
+            }
+        }
+        for (const w of gameState.boss.weaknesses || []) {
+            if (w.damage_type === damageType) {
+                result = Math.round(result * w.value);
+                return result;
+            }
+        }
+        return result;
+    }
+
+    // Apply route multiplier to damage
+    function applyRouteDamageMultiplier(damage) {
+        if (gameState.selectedRoute === "adrenal") return Math.round(damage * 1.5);
+        return damage;
+    }
+
+    // Apply route multiplier to healing
+    function applyRouteHealMultiplier(heal) {
+        if (gameState.selectedRoute === "juiced_up") return heal * 2;
+        return heal;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  SCREEN MANAGEMENT
+    // ═══════════════════════════════════════════════════════════
+
+    function showScreen(name) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        const el = document.getElementById('screen-' + name);
+        if (el) { el.classList.add('active'); window.scrollTo({top:0, behavior:'smooth'}); }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  MAIN MENU ACTIONS
+    // ═══════════════════════════════════════════════════════════
+
+    function startGauntlet() {
+        initGameState();
+        buildScoutingScreen();
+        showScreen('scouting');
+    }
+
+    function doHireHelp() {
+        const result = generateCharacter(0);
+        showReward(result);
+    }
+
+    function doDigTreasure() {
+        const result = generateItem(0);
+        showReward(result);
+    }
+
+    function goToMenuFromReward() {
+        showScreen('menu');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  SCOUTING SCREEN
+    // ═══════════════════════════════════════════════════════════
+
+    function buildScoutingScreen() {
+        const bossKeys = Object.keys(BOSS_TRAITS);
+        const shuffled = [...bossKeys].sort(() => Math.random() - 0.5).slice(0, 3);
+        gameState.scoutOdds = [
+            { name: shuffled[0], pct: 60 },
+            { name: shuffled[1], pct: 30 },
+            { name: shuffled[2], pct: 10 },
+        ];
+        gameState.hazard = randItem(HAZARDS);
+
+        // Render boss odds
+        const oddsEl = document.getElementById('scout-odds');
+        oddsEl.innerHTML = gameState.scoutOdds.map(o =>
+            `<div class="flex items-center justify-between">
+                <span class="text-sm text-dark-muted">${o.name}</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-28 bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full bg-red-500 rounded-full" style="width:${o.pct}%"></div>
+                    </div>
+                    <span class="text-xs text-dark-muted w-8 text-right">${o.pct}%</span>
+                </div>
+             </div>`
+        ).join('');
+
+        // Render hazard
+        document.getElementById('scout-hazard').textContent = gameState.hazard.label;
+
+        // Run bonus
+        const bonus = computeRunBonus();
+        document.getElementById('scout-bonus').textContent = bonus > 0 ? `+${bonus} rarity bonus (${gameState.gauntletBonusAttempted} attempts, ${gameState.gauntletBonusDefeated} defeated)` : "No bonus yet.";
+
+        // Render route buttons
+        const routeEl = document.getElementById('route-buttons');
+        routeEl.innerHTML = Object.entries(GAUNTLET_ROUTES).map(([key, r]) =>
+            `<button onclick="selectRoute('${key}')" class="route-btn glass-panel rounded-xl p-4 border ${r.color} text-left transition-all">
+                <div class="text-xl mb-1">${r.icon}</div>
+                <div class="font-semibold text-white text-sm mb-1">${r.name}</div>
+                <div class="text-xs text-dark-muted">${r.description}</div>
+             </button>`
+        ).join('');
+    }
+
+    function selectRoute(routeKey) {
+        gameState.selectedRoute = routeKey;
+        buildFactionScreen();
+        showScreen('faction');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  FACTION SCREEN
+    // ═══════════════════════════════════════════════════════════
+
+    let selectedFaction = null;
+
+    function buildFactionScreen() {
+        selectedFaction = null;
+        document.getElementById('faction-confirm-btn').disabled = true;
+
+        const grid = document.getElementById('faction-grid');
+        const factionEntries = Object.entries(FACTIONS);
+
+        grid.innerHTML = factionEntries.map(([name, f]) => {
+            const modLabel = { technology:"💻 Tech", communication:"🗣️ Comm", stealth:"🤫 Stealth", strength:"💪 Strength" }[f.modifier_type] || f.modifier_type;
+            const alignColor = f.alignment === "underground" ? "border-green-700/40" : "border-red-700/40";
+            return `<div class="faction-card glass-panel rounded-xl p-4 border ${alignColor}" id="fcard-${name}" onclick="selectFaction('${name}')">
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="font-bold text-white">${f.icon} ${name}</h3>
+                            <span class="text-xs px-1.5 py-0.5 rounded ${f.alignment==='underground'?'bg-green-900/40 text-green-400':'bg-red-900/40 text-red-400'}">${f.alignment}</span>
+                        </div>
+                        <p class="text-xs text-dark-muted mb-3 leading-relaxed">${f.description}</p>
+                        <div class="flex gap-3 text-xs">
+                            <span class="text-blue-400 font-mono">❤️ ${f.hp} HP</span>
+                            <span class="text-yellow-400">${modLabel} +1</span>
+                        </div>
+                    </div>`;
+        }).join('');
+    }
+
+    function selectFaction(name) {
+        selectedFaction = name;
+        document.querySelectorAll('.faction-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById(`fcard-${name}`)?.classList.add('selected');
+        document.getElementById('faction-confirm-btn').disabled = false;
+    }
+
+    function confirmFaction() {
+        if (!selectedFaction) return;
+        const factionData = FACTIONS[selectedFaction];
+        const rawAbilities = ABILITIES[selectedFaction] || [];
+        const abilities = deepClone(rawAbilities).map(a => {
+            if (!('charges' in a)) a.charges = Infinity;
+            a.maxCharges = a.charges === Infinity ? Infinity : a.charges;
+            return a;
+        });
+        gameState.player = {
+            faction: selectedFaction,
+            hp: factionData.hp,
+            maxHp: factionData.hp,
+            modifierType: factionData.modifier_type,
+            modifierValue: factionData.modifier_value,
+            abilities,
+        };
+        startCombatFloor();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  COMBAT FLOOR SETUP
+    // ═══════════════════════════════════════════════════════════
+
+    function startCombatFloor() {
+        const floor = gameState.gauntletLevel;
+        gameState.gauntletBonusAttempted += 1;
+
+        // Pick boss from scout odds
+        const bossArchetypeName = pickBossFromOdds();
+        const bossData = BOSS_TRAITS[bossArchetypeName];
+        const baseHp = Math.round(40 * Math.pow(1.3, floor - 1));
+
+        // Boss name: add a flavor prefix
+        const BOSS_PREFIXES = ["Supreme","Iron","Void","Rogue","Phantom","Alpha","Null","Apex","Ghost","Shadow","Omega"];
+        const bossFlavorName = `${randItem(BOSS_PREFIXES)} ${bossArchetypeName}`;
+
+        gameState.boss = {
+            name: bossFlavorName,
+            archetype: bossArchetypeName,
+            description: bossData.description,
+            abilities: deepClone(bossData.abilities),
+            strengths: bossData.strengths,
+            weaknesses: bossData.weaknesses,
+            hp: baseHp,
+            maxHp: baseHp,
+        };
+
+        // Pick location + hazard
+        gameState.location = randItem(LOCATIONS);
+        gameState.hazard = gameState.hazard || randItem(HAZARDS);
+        gameState.locationInteractionUsed = false;
+
+        renderCombatScreen();
+        showScreen('combat');
+        addLog(`⚔️ Floor ${floor} — ${gameState.location.name}`, "text-yellow-400 font-semibold");
+        addLog(`${gameState.boss.name} appears! "${bossData.description}"`, "text-red-300");
+        if (gameState.hazard) addLog(`⚠️ Hazard: ${gameState.hazard.label}`, "text-orange-400");
+        if (gameState.location.effect?.narrative) addLog(`📍 ${gameState.location.effect.narrative}`, "text-blue-300");
+    }
+
+    function pickBossFromOdds() {
+        const r = Math.random() * 100;
+        let acc = 0;
+        for (const o of gameState.scoutOdds) {
+            acc += o.pct;
+            if (r < acc) return o.name;
+        }
+        return gameState.scoutOdds[0].name;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  COMBAT SCREEN RENDER
+    // ═══════════════════════════════════════════════════════════
+
+    function renderCombatScreen() {
+        const floor = gameState.gauntletLevel;
+        const route = GAUNTLET_ROUTES[gameState.selectedRoute];
+        const factionData = FACTIONS[gameState.player.faction];
+
+        document.getElementById('combat-floor-label').textContent = `Floor ${floor}`;
+        document.getElementById('combat-location-name').textContent = gameState.location.name;
+        document.getElementById('combat-route-badge').textContent = `${route.icon} ${route.name}`;
+
+        // Boss
+        document.getElementById('boss-name').textContent = gameState.boss.name;
+        document.getElementById('boss-desc').textContent = gameState.boss.description;
+
+        // Player faction info
+        document.getElementById('player-faction-name').textContent = `${factionData.icon} ${gameState.player.faction}`;
+        document.getElementById('player-faction-desc').textContent = factionData.description;
+        document.getElementById('player-faction-icon').textContent = '';
+
+        updateHpBars();
+        renderAbilityButtons();
+        checkEnvInteraction();
+        clearLog();
+    }
+
+    function updateHpBars() {
+        if (!gameState.boss || !gameState.player) return;
+
+        const bossHpPct = clamp(Math.round(gameState.boss.hp / gameState.boss.maxHp * 100), 0, 100);
+        const playerHpPct = clamp(Math.round(gameState.player.hp / gameState.player.maxHp * 100), 0, 100);
+
+        document.getElementById('boss-hp-bar').style.width = bossHpPct + '%';
+        document.getElementById('boss-hp-text').textContent = `${Math.max(0, gameState.boss.hp)}/${gameState.boss.maxHp}`;
+        document.getElementById('player-hp-bar').style.width = playerHpPct + '%';
+        document.getElementById('player-hp-text').textContent = `${Math.max(0, gameState.player.hp)}/${gameState.player.maxHp}`;
+    }
+
+    function renderAbilityButtons() {
+        const container = document.getElementById('ability-buttons');
+        container.innerHTML = gameState.player.abilities.map((ability, i) => {
+            const hasCharges = ability.charges === Infinity || ability.charges > 0;
+            const chargesLabel = ability.charges === Infinity ? '∞' : `${ability.charges}/${ability.maxCharges}`;
+            const effect = ability.effect;
+            let effectDesc = '';
+            if (effect.type === 'direct_damage') effectDesc = `${effect.value} ${effect.damage_type} dmg`;
+            else if (effect.type === 'heal')         effectDesc = `Heal ${effect.value} HP`;
+            else if (effect.type === 'roll_bonus')   effectDesc = `+${effect.value} roll`;
+
+            return `<button class="ability-btn text-left glass-panel rounded-lg p-3 border ${hasCharges ? 'border-blue-700/40 hover:border-blue-500/60' : 'border-gray-700/30'}"
+                           onclick="useAbility(${i})"
+                           ${!hasCharges ? 'disabled' : ''}>
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <span class="font-semibold text-sm text-white">${ability.name}</span>
+                                <p class="text-xs text-dark-muted mt-0.5 truncate">${ability.description}</p>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-xs text-blue-400 font-mono">${effectDesc}</div>
+                                <div class="text-xs ${hasCharges ? 'text-yellow-400' : 'text-gray-600'} mt-0.5">${chargesLabel} left</div>
+                            </div>
+                        </div>
+                    </button>`;
+        }).join('');
+    }
+
+    function checkEnvInteraction() {
+        const envEl = document.getElementById('env-interaction');
+        if (!gameState.boss || !gameState.location?.interaction || gameState.locationInteractionUsed) {
+            envEl.classList.add('hidden');
+            return;
+        }
+        const bossHpPct = gameState.boss.hp / gameState.boss.maxHp;
+        if (bossHpPct <= 0.5) {
+            envEl.classList.remove('hidden');
+            const interaction = gameState.location.interaction;
+            document.getElementById('env-action-desc').textContent = interaction.narrative || `Use: ${interaction.name}`;
+            document.getElementById('env-action-btn').textContent = `⚡ ${interaction.name}`;
+        } else {
+            envEl.classList.add('hidden');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  COMBAT LOG
+    // ═══════════════════════════════════════════════════════════
+
+    function addLog(msg, cssClass = "text-dark-muted") {
+        const log = document.getElementById('combat-log');
+        const entry = document.createElement('p');
+        entry.className = `log-entry text-xs leading-relaxed ${cssClass}`;
+        entry.textContent = msg;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+        document.getElementById('combat-log').innerHTML = '';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  PLAYER TURN: USE ABILITY
+    // ═══════════════════════════════════════════════════════════
+
+    function useAbility(index) {
+        if (!gameState.player || !gameState.boss) return;
+        const ability = gameState.player.abilities[index];
+        if (!ability) return;
+        if (ability.charges !== Infinity && ability.charges <= 0) return;
+
+        // Deduct charge
+        if (ability.charges !== Infinity) ability.charges--;
+
+        const luck = rollLuck();
+        const effect = ability.effect;
+
+        addLog(`▶ You use ${ability.name} — ${luck.label} (${luck.roll}/10)`, luck.class);
+        addLog(`  "${getLuckNarrative(luck.mult)}"`, "text-dark-muted");
+
+        if (effect.type === 'direct_damage') {
+            let damage = Math.round(effect.value * luck.mult);
+            damage = applyBossDamageModifiers(damage, effect.damage_type);
+            damage = applyRouteDamageMultiplier(damage);
+
+            if (damage <= 0) {
+                addLog(`  ${ability.name} was resisted! No damage dealt.`, "text-orange-400");
+            } else {
+                gameState.boss.hp -= damage;
+                addLog(`  💥 You deal ${damage} ${effect.damage_type} damage to ${gameState.boss.name}!`, "text-yellow-300");
+                animateBossHit();
+            }
+        } else if (effect.type === 'heal') {
+            let heal = Math.round(effect.value * luck.mult);
+            heal = applyRouteHealMultiplier(heal);
+            if (luck.mult === 0) { heal = 0; }
+            if (heal > 0) {
+                gameState.player.hp = clamp(gameState.player.hp + heal, 0, gameState.player.maxHp);
+                addLog(`  💚 You heal for ${heal} HP! (${gameState.player.hp}/${gameState.player.maxHp})`, "text-green-400");
+            }
+        }
+
+        updateHpBars();
+        renderAbilityButtons();
+        checkEnvInteraction();
+
+        // Check boss death
+        if (gameState.boss.hp <= 0) {
+            gameState.boss.hp = 0;
+            updateHpBars();
+            setTimeout(() => triggerVictory(), 600);
+            return;
+        }
+
+        // Boss turn after short delay
+        setTimeout(() => bossTurn(), 800);
+    }
+
+    function useEnvInteraction() {
+        if (!gameState.location?.interaction || gameState.locationInteractionUsed) return;
+        gameState.locationInteractionUsed = true;
+
+        const interaction = gameState.location.interaction;
+        const damage = interaction.success_effect?.value || 20;
+        const actualDamage = applyRouteDamageMultiplier(damage);
+
+        gameState.boss.hp -= actualDamage;
+        addLog(`⚡ ${interaction.name}: "${interaction.narrative}"`, "text-yellow-300");
+        addLog(`  💥 Environmental attack deals ${actualDamage} damage!`, "text-yellow-300");
+
+        updateHpBars();
+        checkEnvInteraction();
+        document.getElementById('env-interaction').classList.add('hidden');
+
+        if (gameState.boss.hp <= 0) {
+            gameState.boss.hp = 0;
+            updateHpBars();
+            setTimeout(() => triggerVictory(), 600);
+            return;
+        }
+
+        setTimeout(() => bossTurn(), 800);
+    }
+
+    function animateBossHit() {
+        const panel = document.getElementById('boss-panel');
+        panel.classList.remove('shake');
+        void panel.offsetWidth; // force reflow to restart animation
+        panel.classList.add('shake');
+        setTimeout(() => panel.classList.remove('shake'), 400);
+    }
+
+    function animatePlayerHit() {
+        const panel = document.getElementById('player-panel');
+        panel.classList.remove('shake');
+        void panel.offsetWidth; // force reflow to restart animation
+        panel.classList.add('shake');
+        setTimeout(() => panel.classList.remove('shake'), 400);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  BOSS TURN
+    // ═══════════════════════════════════════════════════════════
+
+    function bossTurn() {
+        if (!gameState.boss || !gameState.player) return;
+
+        const chosenAbility = randItem(gameState.boss.abilities);
+        addLog(``, "");
+        addLog(`◀ ${gameState.boss.name} uses ${chosenAbility.name}!`, "text-red-400 font-semibold");
+        addLog(`  "${chosenAbility.description}"`, "text-dark-muted");
+
+        let totalDamageToPlayer = 0;
+        let bossHealedThis = 0;
+
+        for (const eff of chosenAbility.effects) {
+            if (eff.type === 'direct_damage') {
+                let dmg = eff.value;
+                dmg = applyRouteDamageMultiplier(dmg);
+                totalDamageToPlayer += dmg;
+            } else if (eff.type === 'heal' && eff.target === 'self') {
+                const healAmt = applyRouteHealMultiplier(eff.value);
+                gameState.boss.hp = clamp(gameState.boss.hp + healAmt, 0, gameState.boss.maxHp);
+                bossHealedThis += healAmt;
+            }
+        }
+
+        if (bossHealedThis > 0) {
+            addLog(`  ${randItem(BOSS_NARRATIVES.heal)}`, "text-pink-400");
+            addLog(`  ✨ ${gameState.boss.name} restores ${bossHealedThis} HP!`, "text-pink-400");
+        }
+
+        if (totalDamageToPlayer > 0) {
+            addLog(`  ${randItem(BOSS_NARRATIVES.attack)}`, "text-red-300");
+            gameState.player.hp -= totalDamageToPlayer;
+            addLog(`  🩸 You take ${totalDamageToPlayer} damage! (${Math.max(0, gameState.player.hp)}/${gameState.player.maxHp})`, "text-red-400");
+            animatePlayerHit();
+        }
+
+        updateHpBars();
+
+        if (gameState.player.hp <= 0) {
+            gameState.player.hp = 0;
+            updateHpBars();
+            setTimeout(() => triggerDefeat(), 600);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  BOSS INFO OVERLAY
+    // ═══════════════════════════════════════════════════════════
+
+    function showBossInfo() {
+        const boss = gameState.boss;
+        if (!boss) return;
+
+        document.getElementById('bossinfo-name').textContent = boss.name;
+
+        let html = `<p class="text-dark-muted">${boss.description}</p>`;
+
+        // HP bar
+        const bossHpPct = clamp(Math.round(boss.hp / boss.maxHp * 100), 0, 100);
+        html += `<div>
+            <div class="text-xs text-white font-semibold mb-1">HP: ${Math.max(0,boss.hp)}/${boss.maxHp}</div>
+            <div class="bg-gray-700 rounded-full h-2 overflow-hidden"><div class="boss-hp-bar h-full rounded-full" style="width:${bossHpPct}%"></div></div>
+        </div>`;
+
+        if (boss.strengths?.length) {
+            html += `<div><p class="text-xs font-semibold text-white uppercase tracking-wider mb-1.5">🛡️ Resistances</p>`;
+            html += boss.strengths.map(s => `<p class="text-xs text-dark-muted">• <span class="text-orange-300 font-semibold">${s.damage_type}</span>: ${s.narrative}</p>`).join('');
+            html += `</div>`;
+        }
+        if (boss.weaknesses?.length) {
+            html += `<div><p class="text-xs font-semibold text-white uppercase tracking-wider mb-1.5">⚡ Vulnerabilities</p>`;
+            html += boss.weaknesses.map(w => `<p class="text-xs text-dark-muted">• <span class="text-green-300 font-semibold">${w.damage_type}</span>: ${w.narrative}</p>`).join('');
+            html += `</div>`;
+        }
+
+        if (boss.abilities?.length) {
+            html += `<div><p class="text-xs font-semibold text-white uppercase tracking-wider mb-1.5">🔥 Abilities</p>`;
+            html += boss.abilities.map(a => `<p class="text-xs text-dark-muted">• <span class="text-red-300 font-semibold">${a.name}</span>: ${a.description}</p>`).join('');
+            html += `</div>`;
+        }
+
+        document.getElementById('bossinfo-body').innerHTML = html;
+        document.getElementById('overlay-boss-info').classList.remove('hidden');
+    }
+
+    function closeBossInfo() {
+        document.getElementById('overlay-boss-info').classList.add('hidden');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  VICTORY / DEFEAT
+    // ═══════════════════════════════════════════════════════════
+
+    function triggerVictory() {
+        const floor = gameState.gauntletLevel;
+        gameState.gauntletBonusDefeated += 1;
+        const rarityBonus = floor * 10;
+
+        document.getElementById('victory-icon').textContent = '🏆';
+        document.getElementById('victory-title').textContent = `Floor ${floor} Cleared!`;
+        document.getElementById('victory-desc').textContent = `${gameState.boss.name} has been defeated. Your run bonus grows.`;
+
+        const btns = document.getElementById('victory-buttons');
+        btns.innerHTML = `
+            <button onclick="ascendGauntlet()" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 font-semibold px-6 py-3 rounded-lg transition-all">
+                🚀 Ascend to Floor ${floor + 1}
+            </button>
+            <button onclick="bankReward(${rarityBonus})" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-300 font-semibold px-6 py-3 rounded-lg transition-all">
+                💰 Bank Reward (+${rarityBonus}% rarity)
+            </button>`;
+
+        showScreen('victory');
+    }
+
+    function triggerDefeat() {
+        const floor = gameState.gauntletLevel;
+        const completedFloors = floor - 1;
+        const failureBonus = Math.max(0, completedFloors * 10);
+
+        document.getElementById('defeat-desc').textContent =
+            completedFloors > 0
+            ? `You fell on Floor ${floor} after clearing ${completedFloors} floor(s). ${failureBonus > 0 ? `You earned a +${failureBonus}% rarity bonus on your reward.` : ''}`
+            : `You fell on Floor ${floor} without clearing any floors.`;
+
+        // Add a bank button if they cleared floors
+        const defeatSection = document.getElementById('screen-defeat').querySelector('.flex');
+        if (failureBonus > 0) {
+            if (!document.getElementById('defeat-bank-btn')) {
+                const bankBtn = document.createElement('button');
+                bankBtn.id = 'defeat-bank-btn';
+                bankBtn.className = 'bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 font-semibold px-8 py-3 rounded-lg transition-all';
+                bankBtn.textContent = `💰 Bank Reward (+${failureBonus}%)`;
+                bankBtn.onclick = () => bankReward(failureBonus);
+                defeatSection.insertBefore(bankBtn, defeatSection.firstChild);
+            }
+        } else {
+            document.getElementById('defeat-bank-btn')?.remove();
+        }
+
+        showScreen('defeat');
+    }
+
+    function ascendGauntlet() {
+        gameState.gauntletLevel += 1;
+        // Reset abilities
+        if (gameState.player) {
+            const rawAbilities = ABILITIES[gameState.player.faction] || [];
+            gameState.player.abilities = deepClone(rawAbilities).map(a => {
+                if (!('charges' in a)) a.charges = Infinity;
+                a.maxCharges = a.charges === Infinity ? Infinity : a.charges;
+                return a;
+            });
+        }
+        // Re-scout and restart
+        buildScoutingScreen();
+        showScreen('scouting');
+    }
+
+    function bankReward(bonus) {
+        gameState.pendingGauntletBonus = bonus || 0;
+        // Show reward choice
+        showRewardChoice();
+    }
+
+    function showRewardChoice() {
+        const bonus = gameState.pendingGauntletBonus;
+        document.getElementById('victory-icon').textContent = '🎁';
+        document.getElementById('victory-title').textContent = 'Choose Your Reward';
+        document.getElementById('victory-desc').textContent = `Rarity bonus: +${bonus}% applied to your roll.`;
+
+        const btns = document.getElementById('victory-buttons');
+        btns.innerHTML = `
+            <button onclick="claimReward('character')" class="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 font-semibold px-6 py-3 rounded-lg transition-all">
+                🤝 Recruit an Ally
+            </button>
+            <button onclick="claimReward('item')" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-semibold px-6 py-3 rounded-lg transition-all">
+                💎 Receive Treasure
+            </button>`;
+
+        showScreen('victory');
+    }
+
+    function claimReward(type) {
+        const bonus = gameState.pendingGauntletBonus || 0;
+        const result = type === 'item' ? generateItem(bonus) : generateCharacter(bonus);
+        showReward(result);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  REWARD GENERATION
+    // ═══════════════════════════════════════════════════════════
+
+    function generateItem(rarityBonus) {
+        const baseRoll = rnd(1, 100);
+        const finalRoll = clamp(baseRoll + rarityBonus, 1, 100);
+        const rarity = getRarityFromRoll(finalRoll);
+        const slot = randItem(ITEM_SLOTS);
+        const specialty = randItem(ITEM_SPECIALTIES);
+
+        const adj = randItem(ITEM_ADJ);
+        const noun = randItem(ITEM_NOUN[slot] || ["Module"]);
+        const name = `${adj} ${noun}`;
+
+        const backgrounds = [
+            `Salvaged from the ruins of a Singularity data center, this ${slot.toLowerCase()} was never meant for civilian hands.`,
+            `A Coinbroker traded three favors for this piece. Its origins are deliberately obscured.`,
+            `Forged in The Foundry of Defiance, this ${slot.toLowerCase()} carries the scars of the Underground war.`,
+            `Pulled from the wreckage of a Neuralife who broke free from their implant. Repurposed.`,
+            `Black-market tech reverse-engineered from Overlord hardware. Deadly if you know what you're doing.`,
+            `A Nodewalker's prized possession, abandoned when they ascended the data-stream. Now it's yours.`,
+            `Field-assembled from scrap in the Rust-Grave Piers. Crude, but it works.`,
+        ];
+        const background = randItem(backgrounds);
+
+        const RARITY_DAMAGE_BONUS = { Salvage:5, "Gutter-Tech":10, "Street Mod":15, "Black Market":25, "Node-Forged":40, Peerless:60 };
+        const passiveBonus = RARITY_DAMAGE_BONUS[rarity.name] || 0;
+
+        const SPECIALTY_DAMAGE_TYPE = { Umbral:"Umbral", Blockchain:"Mercantile", Kinetic:"Kinetic", Enertech:"Enertech", Archon:"Archon", Neural:"Neural", Mechanical:"Mechanical" };
+        const damageType = SPECIALTY_DAMAGE_TYPE[specialty] || specialty;
+
+        return {
+            type: 'item',
+            name,
+            rarity,
+            slot,
+            specialty,
+            passiveBonus,
+            damageType,
+            background,
+            roll: `Base ${baseRoll}${rarityBonus > 0 ? ` + ${rarityBonus} bonus` : ''} = ${finalRoll}`,
+        };
+    }
+
+    function generateCharacter(rarityBonus) {
+        const baseRoll = rnd(1, 100);
+        const finalRoll = clamp(baseRoll + rarityBonus, 1, 100);
+        const rarity = getRarityFromRoll(finalRoll);
+
+        const adj = randItem(CHAR_ADJ);
+        const noun = randItem(CHAR_NOUN);
+        const name = `${adj}-${noun}`;
+
+        const factionName = randItem(Object.keys(FACTIONS));
+        const factionData = FACTIONS[factionName];
+
+        const backgrounds = [
+            `A veteran of a dozen Underground operations, ${name} fights not for payment but for the chaos of it.`,
+            `Once a loyal Neuralife, ${name} ripped out their own implant with pliers. They haven't looked back.`,
+            `${name} runs data couriers through the most dangerous sectors of the city for a cut of the take.`,
+            `A former Overlord mercenary who turned coat after witnessing a mass recalibration order.`,
+            `${name} is known for surviving three Corrective sweeps. Nobody knows how. Nobody asks.`,
+            `Underground-born and Underground-raised, ${name} can smell a Singularity agent from three blocks away.`,
+            `They used to work for the Syndicate. Now they work for whoever has more credits. Currently: you.`,
+        ];
+        const background = randItem(backgrounds);
+
+        const levelRanges = { Salvage:[1,4], "Gutter-Tech":[5,8], "Street Mod":[9,12], "Black Market":[13,16], "Node-Forged":[17,19], Peerless:[20,20] };
+        const [minL, maxL] = levelRanges[rarity.name] || [1, 4];
+        const level = rnd(minL, maxL);
+
+        return {
+            type: 'character',
+            name,
+            rarity,
+            faction: factionName,
+            factionIcon: factionData.icon,
+            level,
+            background,
+            roll: `Base ${baseRoll}${rarityBonus > 0 ? ` + ${rarityBonus} bonus` : ''} = ${finalRoll}`,
+        };
+    }
+
+    function showReward(result) {
+        const card = document.getElementById('reward-card');
+        const rarityClass = {
+            Salvage:"rarity-salvage", "Gutter-Tech":"rarity-guttertech", "Street Mod":"rarity-streetmod",
+            "Black Market":"rarity-blackmarket", "Node-Forged":"rarity-nodeforged", Peerless:"rarity-peerless"
+        }[result.rarity.name] || "";
+
+        let html = `<div class="text-center mb-4">
+            <span class="text-4xl">${result.rarity.icon}</span>
+            <h3 class="text-2xl font-bold ${rarityClass} mt-2">${result.name}</h3>
+            <span class="text-xs ${rarityClass} font-semibold uppercase tracking-wider">${result.rarity.name}</span>
+        </div>`;
+
+        if (result.type === 'item') {
+            html += `<div class="space-y-2 text-sm mb-4">
+                <div class="flex justify-between"><span class="text-dark-muted">${SLOT_ICONS[result.slot]} Slot</span><span class="text-white font-medium">${result.slot}</span></div>
+                <div class="flex justify-between"><span class="text-dark-muted">${SPECIALTY_ICONS[result.specialty]} Specialty</span><span class="text-white font-medium">${result.specialty}</span></div>
+                ${result.passiveBonus > 0 ? `<div class="flex justify-between"><span class="text-dark-muted">📈 Passive</span><span class="text-green-400 font-medium">+${result.passiveBonus}% ${result.damageType} dmg</span></div>` : ''}
+            </div>`;
+        } else {
+            html += `<div class="space-y-2 text-sm mb-4">
+                <div class="flex justify-between"><span class="text-dark-muted">${result.factionIcon} Faction</span><span class="text-white font-medium">${result.faction}</span></div>
+                <div class="flex justify-between"><span class="text-dark-muted">⚡ Level</span><span class="text-white font-medium">${result.level}</span></div>
+            </div>`;
+        }
+
+        html += `<p class="text-xs text-dark-muted italic leading-relaxed border-t border-gray-700/50 pt-4">"${result.background}"</p>
+                 <p class="text-xs text-gray-600 mt-3">🎲 Roll: ${result.roll}</p>`;
+
+        card.innerHTML = html;
+        showScreen('reward');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  CLOSE OVERLAY ON CLICK OUTSIDE
+    // ═══════════════════════════════════════════════════════════
+
+    document.getElementById('overlay-boss-info').addEventListener('click', function(e) {
+        if (e.target === this) closeBossInfo();
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════════════════════
+
+    initGameState();
+    showScreen('menu');
+    </script>
+</body>
+</html>
