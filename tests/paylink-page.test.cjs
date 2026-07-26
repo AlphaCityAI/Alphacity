@@ -120,12 +120,16 @@ test('Paylink mirrors the standard wallet button and wallet-management menu', ()
     assert.doesNotMatch(walletConnector, /\balert\(/);
 });
 
-test('wallet reconnection clears stale sessions and provider switching is rollback-safe', () => {
+test('wallet reconnection retries late providers without dropping persistence and provider switching is rollback-safe', () => {
     assert.match(walletConnector, /automatic && preferredName/);
-    assert.match(walletConnector, /connect\(\{ automatic: true, preferredSession: persisted \}\)\.catch\(\(\) => update\(null, ''\)\)/);
+    assert.match(walletConnector, /const delays = \[0, 600, 1500, 3500, 7000\]/);
+    assert.match(walletConnector, /scheduleReconnect\(persisted, true\)/);
+    assert.match(walletConnector, /registryListeners\.add\(handleRegistryChange\)/);
+    assert.doesNotMatch(walletConnector, /preferredSession: persisted \}\)\.catch\(\(\) => update\(null, ''\)\)/);
     const updateIndex = walletConnector.indexOf('update(nextAdapter, chosenAddress);');
     const oldDisconnectIndex = walletConnector.indexOf('await switchingFrom.disconnect()', updateIndex);
     assert.ok(updateIndex > 0 && oldDisconnectIndex > updateIndex);
+    assert.match(walletConnector, /walletKey\(switchingFrom\.name\) !== walletKey\(nextAdapter\.name\)/);
 });
 
 test('payment requests use the registry composite identity and exact bigint values', () => {

@@ -8,7 +8,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fullnode.mainnet.sui.io https://graphql.mainnet.sui.io https://sui-mainnet.mystenlabs.com https://api.dexscreener.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>Sluice V2 · Alpha City</title>
     <link rel="icon" href="/favicon.png">
-    <link rel="stylesheet" href="/sluice/sluice.css?v=4">
+    <link rel="stylesheet" href="/sluice/sluice.css?v=5">
     <script src="/shared/sui-client.js"></script>
     <script src="/sluice/config.js"></script>
     <script src="/shared/wallet-sync.js" defer></script>
@@ -22,8 +22,9 @@
             <b>Sluice V2</b>
         </a>
         <nav aria-label="Primary navigation">
-            <a href="/tools/">Tools</a>
-            <a href="/intel/">Analyze</a>
+            <a href="/" class="nav-home">Back to Home</a>
+            <a href="/tools/" class="tools-portal-link"><span class="tools-label-full">Tools Portal</span><span class="tools-label-short">Tools</span></a>
+            <a href="/intel/" class="nav-analyze">Analyze</a>
             <button id="connect-wallet" class="bg-brand-primary" type="button">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 0 010-2z" clip-rule="evenodd" /></svg>
                 <span>Connect Wallet</span>

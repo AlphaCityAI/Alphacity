@@ -13,6 +13,7 @@
     <script>window.global = window;</script>
     <!-- Shared wallet connection sync -->
     <script src="/shared/wallet-sync.js"></script>
+    <script src="/shared/wallet-connector.js"></script>
     <script src="/shared/sui-client.js"></script>
 
     <!-- Load Inter font -->
@@ -374,8 +375,7 @@
     let currentSlippage     = 0.5;
     let currentQuote        = null;  // Bluefin7k aggregator quote (used for displayed pricing / gating)
     let connectedAddress    = null;
-    let connectedAccount    = null;  // Full WalletAccount object (needed for signAndExecuteTransaction)
-    let connectedWalletEntry= null;
+    let walletConnector     = null;
     let suiBalance          = null;  // BigInt, in MIST
     let suiPriceUsd         = null;
     let quoteDebounceTimer  = null;  // Debounce timer for auto-quoting on input
@@ -400,65 +400,6 @@
         const c = new AbortController();
         setTimeout(() => c.abort(), ms);
         return c.signal;
-    }
-
-    // ================================================================
-    // WALLET-STANDARD DISCOVERY  (same pattern as analyze page)
-    // ================================================================
-    const registeredWallets = new Set();
-    let walletListCache;
-
-    function registerWallet(w) { walletListCache = undefined; registeredWallets.add(w); }
-    function getRegisteredWallets() {
-        if (!walletListCache) walletListCache = [...registeredWallets];
-        return walletListCache;
-    }
-
-    class WalletStandardEvent extends Event {
-        #api;
-        get detail() { return this.#api; }
-        get type() { return 'wallet-standard:app-ready'; }
-        constructor(api) {
-            super('wallet-standard:app-ready', { bubbles: false, cancelable: false, composed: false });
-            this.#api = api;
-        }
-    }
-
-    function initWalletStandard() {
-        const appApi = Object.freeze({ register: (...ws) => ws.forEach(registerWallet) });
-        try { window.addEventListener('wallet-standard:register-wallet', e => e.detail(appApi)); } catch (_) {}
-        try { window.dispatchEvent(new WalletStandardEvent(appApi)); } catch (_) {}
-    }
-
-    function isSuiWallet(w) {
-        if (!w.features?.['standard:connect']) return false;
-        const chains = w.chains || [];
-        if (chains.length === 0) return true;
-        return chains.some(c => typeof c === 'string' && c.startsWith('sui:'));
-    }
-
-    function discoverWallets() {
-        const found = [], seen = new Set();
-        for (const w of getRegisteredWallets()) {
-            if (isSuiWallet(w) && !seen.has(w.name)) {
-                seen.add(w.name);
-                found.push({ source: 'standard', name: w.name, wallet: w });
-            }
-        }
-        const legacy = [
-            { name: 'Slush',      obj: window.slush?.sui || window.slush },
-            { name: 'Sui Wallet', obj: window.suiWallet },
-            { name: 'Sui',        obj: window.sui },
-            { name: 'Martian',    obj: window.martian?.sui || window.martian },
-            { name: 'Ethos',      obj: window.ethos?.sui || window.ethos },
-        ];
-        for (const c of legacy) {
-            if (c.obj && !seen.has(c.name)) {
-                seen.add(c.name);
-                found.push({ source: 'legacy', name: c.name, provider: c.obj });
-            }
-        }
-        return found;
     }
 
     // ================================================================
@@ -912,47 +853,8 @@
             : txOrBytes;
         txb.setSender(connectedAddress);
 
-        const wallet = connectedWalletEntry;
-        if (!wallet) throw new Error('Wallet disconnected');
-
-        let txResult;
-
-        if (wallet.source === 'standard') {
-            const newFeature    = wallet.wallet.features?.['sui:signAndExecuteTransaction'];
-            const legacyFeature = wallet.wallet.features?.['sui:signAndExecuteTransactionBlock'];
-
-            if (newFeature) {
-                txResult = await newFeature.signAndExecuteTransaction({
-                    transaction: txb,
-                    account: connectedAccount,
-                    chain: 'sui:mainnet',
-                });
-            } else if (legacyFeature) {
-                txResult = await legacyFeature.signAndExecuteTransactionBlock({
-                    transactionBlock: txb,
-                    account: connectedAccount,
-                    chain: 'sui:mainnet',
-                    options: { showEffects: true },
-                });
-            } else {
-                throw new Error('Wallet does not support transaction signing');
-            }
-
-        } else if (wallet.source === 'legacy') {
-            const p = wallet.provider;
-            if (typeof p.signAndExecuteTransactionBlock === 'function') {
-                txResult = await p.signAndExecuteTransactionBlock({
-                    transactionBlock: txb,
-                    options: { showEffects: true },
-                });
-            } else if (typeof p.signAndExecuteTransaction === 'function') {
-                txResult = await p.signAndExecuteTransaction({ transaction: txb });
-            } else {
-                throw new Error('Legacy wallet does not support transaction signing');
-            }
-        }
-
-        return txResult;
+        if (!walletConnector || !connectedAddress) throw new Error('Wallet disconnected');
+        return walletConnector.signAndExecuteTransaction(txb);
     }
 
     async function executeSwap() {
@@ -1034,155 +936,35 @@
     // ================================================================
     // WALLET CONNECTION
     // ================================================================
-    const connectBtn  = document.getElementById('connect-wallet-btn');
-    const walletLabel = document.getElementById('wallet-text');
-
-    connectBtn.addEventListener('click', () => {
-        if (connectedAddress) {
-            showWalletOptions();
-        } else {
-            connectWallet().catch(err =>
-                showStatus('Wallet connection failed: ' + (err?.message || err), 'error')
-            );
-        }
-    });
-
-    function showWalletOptions() {
-        return new Promise(resolve => {
-            const overlay = makeOverlay();
-            overlay.innerHTML = `
-                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-                    <h3 class="text-white font-bold text-lg mb-4">Wallet Options</h3>
-                    <div class="space-y-2">
-                        <button id="_wo_switch"
-                            class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm">
-                            Switch Wallet
-                        </button>
-                        <button id="_wo_disconnect"
-                            class="w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-red-500 text-red-400 rounded-lg transition-colors font-medium text-sm">
-                            Disconnect
-                        </button>
-                    </div>
-                    <button id="_wo_cancel"
-                        class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">
-                        Cancel
-                    </button>
-                </div>`;
-            document.body.appendChild(overlay);
-
-            document.getElementById('_wo_switch').addEventListener('click', async () => {
-                document.body.removeChild(overlay);
-                await performDisconnect();
-                connectWallet().catch(e => showStatus('Wallet error: ' + e.message, 'error'));
-                resolve('switch');
-            });
-            document.getElementById('_wo_disconnect').addEventListener('click', async () => {
-                document.body.removeChild(overlay);
-                await performDisconnect();
-                resolve('disconnect');
-            });
-            document.getElementById('_wo_cancel').addEventListener('click', () => {
-                document.body.removeChild(overlay); resolve(null);
-            });
-        });
-    }
-
-    async function performDisconnect() {
-        if (connectedWalletEntry?.source === 'standard') {
-            try {
-                const disc = connectedWalletEntry.wallet.features?.['standard:disconnect'];
-                if (disc?.disconnect) await disc.disconnect();
-            } catch (_) {}
-        } else if (connectedWalletEntry?.source === 'legacy') {
-            try {
-                if (typeof connectedWalletEntry.provider?.disconnect === 'function')
-                    await connectedWalletEntry.provider.disconnect();
-            } catch (_) {}
-        }
-        disconnectWallet();
-    }
+    const connectBtn = document.getElementById('connect-wallet-btn');
 
     function disconnectWallet() {
-        connectedAddress     = null;
-        connectedAccount     = null;
-        connectedWalletEntry = null;
-        suiBalance           = null;
-        try { localStorage.removeItem('alphacity_wallet'); } catch (_) {}
-        walletLabel.textContent = 'Connect Wallet';
-        connectBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
-        connectBtn.classList.add('bg-brand-primary', 'hover:bg-brand-primary-hover');
+        connectedAddress = null;
+        suiBalance = null;
         document.getElementById('sui-balance').textContent = '—';
         document.getElementById('btn-max-sui').classList.add('hidden');
         updateSwapBtn();
     }
 
-    async function connectWallet() {
-        let wallets = discoverWallets();
-        // On mobile, wallet providers may register asynchronously after page
-        // load.  Retry a couple of times with short delays before giving up.
-        if (!wallets.length) {
-            await new Promise(r => setTimeout(r, 600));
-            wallets = discoverWallets();
+    async function handleSharedWalletChange(session) {
+        const nextAddress = session?.address || null;
+        if (nextAddress === connectedAddress) return;
+        if (!nextAddress) {
+            disconnectWallet();
+            return;
         }
-        if (!wallets.length) {
-            await new Promise(r => setTimeout(r, 1200));
-            wallets = discoverWallets();
+        if (!isValidSuiAddress(nextAddress)) {
+            showStatus('Wallet did not provide a valid Sui address.', 'error');
+            return;
         }
-        if (!wallets.length) {
-            throw new Error('No Sui wallet found. Please install a Sui wallet extension (Slush, Sui Wallet, etc.).');
-        }
-
-        const entry = wallets.length === 1 ? wallets[0] : await pickWallet(wallets);
-        if (!entry) return;
-
-        walletLabel.textContent = 'Connecting…';
-        connectBtn.disabled     = true;
-
+        connectedAddress = nextAddress;
         try {
-            let accounts;
-            if (entry.source === 'standard') {
-                try {
-                    const disc = entry.wallet.features?.['standard:disconnect'];
-                    if (disc?.disconnect) await disc.disconnect();
-                } catch (_) {}
-                const r = await entry.wallet.features['standard:connect'].connect();
-                accounts = r?.accounts || entry.wallet.accounts || [];
-            } else {
-                const p = entry.provider;
-                if (typeof p.connect === 'function') await p.connect();
-                let addrs = [];
-                if (typeof p.getAccounts === 'function') {
-                    const ac = await p.getAccounts();
-                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
-                }
-                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
-                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
-                accounts = addrs.map(addr => ({ address: addr }));
-            }
-
-            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
-            const all         = suiAccounts.length ? suiAccounts : accounts;
-            if (!all.length) throw new Error('Wallet provided no accounts.');
-
-            const account = all.length === 1 ? all[0] : await pickAccount(all);
-            const address = String(account?.address || account || '').trim();
-            if (!isValidSuiAddress(address)) throw new Error('Wallet did not provide a valid Sui address.');
-
-            connectedAddress     = address;
-            connectedAccount     = account;
-            connectedWalletEntry = entry;
-            walletLabel.textContent = shortAddr(address);
-            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
-            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
-
-            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName: entry.name, address })); } catch (_) {}
-
-            suiBalance = await fetchSuiBalance(address);
+            suiBalance = await fetchSuiBalance(nextAddress);
             updateBalanceDisplay();
-            updateSwapBtn();
-        } finally {
-            connectBtn.disabled = false;
+        } catch (error) {
+            showStatus(error?.message || 'Unable to load the wallet balance.', 'error');
         }
+        updateSwapBtn();
     }
 
     function updateBalanceDisplay() {
@@ -1193,126 +975,14 @@
         }
     }
 
-    function pickWallet(wallets) {
-        return new Promise(resolve => {
-            const overlay = makeOverlay();
-            overlay.innerHTML = `
-                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-                    <h3 class="text-white font-bold text-lg mb-4">Select Wallet</h3>
-                    <div id="_wp_list" class="space-y-2"></div>
-                    <button id="_wp_cancel"
-                        class="mt-4 w-full py-2 text-dark-text-secondary text-sm hover:text-white transition-colors">
-                        Cancel
-                    </button>
-                </div>`;
-            document.body.appendChild(overlay);
-
-            wallets.forEach(entry => {
-                const btn = document.createElement('button');
-                btn.type      = 'button';
-                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary text-white rounded-lg transition-colors font-medium text-sm';
-                btn.textContent = entry.name;
-                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(entry); });
-                document.getElementById('_wp_list').appendChild(btn);
-            });
-            document.getElementById('_wp_cancel').addEventListener('click', () => {
-                document.body.removeChild(overlay); resolve(null);
-            });
-        });
-    }
-
-    function pickAccount(accounts) {
-        return new Promise(resolve => {
-            const overlay = makeOverlay();
-            overlay.innerHTML = `
-                <div class="bg-dark-card border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-                    <h3 class="text-white font-bold text-lg mb-4">Select Account</h3>
-                    <div id="_ap_list" class="space-y-2"></div>
-                </div>`;
-            document.body.appendChild(overlay);
-
-            accounts.forEach(account => {
-                const addr = account?.address || account;
-                const btn  = document.createElement('button');
-                btn.type      = 'button';
-                btn.className = 'w-full text-left px-4 py-3 bg-dark-bg border border-gray-700 hover:border-brand-primary rounded-lg transition-colors font-mono text-sm text-blue-400';
-                btn.textContent = shortAddr(addr);
-                btn.title       = addr;
-                btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(account); });
-                document.getElementById('_ap_list').appendChild(btn);
-            });
-        });
-    }
-
-    // ================================================================
-    // WALLET AUTO-RECONNECT
-    // ================================================================
-    async function tryAutoReconnect() {
-        try {
-            const saved = localStorage.getItem('alphacity_wallet');
-            if (!saved) return;
-            const { walletName, address } = JSON.parse(saved);
-            if (!walletName || !isValidSuiAddress(address)) return;
-
-            // Brief delay to allow wallet extensions to register
-            await new Promise(r => setTimeout(r, 400));
-
-            const wallets = discoverWallets();
-            const entry = wallets.find(w => w.name === walletName);
-            if (!entry) return;
-
-            walletLabel.textContent = 'Connecting…';
-
-            let accounts;
-            if (entry.source === 'standard') {
-                // Silent connect — does not prompt the user if already approved
-                const r = await entry.wallet.features['standard:connect'].connect({ silent: true });
-                accounts = r?.accounts || entry.wallet.accounts || [];
-            } else {
-                const p = entry.provider;
-                if (typeof p.connect === 'function') await p.connect();
-                let addrs = [];
-                if (typeof p.getAccounts === 'function') {
-                    const ac = await p.getAccounts();
-                    addrs = (ac || []).map(a => a?.address || a).filter(Boolean);
-                }
-                if (!addrs.length && Array.isArray(p.accounts)) addrs = p.accounts.map(a => a?.address || a).filter(Boolean);
-                if (!addrs.length && typeof p.account === 'string') addrs = [p.account];
-                accounts = addrs.map(addr => ({ address: addr }));
-            }
-
-            const suiAccounts = accounts.filter(a => !a.chains || a.chains.includes('sui:mainnet'));
-            const all = suiAccounts.length ? suiAccounts : accounts;
-            if (!all.length) { walletLabel.textContent = 'Connect Wallet'; return; }
-
-            const account = all.find(a => String(a?.address || a).trim() === address) || all[0];
-            const reconnectAddress = String(account?.address || account || '').trim();
-            if (!isValidSuiAddress(reconnectAddress)) { walletLabel.textContent = 'Connect Wallet'; return; }
-
-            connectedAddress     = reconnectAddress;
-            connectedAccount     = account;
-            connectedWalletEntry = entry;
-            walletLabel.textContent = shortAddr(reconnectAddress);
-            connectBtn.classList.remove('bg-brand-primary', 'hover:bg-brand-primary-hover');
-            connectBtn.classList.add('bg-green-600', 'hover:bg-green-500');
-
-            try { localStorage.setItem('alphacity_wallet', JSON.stringify({ walletName, address: reconnectAddress })); } catch (_) {}
-
-            suiBalance = await fetchSuiBalance(reconnectAddress);
-            updateBalanceDisplay();
-            updateSwapBtn();
-        } catch (_) {
-            // Silent fail — auto-reconnect errors must not disrupt the user
-            walletLabel.textContent = 'Connect Wallet';
-        }
-    }
-
     // ================================================================
     // INIT
     // ================================================================
-    initWalletStandard();
+    walletConnector = window.AlphaCityWalletConnector.create({
+        button: connectBtn,
+        onChange: handleSharedWalletChange,
+    });
     fetchSuiPrice().then(p => { suiPriceUsd = p; });
-    tryAutoReconnect();
 
     </script>
 </body>
