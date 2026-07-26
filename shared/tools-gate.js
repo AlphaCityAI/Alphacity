@@ -187,6 +187,7 @@
     window.addEventListener('storage', event => {
         if (event.key === 'alphacity_wallet') checkWalletSession();
     });
+    window.addEventListener('alphacity-wallet-change', checkWalletSession);
     checkWalletSession();
     scheduleWalletCheck();
 })();
