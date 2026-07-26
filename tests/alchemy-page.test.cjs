@@ -25,11 +25,11 @@ test('Alchemy page loads shared wallet and Sui dependencies before its app', () 
     }
 });
 
-test('Alchemy uses the universal wallet connector and excludes a homepage launch change', () => {
+test('Alchemy uses the universal wallet connector and is discoverable as a free homepage tool', () => {
     assert.match(source, /AlphaCityWalletConnector\.create/);
     assert.match(source, /signAndExecuteTransaction\(state\.prepared\.tx\)/);
     const homepage = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-    assert.doesNotMatch(homepage, /href=["']\/alchemy\/?["']/i);
+    assert.match(homepage, /href=["']\/alchemy\/?["'][^>]*data-telemetry-access=["']free["']/i);
 });
 
 test('Alchemy composes, simulates, and only then enables execution', () => {
