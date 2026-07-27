@@ -36,6 +36,9 @@ jobs:
           cache: npm
 
       - name: Build SUI browser client
+        env:
+          ALPHACITY_TELEMETRY_ENDPOINT: ${{ vars.ALPHACITY_TELEMETRY_ENDPOINT }}
+          ALPHACITY_TELEMETRY_SITE_ID: ${{ vars.ALPHACITY_TELEMETRY_SITE_ID }}
         run: |
           npm ci
           npm run build

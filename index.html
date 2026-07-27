@@ -5,7 +5,19 @@
     <link rel="apple-touch-icon" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpha City - Innovating Web3</title>
+    <meta name="description" content="Explore Alpha City's noncustodial Sui tools for wallet cleanup, intelligence, staking, vesting, payments, NFT launches, and token operations.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://alphacity.tech/">
+    <meta property="og:title" content="Alpha City — One wallet. A whole city of Sui tools.">
+    <meta property="og:description" content="Noncustodial Sui tools for holders, traders, and builders.">
+    <meta property="og:image" content="https://alphacity.tech/assets/alpha-city-og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Alpha City — One wallet. A whole city of Sui tools.">
+    <meta name="twitter:description" content="Noncustodial Sui tools for holders, traders, and builders.">
+    <meta name="twitter:image" content="https://alphacity.tech/assets/alpha-city-og.png">
+    <title>Alpha City — Sui Tools for Holders, Traders, and Builders</title>
+    <script defer src="/shared/telemetry-config.js"></script>
+    <script defer src="/shared/telemetry.js"></script>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Inter font (as recommended in guidelines) -->
@@ -73,21 +85,19 @@
                 </a>
 
                 <!-- Desktop Navigation -->
-                <div class="hidden md:flex space-x-8 items-center">
-                    <a href="#the-project" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The Project</a>
-                    <a href="#the-token" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The Token</a>
-                    <a href="#the-nfts" class="text-dark-text-secondary hover:text-white transition-colors duration-200">The NFTs</a>
-                    <!-- Link updated to point to the new file -->
+                <div class="hidden md:flex space-x-5 items-center text-sm lg:space-x-7">
+                    <a href="#products" class="text-white hover:text-brand-primary transition-colors duration-200">Products</a>
+                    <a href="#the-project" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Project</a>
+                    <a href="#the-token" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Token</a>
                     <a href="/staking/" class="text-brand-secondary font-medium hover:text-brand-secondary-hover transition-colors duration-200">Staking</a>
-                    <a href="/districts/" class="text-purple-400 font-medium hover:text-purple-300 transition-colors duration-200">Districts</a>
-                    <a href="/tools/" class="text-brand-primary font-medium hover:text-brand-primary-hover transition-colors duration-200">Ecosystem Tools</a>
-                    <a href="/swap/" class="bg-brand-secondary text-gray-900 px-5 py-2 rounded-lg font-medium hover:bg-brand-secondary-hover shadow-lg shadow-yellow-500/20 transition-all duration-200">Buy $CITY</a>
-                    <a href="#community" class="text-dark-text-secondary hover:text-white transition-colors duration-200">Community</a>
+                    <a href="/districts/" class="hidden text-purple-400 font-medium hover:text-purple-300 transition-colors duration-200 lg:block">Districts</a>
+                    <a href="/tools/" class="text-brand-primary font-medium hover:text-brand-primary-hover transition-colors duration-200">Tools</a>
+                    <a href="/swap/" class="bg-brand-secondary text-gray-900 px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary-hover shadow-lg shadow-yellow-500/20 transition-all duration-200">Buy $CITY</a>
                 </div>
 
                 <!-- Mobile Menu Button -->
                 <div class="md:hidden">
-                    <button id="mobile-menu-button" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
+                    <button id="mobile-menu-button" type="button" aria-label="Open navigation menu" aria-controls="mobile-menu" aria-expanded="false" class="text-dark-text-secondary hover:text-white transition-colors duration-200">
                         <!-- Hamburger Icon -->
                         <svg id="menu-open-icon" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -103,6 +113,7 @@
 
         <!-- Mobile Menu (hidden by default) -->
         <div id="mobile-menu" class="md:hidden hidden bg-dark-card shadow-xl">
+            <a href="#products" class="block px-6 py-4 text-white hover:text-brand-primary transition-colors duration-200">Products</a>
             <a href="#the-project" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The Project</a>
             <a href="#the-token" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The Token</a>
             <a href="#the-nfts" class="block px-6 py-4 text-dark-text-secondary hover:text-white transition-colors duration-200">The NFTs</a>
@@ -121,42 +132,103 @@
           Hero Section
           =================================
         -->
-        <section id="home" class="relative bg-dark-card py-24 md:py-36 text-center overflow-hidden">
-            <!-- Optional: Add a subtle overlay or graphic element -->
-            <div class="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/50 to-transparent opacity-30"></div>
-            
-            <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-                    Welcome to <span class="text-brand-secondary">Alpha City</span>
-                </h1>
-                <p class="text-lg md:text-xl text-dark-text-secondary max-w-3xl mx-auto mb-10">
-                    Innovation, utility, and calculated degeneracy.
-                </p>
-                
-                <!-- Art Showcase Grid -->
-                <div class="max-w-4xl mx-auto mt-12">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                        <!-- Art Box 1 -->
-                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
-                            <img src="https://i.postimg.cc/4NRJ9j4D/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-e09a4857-42dd-42f5-ad41-8263023e07d6-3.png" alt="Placeholder for art 1" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+1'">
-                        </div>
-                        <!-- Art Box 2 -->
-                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
-                            <img src="https://i.postimg.cc/bvZXMRN5/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-ad11f5b8-8532-485b-a1a8-df68ebe0e02e-2.png" alt="Placeholder for art 2" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+2'">
-                        </div>
-                        <!-- Art Box 3 -->
-                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
-                            <img src="https://i.postimg.cc/bwMVGfp5/meat-king-Front-facing-cyberpunk-portrait-on-a-red-background-e394fe19-93b8-4779-b170-d3c354e5d00e-0.png" alt="Placeholder for art 3" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+3'">
-                        </div>
-                        <!-- Art Box 4 -->
-                        <div class="bg-dark-card rounded-lg shadow-xl aspect-square transform hover:scale-105 transition-transform duration-300">
-                            <img src="https://i.postimg.cc/bwKLy0Rc/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-3c3f7421-2784-4bd2-b289-d9d5579ec5d8-3.png" alt="Placeholder for art 4" class="rounded-lg object-cover w-full h-full" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Art+4'">
-                        </div>
+        <section id="home" class="relative overflow-hidden border-b border-gray-800 bg-dark-card py-20 md:py-28">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(59,130,246,.22),transparent_34%),radial-gradient(circle_at_85%_75%,rgba(250,204,21,.12),transparent_30%)]"></div>
+            <div class="container relative z-10 mx-auto grid items-center gap-14 px-4 sm:px-6 lg:grid-cols-[1.08fr_.92fr] lg:px-8">
+                <div class="text-center lg:text-left">
+                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[.2em] text-blue-300">
+                        Sui-native · Noncustodial · Built to work together
+                    </div>
+                    <h1 class="text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+                        One wallet. A whole city of <span class="text-brand-secondary">Sui tools.</span>
+                    </h1>
+                    <p class="mx-auto mt-7 max-w-2xl text-lg leading-8 text-dark-text-secondary md:text-xl lg:mx-0">
+                        Research markets, clean up wallet dust, stake $CITY, create vesting schedules, request payments, launch collections, and operate on Sui from one connected ecosystem.
+                    </p>
+                    <div class="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+                        <a href="/tools/" data-telemetry-event="cta_click" data-telemetry-action="explore_tools" class="inline-flex items-center justify-center rounded-xl bg-brand-primary px-7 py-4 text-base font-bold text-white shadow-xl shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-brand-primary-hover">
+                            Explore the tools
+                            <span aria-hidden="true" class="ml-2">→</span>
+                        </a>
+                        <a href="/swap/" data-telemetry-event="cta_click" data-telemetry-action="buy_city" class="inline-flex items-center justify-center rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-7 py-4 text-base font-bold text-brand-secondary transition hover:-translate-y-0.5 hover:border-yellow-300 hover:text-yellow-300">
+                            Buy $CITY
+                        </a>
+                    </div>
+                    <div class="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm text-gray-400 lg:justify-start">
+                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-green-400"></span> Free tools available</span>
+                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-blue-400"></span> Shared wallet session</span>
+                        <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-yellow-400"></span> 1M $CITY unlocks premium tools</span>
                     </div>
                 </div>
 
+                <div class="mx-auto w-full max-w-2xl">
+                    <div class="grid grid-cols-2 gap-3 sm:gap-5">
+                        <div class="aspect-square overflow-hidden rounded-2xl border border-white/10 bg-dark-bg shadow-2xl transition duration-300 hover:-translate-y-1">
+                            <img src="https://i.postimg.cc/4NRJ9j4D/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-e09a4857-42dd-42f5-ad41-8263023e07d6-3.png" alt="Alpha City citizen portrait with blue cyberpunk lighting" width="800" height="800" class="h-full w-full object-cover" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Alpha+City'">
+                        </div>
+                        <div class="aspect-square translate-y-6 overflow-hidden rounded-2xl border border-white/10 bg-dark-bg shadow-2xl transition duration-300 hover:translate-y-5">
+                            <img src="https://i.postimg.cc/bvZXMRN5/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-ad11f5b8-8532-485b-a1a8-df68ebe0e02e-2.png" alt="Alpha City citizen portrait in a futuristic city" width="800" height="800" class="h-full w-full object-cover" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Alpha+City'">
+                        </div>
+                        <div class="aspect-square overflow-hidden rounded-2xl border border-white/10 bg-dark-bg shadow-2xl transition duration-300 hover:-translate-y-1">
+                            <img src="https://i.postimg.cc/bwMVGfp5/meat-king-Front-facing-cyberpunk-portrait-on-a-red-background-e394fe19-93b8-4779-b170-d3c354e5d00e-0.png" alt="Alpha City citizen portrait with red neon lighting" width="800" height="800" loading="lazy" class="h-full w-full object-cover" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Alpha+City'">
+                        </div>
+                        <div class="aspect-square translate-y-6 overflow-hidden rounded-2xl border border-white/10 bg-dark-bg shadow-2xl transition duration-300 hover:translate-y-5">
+                            <img src="https://i.postimg.cc/bwKLy0Rc/meat-king-Front-facing-cyberpunk-NFT-character-portrait-High-3c3f7421-2784-4bd2-b289-d9d5579ec5d8-3.png" alt="Alpha City citizen portrait with gold cyberpunk details" width="800" height="800" loading="lazy" class="h-full w-full object-cover" onerror="this.src='https://placehold.co/400x400/1F2937/4B5563?text=Alpha+City'">
+                        </div>
+                    </div>
+                </div>
             </div>
-            <!-- You could add a subtle animated graphic or particle effect here with JS -->
+        </section>
+
+        <section id="products" class="border-b border-gray-800 bg-dark-bg py-24">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mx-auto mb-14 max-w-3xl text-center">
+                    <p class="text-sm font-bold uppercase tracking-[.22em] text-brand-primary">Working products</p>
+                    <h2 class="mt-3 text-3xl font-bold text-white md:text-5xl">Start with the job you need done.</h2>
+                    <p class="mt-5 text-lg leading-8 text-dark-text-secondary">Free utilities are open to everyone. Connect once to check premium access across the rest of the ecosystem.</p>
+                </div>
+                <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                    <a href="/alchemy/" data-telemetry-event="tool_open" data-telemetry-tool="alchemy" data-telemetry-access="free" class="group rounded-2xl border border-blue-400/20 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-blue-400/50">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">✦</span><span class="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-xs font-bold text-green-300">Free</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-blue-300">Alchemy</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Convert verified sub-$1 Sui token balances into $CITY in one atomic transaction.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-blue-300">Clean up a wallet →</span>
+                    </a>
+                    <a href="/intel/" data-telemetry-event="tool_open" data-telemetry-tool="intel" data-telemetry-access="premium" class="group rounded-2xl border border-white/5 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-blue-400/40">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">⌁</span><span class="rounded-full border border-yellow-400/20 bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-300">Premium</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-blue-300">CITY Intelligence</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Monitor Sui markets, wallet positions, pools, alerts, token safety, and ecosystem signals.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-blue-300">Open the terminal →</span>
+                    </a>
+                    <a href="/staking/" data-telemetry-event="tool_open" data-telemetry-tool="staking" data-telemetry-access="public" class="group rounded-2xl border border-white/5 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-yellow-400/40">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">◆</span><span class="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-bold text-blue-300">Open</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-yellow-300">$CITY Staking</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Stake $CITY, manage positions, claim Citizen Credits, and explore Citizens utility.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-yellow-300">Manage staking →</span>
+                    </a>
+                    <a href="/sluice/" data-telemetry-event="tool_open" data-telemetry-tool="sluice" data-telemetry-access="mixed" class="group rounded-2xl border border-white/5 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-green-400/40">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">◷</span><span class="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-xs font-bold text-green-300">Public claims</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-green-300">Sluice Vesting</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Discover and claim public schedules; premium holders can create advanced vesting streams.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-green-300">Explore schedules →</span>
+                    </a>
+                    <a href="/pay/" data-telemetry-event="tool_open" data-telemetry-tool="paylink" data-telemetry-access="premium" class="group rounded-2xl border border-white/5 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-cyan-400/40">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">↗</span><span class="rounded-full border border-yellow-400/20 bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-300">Premium creator</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-cyan-300">Paylink</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Create registry-backed Sui payment requests, QR codes, and verifiable receipts.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-cyan-300">Create a request →</span>
+                    </a>
+                    <a href="/launchpad/" data-telemetry-event="tool_open" data-telemetry-tool="launchpad" data-telemetry-access="public" class="group rounded-2xl border border-white/5 bg-dark-card p-6 shadow-lg transition hover:-translate-y-1 hover:border-purple-400/40">
+                        <div class="flex items-center justify-between gap-4"><span class="text-2xl" aria-hidden="true">△</span><span class="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-bold text-blue-300">Public</span></div>
+                        <h3 class="mt-6 text-xl font-bold text-white group-hover:text-purple-300">NFT Launchpad</h3>
+                        <p class="mt-3 text-sm leading-6 text-dark-text-secondary">Discover curated Sui collections, review live mint rules, and mint noncustodially.</p>
+                        <span class="mt-6 inline-flex text-sm font-bold text-purple-300">Browse launches →</span>
+                    </a>
+                </div>
+                <div class="mt-10 text-center">
+                    <a href="/tools/" data-telemetry-event="cta_click" data-telemetry-action="view_full_catalog" class="inline-flex items-center justify-center rounded-xl border border-gray-700 bg-dark-card px-6 py-3 font-bold text-white transition hover:border-blue-400 hover:text-blue-300">View the complete tools catalog →</a>
+                </div>
+            </div>
         </section>
 
         <!-- 
@@ -175,7 +247,7 @@
                     <div>
                         <img 
                             src="https://i.postimg.cc/yN434Tqj/City-Banner-Shorter.jpg" 
-                            alt="A placeholder image representing the Alpha City project"
+                            alt="Alpha City skyline and community banner"
                             class="rounded-xl shadow-2xl object-cover aspect-[4/3]"
                             onerror="this.src='https://placehold.co/800x800/1F2937/E5E7EB?text=Image+Error'"
                         >
@@ -187,10 +259,10 @@
                             What is Alpha City?
                         </h3>
                         <p class="text-dark-text-secondary text-lg mb-6">
-                            Alpha City was built to explore the boundaries of blockchain innovation - leveraging one-of-a-kind trading utility and artificial intelligence to drive holder profits and innovative experiences. Built on a foundation of revenue sharing and an ever-evolving tech ecosystem, $CITY is here to shape paradigms and change lives.
+                            Alpha City builds practical, noncustodial products for the Sui ecosystem—combining market intelligence, token operations, payments, staking, vesting, and community experiences in one connected platform.
                         </p>
                         <p class="text-dark-text-secondary text-lg mb-8">
-                            Join, build with us, and take your web3 trading to the next level. 
+                            Connect once, choose the tool that fits the job, and keep control of every transaction in your own wallet.
                         </p>
                         <a href="#community" class="text-lg font-medium text-brand-secondary hover:text-brand-secondary-hover transition-colors duration-200">
                             Join the Community &rarr;
@@ -266,7 +338,7 @@
                         </div>
                         <h4 class="text-xl font-semibold text-white mb-3">Benefits</h4>
                         <p class="text-dark-text-secondary">
-                            All $CITY holders are eligible for profit-sharing, p2e gaming, and entry-level utilty access. Holders of 5m+ receive access the best trading utility ANYWHERE on $SUI - already with $500k+ in realized holder profits.   
+                            $CITY powers participation across Alpha City. Free tools remain open to everyone, while combined liquid and staked holdings of 1,000,000 $CITY unlock the premium utility catalog.
                         </p>
                     </div>
                 </div>
@@ -286,7 +358,7 @@
                         NFT Roadmap
                     </h3>
                     <p class="text-lg text-dark-text-secondary">
-                        Like everything we do, our NFTs are an exercise in innovation. Art, technology, utiity, rewards. Here's a preview of our plans - with far more to come as we evolve:
+                        Alpha City NFTs connect art, technology, utility, and rewards. Here is the roadmap for Citizens and the wider gaming ecosystem:
                     </p>
                 </div>
 
@@ -428,21 +500,31 @@
             const openIcon = document.getElementById('menu-open-icon');
             const closeIcon = document.getElementById('menu-close-icon');
 
-            // Toggle menu
+            function setMenuOpen(open) {
+                mobileMenu.classList.toggle('hidden', !open);
+                openIcon.classList.toggle('hidden', open);
+                closeIcon.classList.toggle('hidden', !open);
+                menuButton.setAttribute('aria-expanded', String(open));
+                menuButton.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+            }
+
             menuButton.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-                openIcon.classList.toggle('hidden');
-                closeIcon.classList.toggle('hidden');
+                setMenuOpen(menuButton.getAttribute('aria-expanded') !== 'true');
             });
 
             // Close menu when a link is clicked
             const mobileLinks = mobileMenu.querySelectorAll('a');
             mobileLinks.forEach(link => {
                 link.addEventListener('click', () => {
-                    mobileMenu.classList.add('hidden');
-                    openIcon.classList.remove('hidden');
-                    closeIcon.classList.add('hidden');
+                    setMenuOpen(false);
                 });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
+                    setMenuOpen(false);
+                    menuButton.focus();
+                }
             });
 
             // Set current year in footer
