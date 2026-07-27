@@ -8,10 +8,6 @@
     let standardReady = false;
     let dialogCounter = 0;
 
-    function track(eventName, properties) {
-        try { root.AlphaCityTelemetry?.track(eventName, properties); } catch (_) {}
-    }
-
     function normalizeName(value) {
         return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
     }
@@ -491,7 +487,6 @@
             busy = true;
             render();
             try {
-                if (!automatic) track('wallet_connect', { status: 'started' });
                 const nextAdapter = await selectProvider(preferredSession?.walletName, automatic);
                 if (!nextAdapter) return session();
                 const nextAddress = await nextAdapter.connect({
@@ -517,20 +512,7 @@
                 if (switchedProvider && switchingFrom?.disconnect) {
                     try { await switchingFrom.disconnect(); } catch (_) {}
                 }
-                track('wallet_connect', {
-                    status: automatic ? 'reconnected' : 'connected',
-                    provider: nextAdapter.name,
-                });
                 return session();
-            } catch (error) {
-                if (!automatic) {
-                    track('wallet_connect', {
-                        status: 'error',
-                        provider: preferredSession?.walletName,
-                    });
-                    root.AlphaCityTelemetry?.error('wallet_connect', error);
-                }
-                throw error;
             } finally {
                 busy = false;
                 render();
@@ -538,10 +520,8 @@
         }
 
         async function disconnect() {
-            const disconnectedProvider = walletName;
             try { if (adapter?.disconnect) await adapter.disconnect(); } catch (_) {}
             update(null, '');
-            track('wallet_connect', { status: 'disconnected', provider: disconnectedProvider });
         }
 
         async function switchAccount() {
@@ -620,16 +600,7 @@
             if (typeof adapter.signAndExecuteTransaction !== 'function') {
                 throw new Error(`${walletName || 'This wallet'} cannot sign Sui transactions.`);
             }
-            track('transaction_sign', { status: 'requested' });
-            try {
-                const result = await adapter.signAndExecuteTransaction(transaction);
-                track('transaction_sign', { status: 'succeeded' });
-                return result;
-            } catch (error) {
-                track('transaction_sign', { status: 'error' });
-                root.AlphaCityTelemetry?.error('transaction_sign', error);
-                throw error;
-            }
+            return adapter.signAndExecuteTransaction(transaction);
         }
 
         function clearReconnectTimer() {
@@ -692,7 +663,6 @@
         }
 
         button.addEventListener('click', () => {
-            track('wallet_dialog', { action: address ? 'options' : 'connect' });
             const action = address ? walletOptions() : connect();
             action.catch((error) => {
                 console.error('[wallet-connector]', error);

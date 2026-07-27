@@ -5,10 +5,6 @@
     const CITY_STAKING_TYPE = '0x008856d5d6d60a088f6153dbe6f7697d19f81d1d0403695c9e9fbaecdc8b29a9::city_staking::UserStake<0x308fa16c7aead43e3a49a4ff2e76205ba2a12697234f4fe80a2da66515284060::city::CITY>';
     const GATE_THRESHOLD = 1000000n * (10n ** 9n); // 1M CITY (9 decimals)
 
-    function track(eventName, properties) {
-        try { window.AlphaCityTelemetry?.track(eventName, properties); } catch (_) {}
-    }
-
     const isToolsPage = window.location.pathname.includes('/tools');
     const isAnalyzeLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) &&
         window.location.pathname.startsWith('/intel') &&
@@ -74,7 +70,6 @@
         const cachedThreshold = sessionStorage.getItem('alphacity_gate_threshold');
 
         if (cachedAddress === address && cachedStatus && cachedThreshold === GATE_THRESHOLD.toString()) {
-            track('gate_check', { result: cachedStatus, source: 'cache' });
             handleResult(
                 cachedStatus === 'unlocked',
                 BigInt(cachedLiquid || '0'),
@@ -87,7 +82,6 @@
         try {
             const { liquid, staked, total } = await fetchBalances(address);
             const isAllowed = total >= GATE_THRESHOLD;
-            track('gate_check', { result: isAllowed ? 'unlocked' : 'locked', source: 'rpc' });
 
             sessionStorage.setItem('alphacity_gate_address', address);
             sessionStorage.setItem('alphacity_gate_status', isAllowed ? 'unlocked' : 'locked');
@@ -98,8 +92,6 @@
             handleResult(isAllowed, liquid, staked, true);
         } catch (e) {
             console.error('Verify access error:', e);
-            track('gate_check', { result: 'error', source: 'rpc' });
-            window.AlphaCityTelemetry?.error('gate_check', e);
             if (isToolsPage) {
                 const event = new CustomEvent('alphacity-gate-error', { detail: e.message });
                 window.dispatchEvent(event);
@@ -153,7 +145,6 @@
         if (addr !== currentAddress) {
             currentAddress = addr;
             if (!addr) {
-                track('gate_check', { result: 'no_wallet', source: 'session' });
                 sessionStorage.removeItem('alphacity_gate_address');
                 sessionStorage.removeItem('alphacity_gate_status');
                 sessionStorage.removeItem('alphacity_gate_liquid');

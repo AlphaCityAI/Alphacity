@@ -47,7 +47,7 @@ test('Sluice uses the established Alpha City visual system', () => {
     assert.match(css, /font-family:\s*Inter,/i);
     assert.match(css, /min-height:\s*80px/i);
     assert.match(html, /Alpha\s*<em>City<\/em>/);
-    assert.match(html, /sluice\.css\?v=5/);
+    assert.match(html, /sluice\.css\?v=4/);
 });
 
 test('claim credentials are fragment-only and legacy query keys are immediately scrubbed', () => {
