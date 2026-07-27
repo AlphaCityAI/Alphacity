@@ -7,6 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Convert verified sub-$1 Sui token balances into Alpha City $CITY in one atomic transaction.">
     <title>Alchemy - Turn Sui Dust into $CITY</title>
+    <script defer src="/shared/telemetry-config.js"></script>
+    <script defer src="/shared/telemetry.js"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -78,9 +80,10 @@
                 <a href="/" class="flex items-center gap-2 text-2xl font-bold text-white">
                     <span>Alpha<span class="text-brand-secondary"> City</span></span>
                 </a>
-                <div class="flex items-center gap-4">
-                    <a href="/swap/" class="hidden text-sm text-dark-text-secondary transition-colors hover:text-white sm:block">Buy $CITY</a>
-                    <a href="/" class="hidden text-sm text-dark-text-secondary transition-colors hover:text-white md:block">← Back to Home</a>
+                <div class="flex items-center gap-2 sm:gap-4">
+                    <a href="/tools/" data-telemetry-event="cta_click" data-telemetry-action="return_to_tools" class="text-sm font-semibold text-brand-primary transition-colors hover:text-blue-300"><span class="hidden sm:inline">Tools Portal</span><span class="sm:hidden">Tools</span></a>
+                    <a href="/swap/" data-telemetry-event="cta_click" data-telemetry-action="buy_city" class="hidden text-sm text-dark-text-secondary transition-colors hover:text-white md:block">Buy $CITY</a>
+                    <a href="/" class="hidden text-sm text-dark-text-secondary transition-colors hover:text-white lg:block">← Back to Home</a>
                     <button id="connect-wallet-btn" type="button" class="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 font-medium text-white shadow-lg shadow-blue-500/20 transition-all duration-200 hover:bg-brand-primary-hover sm:px-5">
                         <span>Connect Wallet</span>
                     </button>
@@ -95,7 +98,7 @@
                 <svg class="h-4 w-4 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5m4.75-11.396c.251.023.501.05.75.082m-.75-.082a24.301 24.301 0 00-5.5 0m6.25.082V3.75c0-.621.504-1.125 1.125-1.125h.75c.621 0 1.125.504 1.125 1.125v.436m-3-.082c.251.023.501.05.75.082m2.25 0a24.301 24.301 0 015.5 0m-5.5 0v4.632c0 .597.237 1.169.659 1.591L19 15.25M5 14.5l-.525.525A3.75 3.75 0 007.127 21h9.746a3.75 3.75 0 002.652-6.4L19 14.075M5 14.5h14" />
                 </svg>
-                Noncustodial wallet cleanup
+                Free utility · No $CITY ownership required
             </div>
             <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">
                 Turn wallet dust into <span class="text-brand-secondary">$CITY</span>

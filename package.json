@@ -4,6 +4,7 @@
   "scripts": {
     "build:css": "tailwindcss -c tailwind.config.cjs -i ./intel/tailwind.input.css -o ./intel/tailwind.css --minify",
     "build:paylink-css": "tailwindcss -c pay/tailwind.config.cjs -i ./pay/tailwind.input.css -o ./pay/tailwind.css --minify",
+    "build:telemetry": "node scripts/build-telemetry-config.js",
     "build:paylink": "esbuild shared/paylink-client-source.js --bundle --minify --format=iife --global-name=AlphaCityPaylinkBundle --platform=browser --target=es2022 --outfile=shared/paylink-client.js",
     "build:paylink-request": "esbuild shared/paylink-request-source.js --bundle --minify --format=iife --global-name=AlphaCityPaylinkRequestBundle --platform=browser --target=es2022 --outfile=shared/paylink-request.js",
     "build:sui": "esbuild shared/sui-client-source.js --bundle --minify --format=iife --global-name=AlphaCitySuiBundle --platform=browser --target=es2022 --outfile=shared/sui-client.js",
@@ -12,7 +13,7 @@
     "build:launchpad": "esbuild launchpad/app-source.js --bundle --minify --format=iife --global-name=AlphaCityLaunchpadBundle --platform=browser --target=es2022 --outfile=launchpad/app.js",
     "launchpad:prepare": "node scripts/launchpad-project.cjs prepare",
     "launchpad:validate": "node scripts/launchpad-project.cjs validate",
-    "build": "npm run build:sui && npm run build:paylink && npm run build:paylink-request && npm run build:sluice && npm run build:alchemy && npm run build:launchpad && npm run build:css && npm run build:paylink-css",
+    "build": "npm run build:sui && npm run build:paylink && npm run build:paylink-request && npm run build:sluice && npm run build:alchemy && npm run build:launchpad && npm run build:css && npm run build:paylink-css && npm run build:telemetry",
     "test": "node --test tests/*.test.cjs"
   },
   "dependencies": {
