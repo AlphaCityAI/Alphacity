@@ -2,7 +2,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 
-const source = fs.readFileSync('verify/index.html', 'utf8');
+const html = fs.readFileSync('verify/index.html', 'utf8');
+const app = fs.readFileSync('verify/app.js', 'utf8');
+const css = fs.readFileSync('verify/styles.css', 'utf8');
+const source = html + '\n' + app;
 
 test('verification page contains no legacy Sui RPC client or browser authority', () => {
   for (const forbidden of [
@@ -20,23 +23,57 @@ test('verification page contains no legacy Sui RPC client or browser authority',
   }
 });
 
-test('verification page uses session context and minimal signed payload', () => {
-  assert.match(source, /verification_session/);
-  assert.match(source, /\/api\/verification-context/);
-  assert.match(source, /wallet_address: selectedAddress/);
-  assert.match(source, /wallet_signature: selectedSignature/);
-  assert.match(source, /Session: ' \+ VERIFICATION_SESSION/);
-  assert.match(source, /Telegram user: ' \+ context\.telegram_user_id/);
-  assert.match(source, /Group: ' \+ context\.group_id/);
-  assert.match(source, /Wallet: ' \+ canonicalAddress\(address\)/);
+test('verification page uses session context and a minimal signed payload', () => {
+  assert.match(app, /verification_session: VERIFICATION_SESSION/);
+  assert.match(app, /\/api\/verification-context/);
+  assert.match(app, /wallet_address: selectedAddress/);
+  assert.match(app, /wallet_signature: selectedSignature/);
+  assert.match(app, /Session: ' \+ VERIFICATION_SESSION/);
+  assert.match(app, /Telegram user: ' \+ context\.telegram_user_id/);
+  assert.match(app, /Group: ' \+ context\.group_id/);
+  assert.match(app, /Wallet: ' \+ canonicalAddress\(address\)/);
+});
+
+test('connect, account selection, message review, sign, and submit are separate stages', () => {
+  assert.match(html, /id="accountPanel"/);
+  assert.match(html, /id="ownershipMessage"/);
+  assert.match(html, /id="signButton"/);
+  assert.match(html, /id="submitButton"/);
+  assert.match(app, /renderAccounts\(accounts\)/);
+  assert.ok(
+    app.indexOf('const accounts = await connectWallet(wallet)') <
+      app.indexOf("signButton.addEventListener"),
+  );
+});
+
+test('session secrets use fragments and are scrubbed after completion', () => {
+  assert.match(app, /window\.location\.hash/);
+  assert.match(app, /window\.history\.replaceState/);
+  assert.match(app, /scrubSensitiveUrl/);
+  assert.match(app, /query\.has\('verification_session'\)/);
+});
+
+test('verification page has recovery and registered-but-ineligible states', () => {
+  assert.match(html, /Request a new link/);
+  assert.match(html, /Return to Telegram/);
+  assert.match(app, /Wallet registered — requirements not met/);
+  assert.match(app, /result\.wallet_registered/);
+  assert.match(app, /result\.eligibility_status === 'fail'/);
+});
+
+test('verification page uses external assets without inline execution or styles', () => {
+  assert.match(html, /href="styles\.css\?v=/);
+  assert.match(html, /src="app\.js\?v=/);
+  assert.equal(html.includes('<style>'), false);
+  assert.equal(html.includes("'unsafe-inline'"), false);
+  const executableInlineScripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+    .map(match => match[1])
+    .filter(script => script.trim());
+  assert.equal(executableInlineScripts.length, 0);
+  assert.ok(css.length > 1000);
+  assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
 });
 
 test('verification page script parses', () => {
-  const inlineScripts = [...source.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
-    .map(match => match[1])
-    .filter(script => script.trim());
-  assert.ok(inlineScripts.length > 0);
-  for (const script of inlineScripts) {
-    new Function(script);
-  }
+  new Function(app);
 });
