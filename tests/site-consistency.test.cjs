@@ -21,6 +21,7 @@ const sharedConnectorPages = [
     'sluice/index.html',
     'launchpad/index.html',
     'launchpad/operator/index.html',
+    'verify/index.html',
 ];
 
 test('every non-staking wallet surface uses the same connector without a page-local adapter', () => {
