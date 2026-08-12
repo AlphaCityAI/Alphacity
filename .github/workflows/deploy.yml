@@ -52,6 +52,11 @@ jobs:
           SLUICE_ORACLE_THRESHOLD: ${{ vars.SLUICE_ORACLE_THRESHOLD }}
         run: node scripts/build-sluice-config.js
 
+      - name: Run regression and security checks
+        run: |
+          npm test
+          npm audit --audit-level=high
+
       - name: Install Wrangler
         run: npm install --global wrangler@4
 
