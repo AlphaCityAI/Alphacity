@@ -18,6 +18,25 @@ test('shared wallet connector signs through modern and legacy Sui wallet feature
     assert.match(source, /sui:signAndExecuteTransactionBlock/);
     assert.match(source, /signAndExecuteTransaction,/);
     assert.match(source, /selectedAccount\s*=\s*availableAccounts\.find/);
+    assert.match(source, /sui:signPersonalMessage/);
+    assert.match(source, /sui:signMessage/);
+    assert.match(source, /signPersonalMessage,/);
+    assert.match(source, /supportsPersonalMessage/);
+    assert.doesNotMatch(source, /standard:signMessage/);
+});
+
+test('sensitive flows can require explicit wallet choice without changing the shared session', () => {
+    assert.match(source, /const persistSession = options\.persistSession !== false/);
+    assert.match(source, /const autoReconnect = options\.autoReconnect !== false && persistSession/);
+    assert.match(source, /const alwaysPrompt = options\.alwaysPrompt === true/);
+    assert.match(source, /wallets\.length === 1 && !alwaysPrompt/);
+    assert.match(source, /if \(persistSession && persist\)/);
+});
+
+test('wallet telemetry uses fixed provider categories', () => {
+    assert.match(source, /function telemetryWalletProvider/);
+    assert.match(source, /provider: telemetryWalletProvider\(nextAdapter\.name\)/);
+    assert.doesNotMatch(source, /provider: nextAdapter\.name/);
 });
 
 test('Phantom is presented once while its Sui-specific provider remains available', () => {

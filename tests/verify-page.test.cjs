@@ -5,6 +5,7 @@ const test = require('node:test');
 const html = fs.readFileSync('verify/index.html', 'utf8');
 const app = fs.readFileSync('verify/app.js', 'utf8');
 const css = fs.readFileSync('verify/styles.css', 'utf8');
+const walletConnector = fs.readFileSync('shared/wallet-connector.js', 'utf8');
 const ciWorkflow = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
 const deployWorkflow = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
 const source = html + '\n' + app;
@@ -36,15 +37,18 @@ test('verification page uses session context and a minimal signed payload', () =
   assert.match(app, /Wallet: ' \+ canonicalAddress\(address\)/);
 });
 
-test('connect, account selection, message review, sign, and submit are separate stages', () => {
-  assert.match(html, /id="accountPanel"/);
+test('shared wallet choice, message review, sign, and submit are separate stages', () => {
+  assert.match(html, /id="connectWalletButton"/);
   assert.match(html, /id="ownershipMessage"/);
   assert.match(html, /id="signButton"/);
   assert.match(html, /id="submitButton"/);
-  assert.match(app, /renderAccounts\(accounts\)/);
+  assert.match(app, /AlphaCityWalletConnector\.create/);
+  assert.match(app, /alwaysPrompt:\s*true/);
+  assert.match(app, /autoReconnect:\s*false/);
+  assert.match(app, /persistSession:\s*false/);
+  assert.match(app, /requirePersonalMessage:\s*true/);
   assert.ok(
-    app.indexOf('const accounts = await connectWallet(wallet)') <
-      app.indexOf("signButton.addEventListener"),
+    app.indexOf('initWalletConnector()') < app.indexOf("signButton.addEventListener"),
   );
 });
 
@@ -75,25 +79,29 @@ test('verification service routing fails closed and requests are bounded', () =>
   assert.match(app, /submissionInFlight/);
 });
 
-test('wallet discovery supports modern and legacy Sui mainnet wallets', () => {
-  assert.match(app, /new CustomEvent\('wallet-standard:app-ready'/);
-  assert.match(app, /return \(\) => added\.forEach/);
-  assert.match(app, /sui:mainnet/);
-  assert.match(app, /window\.slush\.sui \|\| window\.slush/);
-  assert.match(app, /sui:signPersonalMessage/);
-  assert.match(app, /sui:signMessage/);
-  assert.doesNotMatch(app, /standard:signMessage/);
-  assert.match(app, /activateLegacyAccount/);
+test('universal connector supports explicit modern and legacy Sui wallet selection', () => {
+  assert.match(html, /\/shared\/wallet-connector\.js/);
+  assert.match(walletConnector, /new CustomEvent\('wallet-standard:app-ready'/);
+  assert.match(walletConnector, /return \(\) => wallets\.forEach/);
+  assert.match(walletConnector, /sui:mainnet/);
+  assert.match(walletConnector, /root\.slush\?\.sui/);
+  assert.match(walletConnector, /sui:signPersonalMessage/);
+  assert.match(walletConnector, /sui:signMessage/);
+  assert.doesNotMatch(walletConnector, /standard:signMessage/);
+  assert.match(walletConnector, /alwaysPrompt/);
+  assert.match(walletConnector, /signPersonalMessage/);
+  assert.match(walletConnector, /wallets\.filter\(\(wallet\) => wallet\.supportsPersonalMessage\)/);
+  assert.doesNotMatch(app, /wallet-standard:register-wallet/);
 });
 
 test('verification telemetry contains no wallet or session identifiers', () => {
-  assert.match(app, /track\('wallet_connect'/);
   assert.match(app, /track\('transaction_sign'/);
   assert.match(app, /track\('gate_check'/);
-  assert.match(app, /walletTelemetryProvider/);
-  const trackCalls = [...app.matchAll(/track\([^;]+\);/g)].map(match => match[0]).join('\n');
-  assert.doesNotMatch(trackCalls, /address|signature|session|balance|telegram/i);
-  assert.doesNotMatch(trackCalls, /provider:\s*wallet\.name/);
+  assert.match(walletConnector, /telemetryWalletProvider/);
+  const trackCalls = [...(app + walletConnector).matchAll(/\btrack\('[^;]+\);/g)]
+    .map(match => match[0]).join('\n');
+  assert.doesNotMatch(trackCalls, /\b(?:address|signature|session|balance|telegram)\s*:/i);
+  assert.doesNotMatch(trackCalls, /provider:\s*(?:wallet|adapter|nextAdapter)\.name/);
 });
 
 test('verification regressions gate pull requests and production deployment', () => {
@@ -111,6 +119,9 @@ test('verification regressions gate pull requests and production deployment', ()
 test('verification page uses external assets without inline execution or styles', () => {
   assert.match(html, /href="styles\.css\?v=/);
   assert.match(html, /src="app\.js\?v=/);
+  assert.match(html, /src="\/shared\/wallet-connector\.js\?v=/);
+  assert.match(html, /data-wallet-connector-styles="external"/);
+  assert.match(walletConnector, /dataset\.walletConnectorStyles === 'external'/);
   assert.equal(html.includes('<style>'), false);
   assert.equal(html.includes("'unsafe-inline'"), false);
   const executableInlineScripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
@@ -119,6 +130,10 @@ test('verification page uses external assets without inline execution or styles'
   assert.equal(executableInlineScripts.length, 0);
   assert.ok(css.length > 1000);
   assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(css, /--bg:\s*#111827/);
+  assert.match(css, /--card:\s*#1f2937/);
+  assert.match(css, /\.ac-wallet-overlay/);
+  assert.match(css, /\.ac-wallet-dialog/);
 });
 
 test('verification page script parses', () => {
