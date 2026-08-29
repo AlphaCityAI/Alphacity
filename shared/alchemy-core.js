@@ -11,8 +11,9 @@
     const USDC_TYPE = '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
     const USD_MICROS_PER_DOLLAR = 1_000_000n;
     const CITY_DECIMALS = 9;
-    const DEFAULT_BATCH_LIMIT = 6;
+    const DEFAULT_BATCH_LIMIT = 10;
     const DEFAULT_QUOTE_MAX_AGE_MS = 30_000;
+    const DEFAULT_PREPARED_MAX_AGE_MS = 90_000;
 
     function normalizeAddress(address) {
         const value = String(address || '').trim().toLowerCase().replace(/^0x/, '');
@@ -168,6 +169,7 @@
         CITY_DECIMALS,
         DEFAULT_BATCH_LIMIT,
         DEFAULT_QUOTE_MAX_AGE_MS,
+        DEFAULT_PREPARED_MAX_AGE_MS,
         normalizeAddress,
         normalizeCoinType,
         sameCoinType,

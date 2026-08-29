@@ -54,6 +54,7 @@ test('selects only the highest-value eligible holdings up to the batch cap', () 
         holding({ coinType: '0x4::d::D', usdMicros: 1_500_000n }),
     ];
     assert.deepEqual(core.selectInitialHoldings(rows, 2), ['0x2::b::B', '0x3::c::C']);
+    assert.equal(core.DEFAULT_BATCH_LIMIT, 10);
 });
 
 test('computes aggregate minimum output using BigInt', () => {
@@ -71,6 +72,7 @@ test('computes aggregate minimum output using BigInt', () => {
 test('recognizes fresh quotes and calculates net gas', () => {
     assert.equal(core.quoteIsFresh(10_000, 39_999, 30_000), true);
     assert.equal(core.quoteIsFresh(10_000, 40_001, 30_000), false);
+    assert.equal(core.DEFAULT_PREPARED_MAX_AGE_MS, 90_000);
     assert.equal(core.gasUsedNet({
         computationCost: '100',
         storageCost: '50',
