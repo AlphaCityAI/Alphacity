@@ -11,7 +11,9 @@ const {
     parseScheduleObject,
     canonicalTriggerConfig,
     triggerMetricName,
-    decimalToScaledBigInt,
+    selectPrimaryPair,
+    metricValue,
+    observationFromPairs,
     encodeObservationMessage,
 } = require('../shared/sluice-core.cjs');
 
@@ -19,6 +21,20 @@ const CLOCK_ID = '0x6';
 const DEFAULT_GRAPHQL = 'https://graphql.mainnet.sui.io/graphql';
 const DEFAULT_GRPC = 'https://fullnode.mainnet.sui.io:443';
 const OBSERVATION_CLOCK_SKEW_MS = 30_000n;
+const FETCH_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(fetchImpl, url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetchImpl(url, { ...options, signal: controller.signal });
+    } catch (error) {
+        if (controller.signal.aborted) throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
 
 function requiredEnvironment(name) {
     const value = String(process.env[name] || '').trim();
@@ -76,7 +92,7 @@ async function querySchedules(graphqlUrl, packageId, fetchImpl = fetch) {
     const output = [];
     let after = null;
     do {
-        const response = await fetchImpl(graphqlUrl, {
+        const response = await fetchWithTimeout(fetchImpl, graphqlUrl, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
@@ -106,49 +122,23 @@ async function querySchedules(graphqlUrl, packageId, fetchImpl = fetch) {
     return output;
 }
 
-function selectPrimaryPair(pairs, coinType) {
-    return (pairs || []).filter(pair => {
-        try { return normalizeCoinType(pair.baseToken?.address) === coinType; }
-        catch (_) { return false; }
-    }).sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0))[0] || null;
-}
-
-function metricValue(pair, triggerKind) {
-    let raw;
-    let decimals = 0;
-    switch (triggerKind) {
-        case TRIGGERS.MARKET_CAP_USD: raw = pair.marketCap; break;
-        case TRIGGERS.FDV_USD: raw = pair.fdv; break;
-        case TRIGGERS.PRICE_USD_E8: raw = pair.priceUsd; decimals = 8; break;
-        case TRIGGERS.LIQUIDITY_USD: raw = pair.liquidity?.usd; break;
-        case TRIGGERS.VOLUME_24H_USD: raw = pair.volume?.h24; break;
-        default: throw new Error(`Default relayer does not support trigger kind ${triggerKind}`);
-    }
-    if (raw === null || raw === undefined || raw === '') {
-        throw new Error(`${triggerKind === TRIGGERS.MARKET_CAP_USD ? 'marketCap' : 'requested metric'} is unavailable; no fallback will be substituted`);
-    }
-    const value = decimalToScaledBigInt(raw, decimals);
-    if (value > 18_446_744_073_709_551_615n) throw new Error('Observed value exceeds u64');
-    return value;
-}
-
-async function fetchObservation(schedule, fetchImpl = fetch) {
-    const response = await fetchImpl(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(schedule.coinType)}`, {
+async function fetchDexPairs(coinType, fetchImpl = fetch) {
+    const response = await fetchWithTimeout(fetchImpl, `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(coinType)}`, {
         headers: { accept: 'application/json', 'user-agent': 'AlphaCity-Sluice-V2/1.0' },
     });
     if (!response.ok) throw new Error(`DexScreener HTTP ${response.status}`);
     const payload = await response.json();
-    const pair = selectPrimaryPair(payload.pairs, schedule.coinType);
-    if (!pair) throw new Error('No DexScreener pair has the schedule coin as its exact base token');
-    const liquidity = decimalToScaledBigInt(pair.liquidity?.usd || 0, 0);
-    if (liquidity < schedule.minLiquidityUsd) {
-        throw new Error(`Primary pair liquidity $${liquidity} is below required $${schedule.minLiquidityUsd}`);
+    return payload.pairs || [];
+}
+
+async function fetchObservation(schedule, fetchImpl = fetch, pairCache = null) {
+    const cacheKey = normalizeCoinType(schedule.coinType);
+    let pairsPromise = pairCache?.get(cacheKey);
+    if (!pairsPromise) {
+        pairsPromise = fetchDexPairs(cacheKey, fetchImpl);
+        if (pairCache) pairCache.set(cacheKey, pairsPromise);
     }
-    return {
-        observedValue: metricValue(pair, schedule.triggerKind),
-        pair: `${pair.dexId || 'unknown'}:${pair.pairAddress || 'unknown'}`,
-        liquidity,
-    };
+    return observationFromPairs(schedule, await pairsPromise);
 }
 
 function verifyScheduleConfig(schedule) {
@@ -281,6 +271,7 @@ async function run(options = {}) {
     let pending = 0;
     let submitted = 0;
     let failed = 0;
+    const pairCache = new Map();
 
     for (const object of objects) {
         const fields = object.data.content.fields;
@@ -288,8 +279,8 @@ async function run(options = {}) {
         if (schedule.status !== 0 || schedule.triggerKind === TRIGGERS.TIME) continue;
         pending += 1;
         try {
-            const nowMs = safeObservationTimestamp();
-            if (schedule.triggerDeadlineMs > 0n && nowMs >= schedule.triggerDeadlineMs) {
+            const currentTimeMs = BigInt(Date.now());
+            if (schedule.triggerDeadlineMs > 0n && currentTimeMs >= schedule.triggerDeadlineMs) {
                 if (dryRun) console.log(`[dry-run] ${schedule.id} would resolve its expired fallback`);
                 else {
                     const digest = await resolveExpired({ client, gasKeypair, packageId, schedule });
@@ -302,7 +293,8 @@ async function run(options = {}) {
             const publicKeys = nestedByteVectors(fields.oracle_pubkeys);
             const threshold = Number(fields.oracle_threshold || 0);
             matchOracleSigners(publicKeys, threshold, oracleKeypairs);
-            const observation = await fetchObservation(schedule, fetchImpl);
+            const observation = await fetchObservation(schedule, fetchImpl, pairCache);
+            const nowMs = safeObservationTimestamp(currentTimeMs);
             if (dryRun) {
                 console.log(`[dry-run] ${schedule.id} ${triggerMetricName(schedule.triggerKind)}=${observation.observedValue} via ${observation.pair}`);
             } else {
@@ -339,9 +331,12 @@ if (require.main === module) {
 module.exports = {
     keypairFromSecret,
     nestedByteVectors,
+    fetchWithTimeout,
     querySchedules,
     selectPrimaryPair,
     metricValue,
+    observationFromPairs,
+    fetchDexPairs,
     fetchObservation,
     verifyScheduleConfig,
     matchOracleSigners,

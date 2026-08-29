@@ -22,6 +22,7 @@ module sluice::sluice_v2 {
     const E_INVALID_AMOUNT: u64 = 9;
     const E_INVALID_ADDRESS: u64 = 10;
     const E_INVALID_TRIGGER: u64 = 11;
+    const E_TRIGGER_EXPIRED: u64 = 12;
 
     // Schedule states
     const STATUS_PENDING: u8 = 0;
@@ -320,6 +321,10 @@ module sluice::sluice_v2 {
         assert!(schedule.status == STATUS_PENDING, E_INVALID_STATE);
 
         let now = clock::timestamp_ms(clock);
+        assert!(
+            schedule.trigger_deadline_ms == 0 || now < schedule.trigger_deadline_ms,
+            E_TRIGGER_EXPIRED,
+        );
         assert!(observed_at_ms <= now, E_INVALID_OBSERVATION);
         assert!(now - observed_at_ms <= schedule.max_observation_age_ms, E_INVALID_OBSERVATION);
         assert!(valid_until_ms >= now, E_INVALID_OBSERVATION);
@@ -359,6 +364,10 @@ module sluice::sluice_v2 {
         now_ms: u64,
     ) {
         assert!(schedule.status == STATUS_PENDING, E_INVALID_STATE);
+        assert!(
+            schedule.trigger_deadline_ms == 0 || now_ms < schedule.trigger_deadline_ms,
+            E_TRIGGER_EXPIRED,
+        );
         assert!(observed_at_ms <= now_ms, E_INVALID_OBSERVATION);
         assert!(now_ms - observed_at_ms <= schedule.max_observation_age_ms, E_INVALID_OBSERVATION);
         if (option::is_some(&schedule.last_observed_at_ms)) {
@@ -697,7 +706,12 @@ module sluice::sluice_v2 {
                 || fallback_policy == FALLBACK_ACTIVATE,
             E_INVALID_TRIGGER,
         );
-        assert!(trigger_deadline_ms == 0 || trigger_deadline_ms > now_ms, E_INVALID_TRIGGER);
+        assert!(
+            trigger_deadline_ms == 0
+                || (trigger_deadline_ms > now_ms
+                    && trigger_deadline_ms - now_ms >= validation_window_ms),
+            E_INVALID_TRIGGER,
+        );
         validate_oracle_policy(oracle_pubkeys, oracle_threshold);
     }
 

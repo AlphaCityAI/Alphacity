@@ -9,7 +9,7 @@ Sluice V2 adds a new `sluice_v2` module without removing the deployed V1 module.
 - Domain-separated, schedule-bound Ed25519 observation messages.
 - Configurable threshold signatures with unique, indexed oracle keys.
 - Fresh, monotonic observations and an on-chain continuous-validation window that resets after a failed observation or excessive gap.
-- An immutable trigger deadline and creator-refund or activation fallback.
+- An immutable trigger deadline that rejects later observations and resolves to creator-refund or activation fallback.
 - Permissionless claiming that always pays the current beneficiary.
 - Cancellation that pays all already vested entitlement before returning only unvested tokens to the creator.
 - Direct beneficiary reassignment and bounded bearer-link reassignment signatures.
@@ -78,7 +78,7 @@ V2 was published as package `0xa95f0f0860baab092b26a8f19190ccd0c11f07d76513a8c32
 
 ## Trigger data policy
 
-The included no-cost relayer services trigger kinds 1–5 through DexScreener. It requires the schedule coin to exactly match the primary pair's base token and selects the matching pair with the highest reported USD liquidity. It never estimates market cap from liquidity and never substitutes FDV for an unavailable market cap.
+The included no-cost relayer services trigger kinds 1–5 through DexScreener. It requires the schedule coin to exactly match the primary pair's base token and selects the matching pair with the highest reported USD liquidity. It never estimates market cap from liquidity and never substitutes FDV for an unavailable market cap. The Create flow performs this same exact feed/metric/liquidity check before asking the wallet to commit funds, while the relayer rechecks every observation.
 
 Holder-count and custom triggers are implemented at contract level but require a separately defined and operated observation provider. The canonical config hash prevents this relayer from silently servicing a schedule with different feed rules.
 

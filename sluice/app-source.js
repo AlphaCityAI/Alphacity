@@ -13,6 +13,8 @@ const {
     parseScheduleObject,
     calculateClaimable,
     triggerMetricName,
+    selectPrimaryPair,
+    observationFromPairs,
     canonicalTriggerConfig,
     encodeClaimMessage,
     encodeClaimFragment,
@@ -43,6 +45,8 @@ const state = {
     gate: null,
 };
 let walletConnector = null;
+let schedulesRequest = null;
+let tokenPreviewSequence = 0;
 
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -85,9 +89,13 @@ function handleWalletChange(session) {
         .catch(error => showStatus(error.message, 'error'));
 }
 
-async function signAndExecute(tx) {
-    if (!walletConnector || !state.address) throw new Error('Connect a wallet first');
-    tx.setSender(state.address);
+async function signAndExecute(tx, expectedAddress = state.address) {
+    const session = walletConnector?.getSession?.();
+    if (!expectedAddress || !sameAddress(state.address, expectedAddress)
+        || !sameAddress(session?.address, expectedAddress)) {
+        throw new Error('The connected wallet changed. Review the transaction again with the active account.');
+    }
+    tx.setSender(expectedAddress);
     const result = await walletConnector.signAndExecuteTransaction(tx);
     const status = result?.effects?.status?.status || result?.effects?.status;
     if (String(status || '').toLowerCase() === 'failure') {
@@ -114,7 +122,7 @@ async function queryAllSchedules(packageId, moduleName, structName) {
     return output;
 }
 
-async function refreshSchedules() {
+async function loadSchedules() {
     $('refresh-schedules').disabled = true;
     try {
         const [v2, v1] = await Promise.all([
@@ -132,8 +140,16 @@ async function refreshSchedules() {
     }
 }
 
+function refreshSchedules() {
+    if (!schedulesRequest) {
+        schedulesRequest = loadSchedules().finally(() => { schedulesRequest = null; });
+    }
+    return schedulesRequest;
+}
+
 async function getMetadata(coinType) {
-    if (state.metadata.has(coinType)) return state.metadata.get(coinType);
+    const cached = state.metadata.get(coinType);
+    if (cached && !cached.unavailable) return cached;
     const metadata = await rpc('suix_getCoinMetadata', [coinType]);
     if (!metadata || !Number.isInteger(metadata.decimals)) {
         throw new Error(`Coin metadata is unavailable for ${coinType}; refusing to guess decimals`);
@@ -150,19 +166,20 @@ async function hydrateMetadata(schedules) {
     })));
 }
 
-async function refreshGate() {
-    if (!state.address) {
+async function refreshGate(requestedAddress = state.address) {
+    if (!requestedAddress) {
         state.gate = null;
         renderGate();
         return;
     }
+    const address = normalizeAddress(requestedAddress);
     try {
-        const liquidResult = await rpc('suix_getBalance', [state.address, CITY_TYPE]);
+        const liquidResult = await rpc('suix_getBalance', [address, CITY_TYPE]);
         const liquid = BigInt(liquidResult?.totalBalance || 0);
         let staked = 0n;
         let cursor = null;
         do {
-            const page = await rpc('suix_getOwnedObjects', [state.address, {
+            const page = await rpc('suix_getOwnedObjects', [address, {
                 filter: { StructType: CITY_STAKING_TYPE },
                 options: { showContent: true },
             }, cursor, 50]);
@@ -172,8 +189,10 @@ async function refreshGate() {
             }
             cursor = page.hasNextPage ? page.nextCursor : null;
         } while (cursor);
+        if (!sameAddress(state.address, address)) return;
         state.gate = { liquid, staked, total: liquid + staked, allowed: liquid + staked >= CREATION_GATE };
     } catch (error) {
+        if (!sameAddress(state.address, address)) return;
         state.gate = { error: error.message, allowed: false };
     }
     renderGate();
@@ -316,10 +335,10 @@ function renderSchedules() {
     }
 }
 
-async function preparePayment(tx, coinType, amount) {
+async function preparePayment(tx, coinType, amount, owner = state.address) {
     if (amount <= 0n) throw new Error('Token amount must be greater than zero');
     if (coinType === SUI_TYPE) {
-        const balance = await rpc('suix_getBalance', [state.address, coinType]);
+        const balance = await rpc('suix_getBalance', [owner, coinType]);
         if (BigInt(balance?.totalBalance || 0) <= amount) throw new Error('Keep additional SUI available for gas');
         return tx.splitCoins(tx.gas, [tx.pure.u64(amount)])[0];
     }
@@ -327,7 +346,7 @@ async function preparePayment(tx, coinType, amount) {
     let total = 0n;
     let cursor = null;
     do {
-        const page = await rpc('suix_getCoins', [state.address, coinType, cursor, 50]);
+        const page = await rpc('suix_getCoins', [owner, coinType, cursor, 50]);
         for (const coin of (page.data || [])) {
             selected.push(coin);
             total += BigInt(coin.balance);
@@ -356,6 +375,33 @@ async function sha256Bytes(text) {
     return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
 }
 
+async function fetchJson(url, options = {}, timeoutMs = 12_000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        if (!response.ok) throw new Error(`DexScreener HTTP ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        if (controller.signal.aborted) throw new Error('DexScreener did not respond in time');
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function fetchDexPairs(coinType) {
+    const payload = await fetchJson(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(coinType)}`, {
+        headers: { accept: 'application/json' },
+    });
+    return payload.pairs || [];
+}
+
+async function validateTriggerFeed({ coinType, triggerKind, minLiquidityUsd }) {
+    const pairs = await fetchDexPairs(coinType);
+    return observationFromPairs({ coinType, triggerKind, minLiquidityUsd }, pairs);
+}
+
 function oracleKeys() {
     const keys = (CONFIG.oraclePublicKeys || []).map(value => {
         const clean = String(value).replace(/^0x/, '');
@@ -371,7 +417,9 @@ async function createSchedule(event) {
     const packageId = v2Package();
     if (!packageId) throw new Error('Sluice V2 is not deployed/configured yet');
     if (!state.address) throw new Error('Connect a wallet first');
-    await refreshGate();
+    const creatorAddress = state.address;
+    await refreshGate(creatorAddress);
+    if (!sameAddress(state.address, creatorAddress)) throw new Error('The connected wallet changed; review the schedule again');
     if (!state.gate?.allowed) throw new Error('Creation requires 1,000,000 CITY, including supported staked CITY');
 
     const coinType = normalizeCoinType($('coin-type').value);
@@ -402,7 +450,7 @@ async function createSchedule(event) {
     const clientReference = crypto.getRandomValues(new Uint8Array(16));
     const triggerKind = Number($('trigger-kind').value);
     const tx = new Transaction();
-    const payment = await preparePayment(tx, coinType, amount);
+    const payment = await preparePayment(tx, coinType, amount, creatorAddress);
     if (triggerKind === TRIGGERS.TIME) {
         tx.moveCall({
             target: `${packageId}::sluice_v2::create_time_schedule`,
@@ -434,8 +482,17 @@ async function createSchedule(event) {
             throw new Error('Maximum sample gap must be positive and no longer than the validation window');
         }
         const deadlineText = $('trigger-deadline').value;
-        const deadline = deadlineText ? BigInt(new Date(deadlineText).getTime()) : 0n;
-        if (deadline && deadline <= BigInt(Date.now())) throw new Error('Trigger deadline must be in the future');
+        const deadlineMs = deadlineText ? new Date(deadlineText).getTime() : 0;
+        if (!Number.isFinite(deadlineMs)) throw new Error('Enter a valid trigger deadline');
+        const deadline = BigInt(deadlineMs);
+        const now = BigInt(Date.now());
+        if (deadline && deadline <= now) throw new Error('Trigger deadline must be in the future');
+        if (deadline && deadline - now < validationWindow) {
+            throw new Error('Trigger deadline must leave enough time for the full validation window');
+        }
+        showStatus('Checking the exact DexScreener feed before funds are committed…', 'info');
+        const feed = await validateTriggerFeed({ coinType, triggerKind, minLiquidityUsd: minLiquidity });
+        showStatus(`Feed verified at $${feed.liquidity.toLocaleString()} liquidity. Confirm the V2 schedule transaction in your wallet…`, 'info');
         const canonical = canonicalTriggerConfig({ coinType, triggerKind, minLiquidityUsd: minLiquidity });
         const configHash = await sha256Bytes(canonical);
         tx.moveCall({
@@ -466,14 +523,14 @@ async function createSchedule(event) {
         });
     }
 
-    showStatus('Confirm the V2 schedule transaction in your wallet…', 'info');
-    const result = await signAndExecute(tx);
+    if (triggerKind === TRIGGERS.TIME) showStatus('Confirm the V2 schedule transaction in your wallet…', 'info');
+    const result = await signAndExecute(tx, creatorAddress);
     showStatus('Schedule created on-chain. Waiting for indexer confirmation…', 'success');
     let scheduleId = createdScheduleId(result);
     for (let attempt = 0; !scheduleId && attempt < 8; attempt += 1) {
         await sleep(1_500);
         const schedules = await queryAllSchedules(packageId, 'sluice_v2', 'VestingScheduleV2');
-        const match = schedules.find(schedule => sameAddress(schedule.creator, state.address)
+        const match = schedules.find(schedule => sameAddress(schedule.creator, creatorAddress)
             && bytesToHex(schedule.clientReference) === bytesToHex(clientReference));
         if (match) scheduleId = match.id;
     }
@@ -488,6 +545,8 @@ async function createSchedule(event) {
         }, recipient, amount, metadata.symbol);
     }
     event.target.reset();
+    $('token-preview').removeAttribute('data-kind');
+    $('token-preview').textContent = 'Token metadata is verified before any amount is converted. Sluice never guesses decimals.';
     setDefaultDates();
     toggleTriggerFields();
     await refreshSchedules();
@@ -686,22 +745,31 @@ async function acceptClaim() {
 
 async function previewToken() {
     const output = $('token-preview');
+    const sequence = ++tokenPreviewSequence;
+    output.dataset.kind = 'loading';
+    output.textContent = 'Checking token metadata and the exact DexScreener base-token feed…';
     try {
         const coinType = normalizeCoinType($('coin-type').value);
         const metadata = await getMetadata(coinType);
-        const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(coinType)}`);
-        if (!response.ok) throw new Error(`DexScreener HTTP ${response.status}`);
-        const data = await response.json();
-        const matching = (data.pairs || []).filter(pair => {
-            try { return normalizeCoinType(pair.baseToken?.address) === coinType; } catch (_) { return false; }
-        }).sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0));
-        if (!matching.length) {
-            output.textContent = `${metadata.symbol} · ${metadata.decimals} decimals · no matching base-token DexScreener pair. Triggered schedules will not receive observations.`;
+        const pairs = await fetchDexPairs(coinType);
+        const pair = selectPrimaryPair(pairs, coinType);
+        if (!pair) throw new Error(`${metadata.symbol} has no exact-base-token DexScreener pair; market triggers cannot be serviced`);
+        const summary = `${metadata.symbol} · ${metadata.decimals} decimals · ${pair.dexId || 'unknown'} ${pair.baseToken?.symbol || 'TOKEN'}/${pair.quoteToken?.symbol || 'PAIR'} · liquidity $${Number(pair.liquidity?.usd || 0).toLocaleString()} · market cap ${pair.marketCap == null ? 'unavailable' : `$${Number(pair.marketCap).toLocaleString()}`} · FDV ${pair.fdv == null ? 'unavailable' : `$${Number(pair.fdv).toLocaleString()}`}`;
+        const triggerKind = Number($('trigger-kind').value);
+        if (triggerKind === TRIGGERS.TIME) {
+            if (sequence !== tokenPreviewSequence) return;
+            output.dataset.kind = 'ok';
+            output.textContent = summary;
             return;
         }
-        const pair = matching[0];
-        output.textContent = `${metadata.symbol} · ${metadata.decimals} decimals · primary feed ${pair.dexId} ${pair.baseToken.symbol}/${pair.quoteToken.symbol} · liquidity $${Number(pair.liquidity?.usd || 0).toLocaleString()} · market cap ${pair.marketCap == null ? 'unavailable' : `$${Number(pair.marketCap).toLocaleString()}`} · FDV ${pair.fdv == null ? 'unavailable' : `$${Number(pair.fdv).toLocaleString()}`}`;
+        const minLiquidityUsd = parseDecimalToBigInt($('minimum-liquidity').value || '0', 0);
+        const observation = observationFromPairs({ coinType, triggerKind, minLiquidityUsd }, pairs);
+        if (sequence !== tokenPreviewSequence) return;
+        output.dataset.kind = 'ok';
+        output.textContent = `${summary} · selected ${triggerMetricName(triggerKind)} feed is serviceable now (${observation.observedValue.toLocaleString()}).`;
     } catch (error) {
+        if (sequence !== tokenPreviewSequence) return;
+        output.dataset.kind = 'error';
         output.textContent = error.message;
     }
 }
@@ -713,6 +781,7 @@ function toggleTriggerFields() {
     $('target-units').textContent = kind === TRIGGERS.PRICE_USD_E8
         ? 'USD per token (up to 8 decimals)'
         : [1, 2, 4, 5].includes(kind) ? 'whole USD' : 'integer units';
+    if ($('coin-type').value.trim()) previewToken();
 }
 
 function toggleRecipient() {
@@ -748,6 +817,9 @@ async function init() {
     $('trigger-kind').addEventListener('change', toggleTriggerFields);
     document.querySelectorAll('input[name="recipient-mode"]').forEach(input => input.addEventListener('change', toggleRecipient));
     $('coin-type').addEventListener('blur', previewToken);
+    $('minimum-liquidity').addEventListener('blur', () => {
+        if ($('coin-type').value.trim() && Number($('trigger-kind').value) !== TRIGGERS.TIME) previewToken();
+    });
     $('accept-claim').addEventListener('click', () => acceptClaim().catch(error => showStatus(error.message, 'error')));
     $('dismiss-claim').addEventListener('click', () => {
         sessionStorage.removeItem('sluice_active_claim');

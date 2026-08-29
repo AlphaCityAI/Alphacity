@@ -8,12 +8,12 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fullnode.mainnet.sui.io https://graphql.mainnet.sui.io https://sui-mainnet.mystenlabs.com https://api.dexscreener.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>Sluice V2 · Alpha City</title>
     <link rel="icon" href="/favicon.png">
-    <link rel="stylesheet" href="/sluice/sluice.css?v=5">
+    <link rel="stylesheet" href="/sluice/sluice.css?v=6">
     <script src="/shared/sui-client.js"></script>
     <script src="/sluice/config.js"></script>
     <script src="/shared/wallet-sync.js" defer></script>
     <script src="/shared/wallet-connector.js" defer></script>
-    <script src="/sluice/app.js?v=3" defer></script>
+    <script src="/sluice/app.js?v=4" defer></script>
 </head>
 <body>
     <header class="site-header">
@@ -92,7 +92,7 @@
                         <legend>Tokens</legend>
                         <label for="coin-type">Sui coin type</label>
                         <input id="coin-type" spellcheck="false" autocomplete="off" required placeholder="0x…::module::COIN">
-                        <p id="token-preview" class="field-help">Token metadata is verified before any amount is converted. Sluice never guesses decimals.</p>
+                        <p id="token-preview" class="field-help" aria-live="polite">Token metadata is verified before any amount is converted. Sluice never guesses decimals.</p>
                         <label for="token-amount">Amount</label>
                         <input id="token-amount" inputmode="decimal" autocomplete="off" required placeholder="100000">
                     </fieldset>
@@ -142,12 +142,12 @@
                                 <div><label for="sample-gap-minutes">Maximum sample gap (minutes)</label><input id="sample-gap-minutes" type="number" min="1" step="1" value="20"></div>
                             </div>
                             <label for="minimum-liquidity">Minimum primary-pair liquidity (whole USD)</label>
-                            <input id="minimum-liquidity" inputmode="numeric" value="25000">
+                            <input id="minimum-liquidity" inputmode="numeric" value="10000">
                             <div class="two-columns">
                                 <div><label for="trigger-deadline">Trigger deadline (optional)</label><input id="trigger-deadline" type="datetime-local"></div>
                                 <div><label for="fallback-policy">At deadline</label><select id="fallback-policy"><option value="0">Refund creator</option><option value="1">Activate anyway</option></select></div>
                             </div>
-                            <p class="field-help">The free relayer supports DexScreener metrics using the highest-liquidity pair whose base token exactly matches this coin type. A missed or stale sample can delay activation, but cannot falsely satisfy continuity.</p>
+                            <p class="field-help">Before funds are committed, Sluice verifies the selected metric and minimum liquidity against the exact feed used by the free relayer. A missed or stale sample can delay activation, but cannot falsely satisfy continuity.</p>
                         </div>
                     </fieldset>
 

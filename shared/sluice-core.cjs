@@ -199,6 +199,57 @@ function triggerMetricName(kind) {
     })[kind] || 'time';
 }
 
+function selectPrimaryPair(pairs, coinType) {
+    const normalizedCoinType = normalizeCoinType(coinType);
+    let selected = null;
+    let selectedLiquidity = -1n;
+    for (const pair of (pairs || [])) {
+        try {
+            if (normalizeCoinType(pair.baseToken?.address) !== normalizedCoinType) continue;
+            const liquidity = decimalToScaledBigInt(pair.liquidity?.usd || 0, 0);
+            if (liquidity > selectedLiquidity) {
+                selected = pair;
+                selectedLiquidity = liquidity;
+            }
+        } catch (_) {}
+    }
+    return selected;
+}
+
+function metricValue(pair, triggerKind) {
+    let raw;
+    let decimals = 0;
+    switch (Number(triggerKind)) {
+        case TRIGGERS.MARKET_CAP_USD: raw = pair.marketCap; break;
+        case TRIGGERS.FDV_USD: raw = pair.fdv; break;
+        case TRIGGERS.PRICE_USD_E8: raw = pair.priceUsd; decimals = 8; break;
+        case TRIGGERS.LIQUIDITY_USD: raw = pair.liquidity?.usd; break;
+        case TRIGGERS.VOLUME_24H_USD: raw = pair.volume?.h24; break;
+        default: throw new Error(`Default relayer does not support trigger kind ${triggerKind}`);
+    }
+    if (raw === null || raw === undefined || raw === '') {
+        throw new Error(`${Number(triggerKind) === TRIGGERS.MARKET_CAP_USD ? 'marketCap' : 'requested metric'} is unavailable; no fallback will be substituted`);
+    }
+    const value = decimalToScaledBigInt(raw, decimals);
+    if (value > 18_446_744_073_709_551_615n) throw new Error('Observed value exceeds u64');
+    return value;
+}
+
+function observationFromPairs(schedule, pairs) {
+    const pair = selectPrimaryPair(pairs, schedule.coinType);
+    if (!pair) throw new Error('No DexScreener pair has the schedule coin as its exact base token');
+    const liquidity = decimalToScaledBigInt(pair.liquidity?.usd || 0, 0);
+    const minimumLiquidity = BigInt(schedule.minLiquidityUsd || 0);
+    if (liquidity < minimumLiquidity) {
+        throw new Error(`Primary pair liquidity $${liquidity} is below required $${minimumLiquidity}`);
+    }
+    return {
+        observedValue: metricValue(pair, schedule.triggerKind),
+        pair: `${pair.dexId || 'unknown'}:${pair.pairAddress || 'unknown'}`,
+        liquidity,
+    };
+}
+
 function canonicalTriggerConfig({ coinType, triggerKind, minLiquidityUsd = 0 }) {
     return JSON.stringify({
         coinType: normalizeCoinType(coinType),
@@ -309,6 +360,9 @@ module.exports = {
     calculateVested,
     calculateClaimable,
     triggerMetricName,
+    selectPrimaryPair,
+    metricValue,
+    observationFromPairs,
     canonicalTriggerConfig,
     encodeObservationMessage,
     encodeClaimMessage,

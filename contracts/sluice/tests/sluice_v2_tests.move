@@ -274,6 +274,49 @@ module sluice::sluice_v2_tests {
         test_scenario::end(scenario);
     }
 
+    #[test]
+    #[expected_failure(abort_code = 12)]
+    fun observations_cannot_activate_after_the_trigger_deadline() {
+        let mut scenario = test_scenario::begin(CREATOR);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let clock = clock::create_for_testing(ctx);
+            let tokens = coin::mint_for_testing<SUI>(10_000, ctx);
+            sluice_v2::create_triggered_schedule(
+                tokens,
+                BENEFICIARY,
+                0,
+                10_000,
+                1_000,
+                1,
+                0,
+                1,
+                bytes(32, 7),
+                0,
+                0,
+                600,
+                600,
+                vector[bytes(32, 9)],
+                1,
+                1_000,
+                0,
+                false,
+                b"deadline-finality",
+                &clock,
+                ctx,
+            );
+            clock::share_for_testing(clock);
+        };
+
+        test_scenario::next_tx(&mut scenario, KEEPER);
+        {
+            let mut schedule = test_scenario::take_shared<sluice_v2::VestingScheduleV2<SUI>>(&scenario);
+            sluice_v2::submit_observation_for_testing(&mut schedule, 2, 1_000, 1_000);
+            test_scenario::return_shared(schedule);
+        };
+        test_scenario::end(scenario);
+    }
+
     fun bytes(length: u64, value: u8): vector<u8> {
         let mut result = vector[];
         let mut i = 0;
