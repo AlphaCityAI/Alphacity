@@ -5,7 +5,8 @@ const core = window.AlphaCityAlchemyCore;
 if (!core) throw new Error('The Alchemy core module did not load');
 
 const MAX_QUOTED_TYPES = 40;
-const QUOTE_CONCURRENCY = 3;
+const SCAN_QUOTE_CONCURRENCY = 3;
+const PREPARE_QUOTE_CONCURRENCY = 5;
 const EXPLORER_TX_URL = 'https://suiscan.xyz/mainnet/tx/';
 
 const state = {
@@ -20,6 +21,7 @@ const state = {
     preparing: false,
     executing: false,
     prepared: null,
+    preparedExpiryTimer: null,
 };
 
 const $ = id => document.getElementById(id);
@@ -187,6 +189,43 @@ async function quoteHolding(holding, router) {
     return quoted;
 }
 
+async function quoteSelectedHolding(holding, router) {
+    const quoted = {
+        ...holding,
+        usdMicros: null,
+        usdRoute: null,
+        cityRoute: null,
+        quoteError: '',
+        routeError: '',
+        quotedAt: 0,
+    };
+    if (!holding.metadata) {
+        quoted.quoteError = 'Coin metadata is unavailable';
+        return quoted;
+    }
+
+    const usdQuote = core.sameCoinType(holding.coinType, core.USDC_TYPE)
+        ? Promise.resolve({ route: null, amount: core.safeBigInt(holding.totalBalance) })
+        : fetchRoute(router, holding.coinType, core.USDC_TYPE, holding.totalBalance)
+            .then(route => ({ route, amount: core.routeOutputAmount(route) }));
+    const cityQuote = fetchRoute(router, holding.coinType, core.CITY_TYPE, holding.totalBalance);
+    const [usdResult, cityResult] = await Promise.allSettled([usdQuote, cityQuote]);
+
+    if (usdResult.status === 'fulfilled') {
+        quoted.usdRoute = usdResult.value.route;
+        quoted.usdMicros = usdResult.value.amount;
+    } else {
+        quoted.quoteError = errorMessage(usdResult.reason) || 'No executable USDC valuation route';
+    }
+    if (cityResult.status === 'fulfilled') {
+        quoted.cityRoute = cityResult.value;
+    } else {
+        quoted.routeError = errorMessage(cityResult.reason) || 'No executable CITY route';
+    }
+    quoted.quotedAt = Date.now();
+    return quoted;
+}
+
 function classificationClasses(code) {
     if (code === 'eligible') return 'border-green-500/30 bg-green-500/10 text-green-300';
     if (code === 'above-threshold') return 'border-purple-500/30 bg-purple-500/10 text-purple-300';
@@ -279,8 +318,8 @@ function renderSummary() {
 
     const overflow = Math.max(0, eligibleCount - core.DEFAULT_BATCH_LIMIT);
     $('batch-note').textContent = overflow
-        ? `${eligibleCount} eligible holdings found. This initial version prepares up to ${core.DEFAULT_BATCH_LIMIT} per transaction; ${overflow} remain unselected for another pass.`
-        : `Initial safety limit: up to ${core.DEFAULT_BATCH_LIMIT} token types in one atomic transaction.`;
+        ? `${eligibleCount} eligible holdings found. Alchemy prepares up to ${core.DEFAULT_BATCH_LIMIT} per transaction; ${overflow} remain unselected for another pass.`
+        : `Safety limit: up to ${core.DEFAULT_BATCH_LIMIT} token types in one atomic transaction.`;
 }
 
 function render() {
@@ -290,9 +329,27 @@ function render() {
 }
 
 function invalidatePrepared() {
+    if (state.preparedExpiryTimer) clearTimeout(state.preparedExpiryTimer);
+    state.preparedExpiryTimer = null;
     state.prepared = null;
     $('preflight-panel').hidden = true;
     $('confirm-button').disabled = true;
+}
+
+function preparedIsFresh(prepared, now = Date.now()) {
+    return core.quoteIsFresh(prepared?.preparedAt, now, core.DEFAULT_PREPARED_MAX_AGE_MS);
+}
+
+function schedulePreparedExpiry(prepared) {
+    if (state.preparedExpiryTimer) clearTimeout(state.preparedExpiryTimer);
+    const delay = Math.max(0, core.DEFAULT_PREPARED_MAX_AGE_MS - (Date.now() - prepared.preparedAt));
+    state.preparedExpiryTimer = setTimeout(() => {
+        state.preparedExpiryTimer = null;
+        if (state.prepared !== prepared || state.executing) return;
+        invalidatePrepared();
+        setStatus('The simulated transaction expired. Prepare again for fresh balances, routes, and preflight results.', 'warning');
+        renderSummary();
+    }, delay + 50);
 }
 
 function handleSelectionChange(event) {
@@ -300,7 +357,7 @@ function handleSelectionChange(event) {
     if (event.currentTarget.checked) {
         if (state.selected.size >= core.DEFAULT_BATCH_LIMIT) {
             event.currentTarget.checked = false;
-            setStatus(`This initial version supports ${core.DEFAULT_BATCH_LIMIT} token types per transaction.`, 'warning');
+            setStatus(`Alchemy supports ${core.DEFAULT_BATCH_LIMIT} token types per transaction.`, 'warning');
             return;
         }
         state.selected.add(coinType);
@@ -377,7 +434,7 @@ async function scanWallet() {
         if (nonce !== state.scanNonce) return;
         const quoted = await mapLimit(
             quotable,
-            QUOTE_CONCURRENCY,
+            SCAN_QUOTE_CONCURRENCY,
             holding => quoteHolding(holding, router),
             (complete, total) => setStatus(`Checking executable USDC values and CITY routes… ${complete}/${total}`, 'info'),
         );
@@ -421,15 +478,18 @@ function replaceHolding(updated) {
 }
 
 async function refreshSelectedQuotes(selected) {
+    if (selected.length > core.DEFAULT_BATCH_LIMIT) {
+        throw new Error(`Alchemy supports up to ${core.DEFAULT_BATCH_LIMIT} token types per transaction`);
+    }
     const balances = await rpc('suix_getAllBalances', [state.address]);
     const byType = new Map((balances || []).map(balance => [core.normalizeCoinType(balance.coinType), balance]));
     const router = await getRouter();
-    return mapLimit(selected, QUOTE_CONCURRENCY, async holding => {
+    return mapLimit(selected, PREPARE_QUOTE_CONCURRENCY, async holding => {
         const balance = byType.get(core.normalizeCoinType(holding.coinType));
         if (!balance || core.safeBigInt(balance.totalBalance) <= 0n) {
             throw new Error(`${symbolFor(holding)} no longer has a spendable balance`);
         }
-        const refreshed = await quoteHolding({ ...holding, totalBalance: String(balance.totalBalance) }, router);
+        const refreshed = await quoteSelectedHolding({ ...holding, totalBalance: String(balance.totalBalance) }, router);
         const classification = core.classifyHolding(refreshed);
         if (!classification.eligible) throw new Error(`${symbolFor(holding)} is no longer eligible: ${classification.reason}`);
         return refreshed;
@@ -512,6 +572,7 @@ async function prepareAlchemy() {
             quotedAt: Math.min(...refreshed.map(row => Number(row.quotedAt) || 0)),
             preparedAt: Date.now(),
         };
+        schedulePreparedExpiry(state.prepared);
         $('preflight-token-count').textContent = String(totals.count);
         $('preflight-min-city').textContent = core.formatUnits(totals.minimumCityAmount, core.CITY_DECIMALS, 4);
         $('preflight-gas').textContent = `${core.formatUnits(gasMist, 9, 6)} SUI`;
@@ -556,13 +617,15 @@ async function executeAlchemy() {
         setStatus('The connected wallet changed. Prepare the transaction again.', 'warning');
         return;
     }
-    if (!core.quoteIsFresh(state.prepared.quotedAt)) {
+    if (!preparedIsFresh(state.prepared)) {
         invalidatePrepared();
-        setStatus('The preflight quote expired. Prepare again to refresh balances and routes.', 'warning');
+        setStatus('The simulated transaction expired. Prepare again to refresh balances, routes, and preflight results.', 'warning');
         return;
     }
 
     state.executing = true;
+    if (state.preparedExpiryTimer) clearTimeout(state.preparedExpiryTimer);
+    state.preparedExpiryTimer = null;
     const button = $('confirm-button');
     setBusyButton(button, true, 'Confirm in wallet…', 'Confirm Alchemy in Wallet');
     setStatus('Your wallet will show the complete atomic transaction for approval.', 'info');
@@ -579,14 +642,17 @@ async function executeAlchemy() {
         $('success-link').hidden = !digest;
         $('success-panel').hidden = false;
         setStatus('Alchemy complete. The wallet will be rescanned for remaining eligible balances.', 'success');
-        state.prepared = null;
-        $('preflight-panel').hidden = true;
+        invalidatePrepared();
         await scanWallet();
     } catch (error) {
         setStatus(`Alchemy was not executed: ${errorMessage(error)}`, 'error');
     } finally {
         state.executing = false;
         setBusyButton(button, false, '', 'Confirm Alchemy in Wallet');
+        if (state.prepared) {
+            if (preparedIsFresh(state.prepared)) schedulePreparedExpiry(state.prepared);
+            else invalidatePrepared();
+        }
         button.disabled = !state.prepared;
         renderSummary();
     }
