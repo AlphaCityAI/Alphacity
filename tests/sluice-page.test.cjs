@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'sluice', 'index.html'), 'utf8');
 const source = fs.readFileSync(path.join(root, 'sluice', 'app-source.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'sluice', 'sluice.css'), 'utf8');
+const contract = fs.readFileSync(path.join(root, 'contracts', 'sluice', 'sources', 'sluice_v2.move'), 'utf8');
 
 test('Sluice is public for viewing and claims, with creation gated in-app', () => {
     assert.doesNotMatch(html, /tools-gate\.js/);
@@ -39,6 +40,26 @@ test('the wider creator panel keeps timeline controls usable', () => {
     assert.match(css, /\.two-columns\s*>\s*\*\s*\{\s*min-width:\s*0/);
 });
 
+test('triggered schedules fail closed against the same live feed used by the relayer', () => {
+    assert.match(html, /id="minimum-liquidity"[^>]*value="10000"/);
+    assert.match(source, /validateTriggerFeed\(\{ coinType, triggerKind, minLiquidityUsd: minLiquidity \}\)/);
+    assert.match(source, /observationFromPairs/);
+    assert.match(source, /Trigger deadline must leave enough time for the full validation window/);
+});
+
+test('wallet-sensitive reads cannot authorize a different account after a switch', () => {
+    assert.match(source, /const creatorAddress = state\.address/);
+    assert.match(source, /refreshGate\(creatorAddress\)/);
+    assert.match(source, /sameAddress\(session\?\.address, expectedAddress\)/);
+    assert.match(source, /const address = normalizeAddress\(requestedAddress\)/);
+});
+
+test('trigger deadlines are final in the contract and relayer', () => {
+    assert.match(contract, /now < schedule\.trigger_deadline_ms/);
+    assert.match(contract, /trigger_deadline_ms - now_ms >= validation_window_ms/);
+    assert.match(contract, /E_TRIGGER_EXPIRED/);
+});
+
 test('Sluice uses the established Alpha City visual system', () => {
     assert.match(css, /--bg:\s*#111827/i);
     assert.match(css, /--panel:\s*#1f2937/i);
@@ -47,7 +68,7 @@ test('Sluice uses the established Alpha City visual system', () => {
     assert.match(css, /font-family:\s*Inter,/i);
     assert.match(css, /min-height:\s*80px/i);
     assert.match(html, /Alpha\s*<em>City<\/em>/);
-    assert.match(html, /sluice\.css\?v=5/);
+    assert.match(html, /sluice\.css\?v=6/);
 });
 
 test('claim credentials are fragment-only and legacy query keys are immediately scrubbed', () => {

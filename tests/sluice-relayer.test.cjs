@@ -14,6 +14,7 @@ const {
     nestedByteVectors,
     safeObservationTimestamp,
     querySchedules,
+    fetchObservation,
 } = require('../scripts/sluice-relayer.js');
 const { normalizeAddress, normalizeCoinType, canonicalTriggerConfig } = require('../shared/sluice-core.cjs');
 
@@ -27,6 +28,35 @@ test('pair selection requires exact base token and chooses highest liquidity', (
         { baseToken: { address: COIN }, liquidity: { usd: 50 }, pairAddress: 'high' },
     ];
     assert.equal(selectPrimaryPair(pairs, normalizeCoinType(COIN)).pairAddress, 'high');
+});
+
+test('one DexScreener response is reused for schedules tracking the same coin', async () => {
+    let requests = 0;
+    const fetchImpl = async () => {
+        requests += 1;
+        return {
+            ok: true,
+            json: async () => ({ pairs: [{
+                baseToken: { address: COIN },
+                liquidity: { usd: '50000' },
+                marketCap: '1200000',
+                fdv: '1500000',
+                dexId: 'test',
+                pairAddress: 'pair',
+            }] }),
+        };
+    };
+    const cache = new Map();
+    const schedule = { coinType: normalizeCoinType(COIN), triggerKind: 1, minLiquidityUsd: 10_000n };
+    const marketCap = await fetchObservation(schedule, fetchImpl, cache);
+    const fdv = await fetchObservation({ ...schedule, triggerKind: 2 }, fetchImpl, cache);
+    assert.equal(marketCap.observedValue, 1_200_000n);
+    assert.equal(fdv.observedValue, 1_500_000n);
+    await assert.rejects(
+        fetchObservation({ ...schedule, minLiquidityUsd: 60_000n }, fetchImpl, cache),
+        /below required/,
+    );
+    assert.equal(requests, 1);
 });
 
 test('market cap and FDV never substitute for one another', () => {

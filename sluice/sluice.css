@@ -81,6 +81,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shado
 .two-columns > * { min-width: 0; }
 .two-columns input, .two-columns select { min-width: 0; }
 .field-help, .input-note { display: block; margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+#token-preview[data-kind="loading"] { color: #bfdbfe; }
+#token-preview[data-kind="ok"] { color: #86efac; }
+#token-preview[data-kind="error"] { color: #fca5a5; }
 .trigger-fields { margin-top: 14px; padding: 0 15px 15px; border: 1px solid rgba(59, 130, 246, .22); border-radius: 12px; background: rgba(17, 24, 39, .48); }
 .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .segmented label { margin: 0; }
