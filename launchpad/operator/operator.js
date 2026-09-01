@@ -17,7 +17,7 @@
     function formProject() {
         const importedAllowlist = state.imported?.stages?.[0]?.allowlist || [];
         return {
-            schemaVersion: 1,
+            schemaVersion: 3,
             id: value('slug'),
             name: value('name'),
             creatorName: value('creator-name'),
@@ -29,8 +29,9 @@
             heroFile: value('hero-file'),
             mediaBaseUrl: value('media-base-url'),
             royaltyBps: intValue('royalty-bps', 0),
-            platformFeeBps: intValue('platform-fee-bps', 500),
+            platformFeeBps: intValue('platform-fee-bps', 0),
             maxPerTx: intValue('max-per-tx', 5),
+            assignmentPolicy: byId('assignment-policy-equivalent').checked ? core.ASSIGNMENT_POLICY : '',
             reveal: { mode: 'instant' },
             stages: [{
                 name: value('stage-name'),
@@ -46,6 +47,10 @@
                 packageId: value('package-id'),
                 dropId: value('drop-id'),
                 module: state.imported?.contract?.module || 'managed_drop',
+                upgradePolicy: value('upgrade-policy'),
+                upgradeAuthority: value('upgrade-authority'),
+                displayAuthority: value('display-authority'),
+                adminAuthority: value('admin-authority'),
             },
         };
     }
@@ -67,6 +72,7 @@
         setValue('royalty-bps', project.royaltyBps);
         setValue('platform-fee-bps', project.platformFeeBps);
         setValue('max-per-tx', project.maxPerTx);
+        byId('assignment-policy-equivalent').checked = project.assignmentPolicy === core.ASSIGNMENT_POLICY;
         const stage = project.stages?.[0] || {};
         setValue('stage-name', stage.name);
         setValue('price-sui', stage.priceSui);
@@ -76,6 +82,10 @@
         byId('allowlist-only').checked = Boolean(stage.allowlistOnly);
         setValue('package-id', project.contract?.packageId);
         setValue('drop-id', project.contract?.dropId);
+        setValue('upgrade-policy', project.contract?.upgradePolicy || '');
+        setValue('upgrade-authority', project.contract?.upgradeAuthority);
+        setValue('display-authority', project.contract?.displayAuthority);
+        setValue('admin-authority', project.contract?.adminAuthority);
         validate(false);
     }
 
@@ -195,7 +205,15 @@
             const bundle = core.prepareLaunch(result, {
                 platformTreasury: value('platform-treasury'),
                 mediaBaseUrl: value('media-base-url'),
-                contract: { packageId: value('package-id'), dropId: value('drop-id'), module: 'managed_drop' },
+                contract: {
+                    packageId: value('package-id'),
+                    dropId: value('drop-id'),
+                    module: 'managed_drop',
+                    upgradePolicy: value('upgrade-policy'),
+                    upgradeAuthority: value('upgrade-authority'),
+                    displayAuthority: value('display-authority'),
+                    adminAuthority: value('admin-authority'),
+                },
             });
             download(`${result.project.id}-launch-bundle.json`, `${JSON.stringify(bundle, null, 2)}\n`, 'application/json');
         } catch (error) { alert(error.message); }
@@ -206,7 +224,9 @@
         input.addEventListener('change', () => validate(false));
     });
     byId('allowlist-only').addEventListener('change', () => validate(false));
-    ['media-base-url', 'platform-treasury', 'package-id', 'drop-id'].forEach((id) => byId(id).addEventListener('input', () => { renderReadiness(state.validation); updateExportButton(); }));
+    byId('assignment-policy-equivalent').addEventListener('change', () => validate(false));
+    ['media-base-url', 'platform-treasury', 'package-id', 'drop-id', 'upgrade-authority', 'display-authority', 'admin-authority'].forEach((id) => byId(id).addEventListener('input', () => { renderReadiness(state.validation); updateExportButton(); }));
+    byId('upgrade-policy').addEventListener('change', () => { renderReadiness(state.validation); updateExportButton(); });
     byId('name').addEventListener('input', () => {
         if (!byId('slug').dataset.touched) byId('slug').value = core.slugify(value('name'));
     });

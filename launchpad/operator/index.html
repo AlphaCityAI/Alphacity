@@ -6,16 +6,10 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Launch Operator | Alpha City</title>
     <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/launchpad/tailwind.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: {
-            'brand-primary': '#3B82F6', 'brand-primary-hover': '#60A5FA', 'brand-secondary': '#FACC15',
-            'dark-bg': '#111827', 'dark-card': '#1F2937', 'dark-text': '#E5E7EB', 'dark-text-secondary': '#9CA3AF'
-        }, boxShadow: { glow: '0 0 0 1px rgba(59,130,246,.18), 0 24px 60px rgba(15,23,42,.45)' } } } };
-    </script>
     <style>
         body { background: radial-gradient(circle at 12% 0%, rgba(59,130,246,.18), transparent 34%), linear-gradient(180deg,#111827 0%,#0b1120 100%); }
         .glass-panel { background: rgba(31,41,55,.82); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.06); }
@@ -65,7 +59,7 @@
                         <label class="text-sm font-medium text-gray-200">Website<input id="website" class="field mt-2" type="url" placeholder="https://"></label>
                         <label class="text-sm font-medium text-gray-200">X / Twitter<input id="twitter" class="field mt-2" type="url" placeholder="https://x.com/"></label>
                         <label class="text-sm font-medium text-gray-200">Royalty metadata (basis points)<input id="royalty-bps" class="field mt-2" type="number" min="0" max="10000" step="1" value="500"><span class="mt-2 block text-xs font-normal leading-5 text-dark-text-secondary">Displayed with each NFT; enforcement depends on the marketplace.</span></label>
-                        <label class="text-sm font-medium text-gray-200">AlphaCity fee (basis points)<input id="platform-fee-bps" class="field mt-2" type="number" min="0" max="2500" step="1" value="500"></label>
+                        <label class="text-sm font-medium text-gray-200">AlphaCity fee (basis points)<input id="platform-fee-bps" class="field mt-2" type="number" min="0" max="2500" step="1" value="0"><span class="mt-2 block text-xs font-normal leading-5 text-dark-text-secondary">Zero for AlphaCity's own collection.</span></label>
                     </div>
                 </section>
 
@@ -79,6 +73,7 @@
                         <label class="text-sm font-medium text-gray-200">Per-wallet limit<input id="wallet-limit" class="field mt-2" type="number" min="1" step="1" value="5"></label>
                         <label class="text-sm font-medium text-gray-200">Max per transaction<input id="max-per-tx" class="field mt-2" type="number" min="1" max="50" step="1" value="5"></label>
                         <label class="flex items-center gap-3 rounded-xl border border-gray-700 bg-dark-bg/60 p-4 text-sm text-gray-200 md:col-span-2"><input id="allowlist-only" type="checkbox" class="h-4 w-4 accent-blue-500"><span>Restrict this stage to an allowlist <span class="text-dark-text-secondary">(addresses are supplied in the project JSON for this first draft)</span></span></label>
+                        <label class="flex items-start gap-3 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4 text-sm text-yellow-100 md:col-span-2"><input id="assignment-policy-equivalent" type="checkbox" class="mt-1 h-4 w-4 accent-yellow-300"><span><strong class="block">Sequential public items have equivalent mint value</strong><span class="mt-1 block text-xs leading-5 text-yellow-100/65">The contract assigns items in CSV order and does not randomize. This attestation is required before preparation.</span></span></label>
                     </div>
                 </section>
 
@@ -92,8 +87,8 @@
                         </label>
                         <label class="drop-zone flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl p-6 text-center">
                             <span class="text-lg font-semibold text-white">Choose media folder</span>
-                            <span id="media-file-label" class="mt-2 text-sm text-dark-text-secondary">PNG, JPG, WEBP, GIF, or SVG · 50 MB each</span>
-                            <input id="media-files" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple webkitdirectory directory class="hidden">
+                            <span id="media-file-label" class="mt-2 text-sm text-dark-text-secondary">PNG, JPG, WEBP, or GIF · 50 MB each</span>
+                            <input id="media-files" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple webkitdirectory directory class="hidden">
                         </label>
                     </div>
                     <div class="mt-4 flex flex-wrap gap-3">
@@ -123,6 +118,10 @@
                         <label class="text-sm font-medium text-gray-200 md:col-span-2">AlphaCity treasury address<input id="platform-treasury" class="field mt-2 font-mono text-sm" placeholder="0x…" autocomplete="off" spellcheck="false"></label>
                         <label class="text-sm font-medium text-gray-200">Published package ID <span class="text-dark-text-secondary">(optional)</span><input id="package-id" class="field mt-2 font-mono text-sm" placeholder="0x…"></label>
                         <label class="text-sm font-medium text-gray-200">Shared drop object ID <span class="text-dark-text-secondary">(optional)</span><input id="drop-id" class="field mt-2 font-mono text-sm" placeholder="0x…"></label>
+                        <label class="text-sm font-medium text-gray-200">UpgradeCap release policy<select id="upgrade-policy" class="field mt-2"><option value="">Pending</option><option value="immutable">Package made immutable</option><option value="multisig">UpgradeCap secured in multisig</option></select></label>
+                        <label class="text-sm font-medium text-gray-200">Upgrade multisig address <span class="text-dark-text-secondary">(required for multisig policy)</span><input id="upgrade-authority" class="field mt-2 font-mono text-sm" placeholder="0x…"></label>
+                        <label class="text-sm font-medium text-gray-200">DisplayCap multisig address <span class="text-dark-text-secondary">(required before a live mint)</span><input id="display-authority" class="field mt-2 font-mono text-sm" placeholder="0x…"></label>
+                        <label class="text-sm font-medium text-gray-200">AdminCap multisig address <span class="text-dark-text-secondary">(required before a live mint)</span><input id="admin-authority" class="field mt-2 font-mono text-sm" placeholder="0x…"></label>
                     </div>
                     <div class="mt-6 flex flex-wrap gap-3">
                         <button id="export-project" type="button" class="rounded-xl border border-gray-700 px-5 py-3 font-semibold text-gray-200 hover:border-blue-400 hover:text-white">Export project JSON</button>

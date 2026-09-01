@@ -14,7 +14,7 @@ test('Tools is a public catalog with truthful access labels', () => {
     assert.match(page, /Browse the complete catalog without connecting/);
     assert.match(page, /href="\/alchemy\/"[^>]*data-telemetry-tool="alchemy"[^>]*data-telemetry-access="free"/);
     assert.match(page, /Free · No CITY gate/);
-    assert.match(page, /href="\/launchpad\/"[^>]*data-telemetry-access="public"/);
+    assert.match(page, /href="\/mint\/"[^>]*data-telemetry-access="public"/);
     assert.match(page, /Public claims · Premium creation/);
     for (const route of ['/intel/', '/airdrop/', '/pay/', '/staking/', '/sluice/', '/swap/']) {
         assert.match(page, new RegExp(`href="${route.replaceAll('/', '\\/')}"`), `${route} should appear in the catalog`);
