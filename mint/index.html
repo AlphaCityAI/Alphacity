@@ -1,529 +1,113 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
-    <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
-    <link rel="apple-touch-icon" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mint Citizens NFT - Alpha City</title>
+    <meta name="description" content="Mint official Alpha City NFT collections on Sui.">
+    <title>Alpha City Mint</title>
     <script defer src="/shared/telemetry-config.js"></script>
     <script defer src="/shared/telemetry.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/9QgzZr7t/wd-1CLt-O-400x400.jpg">
+    <link rel="stylesheet" href="/launchpad/tailwind.css">
     <script>window.global = window;</script>
-    <!-- Shared wallet connection sync -->
-    <script src="/shared/wallet-sync.js"></script>
-    <script src="/shared/wallet-connector.js"></script>
-    <script src="/shared/sui-client.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        'brand-primary': tailwind.colors.blue[500],
-                        'brand-primary-hover': tailwind.colors.blue[400],
-                        'brand-secondary': tailwind.colors.yellow[400],
-                        'brand-secondary-hover': tailwind.colors.yellow[300],
-                        'dark-bg': '#111827',
-                        'dark-card': '#1F2937',
-                        'dark-text': '#E5E7EB',
-                        'dark-text-secondary': '#9CA3AF',
-                    },
-                    boxShadow: {
-                        glow: '0 0 0 1px rgba(59, 130, 246, 0.18), 0 24px 60px rgba(15, 23, 42, 0.45)',
-                    },
-                },
-            },
-        };
-    </script>
     <style>
         html { scroll-behavior: smooth; }
-        body {
-            background:
-                radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 35%),
-                linear-gradient(180deg, #111827 0%, #0b1120 100%);
-        }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1F2937; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
-        .glass-panel {
-            background: rgba(31, 41, 55, 0.82);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .grid-fade {
-            background-image:
-                linear-gradient(rgba(59, 130, 246, 0.07) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(59, 130, 246, 0.07) 1px, transparent 1px);
-            background-size: 28px 28px;
-        }
+        body { background: radial-gradient(circle at 15% 0%,rgba(59,130,246,.18),transparent 34%),linear-gradient(180deg,#111827 0%,#0b1120 100%); }
+        .glass-panel { background:rgba(31,41,55,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.06); }
+        .grid-fade { background-image:linear-gradient(rgba(59,130,246,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.07) 1px,transparent 1px);background-size:28px 28px; }
+        ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#1F2937}::-webkit-scrollbar-thumb{background:#4B5563;border-radius:4px}
     </style>
 </head>
-<body class="min-h-screen text-dark-text font-sans antialiased">
-    <header class="sticky top-0 z-50 border-b border-white/5 bg-dark-bg/80 backdrop-blur-sm">
-        <nav class="container mx-auto flex h-20 items-center justify-between px-4 sm:px-6 lg:px-8">
+<body class="min-h-screen font-sans text-dark-text antialiased">
+    <header class="sticky top-0 z-50 border-b border-white/5 bg-dark-bg/85 backdrop-blur-md">
+        <nav class="container mx-auto flex min-h-20 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <a href="/" class="text-2xl font-bold text-white">Alpha<span class="text-brand-secondary"> City</span></a>
             <div class="flex items-center gap-3">
-                <a href="/" class="hidden text-sm text-dark-text-secondary transition-colors hover:text-white md:block">&larr; Back to Home</a>
-                <button id="connect-wallet-btn" class="flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2 font-medium text-white shadow-lg shadow-blue-500/20 transition-all duration-200 hover:bg-brand-primary-hover">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 010-2z" clip-rule="evenodd" />
-                    </svg>
-                    <span id="wallet-text">Connect Wallet</span>
-                </button>
+                <a href="/" class="hidden text-sm text-dark-text-secondary transition hover:text-white sm:block">← Back to Home</a>
+                <button id="connect-wallet-btn" type="button" class="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 font-medium text-white shadow-lg shadow-blue-500/20 transition hover:bg-brand-primary-hover">Connect Wallet</button>
             </div>
         </nav>
     </header>
 
     <main class="container mx-auto px-4 py-10 sm:px-6 lg:px-8">
-        <section class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-            <div class="space-y-8 lg:col-start-1">
-                <div class="overflow-hidden rounded-3xl border border-white/5 shadow-glow glass-panel">
+        <section class="grid gap-8 lg:grid-cols-[1.18fr_.82fr] lg:items-start">
+            <div class="space-y-8">
+                <div class="overflow-hidden rounded-3xl shadow-glow glass-panel">
                     <div class="grid-fade relative aspect-[4/3] overflow-hidden">
-                        <img id="hero-image" alt="Collection preview" class="h-full w-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/45 to-transparent"></div>
+                        <img id="hero-image" alt="Collection artwork" class="h-full w-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/40 to-transparent"></div>
                         <div class="absolute inset-x-0 bottom-0 p-6 md:p-8">
-                            <div class="mb-3 inline-flex rounded-full border border-brand-primary/30 bg-brand-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-brand-primary" id="collection-eyebrow">Alpha City Mint</div>
-                            <h1 id="collection-headline" class="max-w-3xl text-3xl font-extrabold leading-tight text-white md:text-5xl"></h1>
-                            <p id="collection-tagline" class="mt-4 max-w-2xl text-base text-dark-text-secondary md:text-lg"></p>
+                            <div id="eyebrow" class="mb-3 inline-flex rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[.24em] text-blue-300">Official Alpha City Mint</div>
+                            <h1 id="headline" class="max-w-3xl text-3xl font-extrabold leading-tight text-white md:text-5xl">Loading collection…</h1>
+                            <p id="tagline" class="mt-4 max-w-2xl text-base leading-7 text-gray-300 md:text-lg"></p>
                         </div>
                     </div>
                 </div>
 
-                <div class="rounded-3xl border border-white/5 p-6 shadow-glow glass-panel">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-dark-text-secondary">Mint Phases</p>
-                            <h2 class="mt-2 text-2xl font-bold text-white">Mint schedule</h2>
-                        </div>
-                        <p class="max-w-xs text-right text-sm text-dark-text-secondary">Track when allowlist, priority, and public access become available.</p>
-                    </div>
+                <section class="rounded-3xl p-6 shadow-glow glass-panel md:p-8">
+                    <div class="flex flex-wrap items-end justify-between gap-4"><div><p class="text-xs font-semibold uppercase tracking-[.24em] text-dark-text-secondary">Mint stages</p><h2 class="mt-2 text-2xl font-bold text-white">Mint schedule</h2></div><p class="max-w-sm text-sm text-dark-text-secondary">Stage rules are read from the published collection contract whenever minting is live.</p></div>
                     <div id="phase-list" class="mt-6 space-y-3"></div>
-                </div>
+                </section>
+
+                <section id="gallery-section" class="hidden rounded-3xl p-6 shadow-glow glass-panel md:p-8">
+                    <p class="text-xs font-semibold uppercase tracking-[.24em] text-dark-text-secondary">Collection preview</p>
+                    <h2 class="mt-2 text-2xl font-bold text-white">Meet the collection</h2>
+                    <div id="gallery-grid" class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3"></div>
+                </section>
+
+                <section class="rounded-3xl p-6 shadow-glow glass-panel md:p-8">
+                    <div class="grid gap-8 lg:grid-cols-[1fr_.85fr]">
+                        <div><p class="text-xs font-semibold uppercase tracking-[.24em] text-dark-text-secondary">About</p><h2 class="mt-2 text-2xl font-bold text-white">Project details</h2><p id="about-copy" class="mt-4 leading-7 text-dark-text-secondary"></p><div id="creator-links" class="mt-5 flex flex-wrap gap-3"></div></div>
+                        <div id="detail-grid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1"></div>
+                    </div>
+                </section>
             </div>
 
-            <div class="space-y-6 lg:col-start-2">
-                <div class="rounded-3xl border border-white/5 p-6 shadow-glow glass-panel">
+            <aside class="space-y-6 lg:sticky lg:top-28">
+                <section class="rounded-3xl p-6 shadow-glow glass-panel">
                     <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-brand-secondary" id="status-label">Coming Soon</p>
-                            <h2 id="collection-name" class="mt-2 text-2xl font-bold text-white"></h2>
-                        </div>
-                        <div id="collection-switcher-wrap" class="hidden min-w-[12rem]">
-                            <label for="collection-switcher" class="mb-2 block text-xs uppercase tracking-[0.22em] text-dark-text-secondary">Collection</label>
-                            <select id="collection-switcher" class="w-full rounded-xl border border-gray-700 bg-dark-bg px-3 py-2 text-sm text-white outline-none transition-colors focus:border-brand-primary"></select>
-                        </div>
+                        <div><p id="status-label" class="text-xs font-semibold uppercase tracking-[.24em] text-brand-secondary">Loading</p><h2 id="collection-name" class="mt-2 text-2xl font-bold text-white">Collection</h2></div>
+                        <div id="collection-switcher-wrap" class="hidden min-w-[11rem]"><label for="collection-switcher" class="mb-2 block text-xs uppercase tracking-[.2em] text-dark-text-secondary">Collection</label><select id="collection-switcher" class="w-full rounded-xl border border-gray-700 bg-dark-bg px-3 py-2 text-sm text-white outline-none focus:border-blue-400"></select></div>
                     </div>
 
-                    <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
-                            <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Supply</p>
-                            <p id="stat-supply" class="mt-2 text-3xl font-bold text-white">—</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
-                            <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Mint Price</p>
-                            <p id="stat-price" class="mt-2 text-3xl font-bold text-white">—</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
-                            <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Max Per Mint</p>
-                            <p id="stat-max-qty" class="mt-2 text-3xl font-bold text-white">—</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
-                            <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Network</p>
-                            <p id="stat-network" class="mt-2 text-3xl font-bold text-white">—</p>
-                        </div>
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4"><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Public supply</p><p id="stat-supply" class="mt-2 text-2xl font-bold text-white">—</p></div>
+                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4"><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Current price</p><p id="stat-price" class="mt-2 text-2xl font-bold text-white">—</p></div>
+                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4"><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Per transaction</p><p id="stat-limit" class="mt-2 text-2xl font-bold text-white">—</p></div>
+                        <div class="rounded-2xl border border-white/5 bg-dark-bg/70 p-4"><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Network</p><p id="stat-network" class="mt-2 text-lg font-bold text-white">—</p></div>
                     </div>
 
-                    <div class="mt-6 rounded-2xl border border-brand-primary/15 bg-brand-primary/5 p-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Mint Progress</p>
-                                <p class="mt-2 text-lg font-semibold text-white"><span id="minted-count">0</span> minted</p>
-                            </div>
-                            <p id="mint-note" class="max-w-xs text-right text-sm text-dark-text-secondary"></p>
-                        </div>
-                        <div class="mt-4 h-2 overflow-hidden rounded-full bg-dark-bg">
-                            <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-500" style="width: 0%"></div>
-                        </div>
+                    <div class="mt-5 rounded-2xl border border-blue-400/15 bg-blue-400/5 p-4">
+                        <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Mint progress</p><p class="mt-2 text-lg font-semibold text-white"><span id="minted-count">0</span> / <span id="supply-count">0</span></p></div><p id="mint-note" class="max-w-[13rem] text-right text-xs leading-5 text-dark-text-secondary"></p></div>
+                        <div class="mt-4 h-2 overflow-hidden rounded-full bg-dark-bg"><div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-500" style="width:0%"></div></div>
                     </div>
 
-                    <div class="mt-6 rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.2em] text-dark-text-secondary">Quantity</p>
-                                <p class="mt-2 text-sm text-dark-text-secondary">Max per transaction: <span id="max-qty-label">—</span></p>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <button id="qty-minus" class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-700 bg-dark-card text-xl text-white transition-colors hover:border-brand-primary">&minus;</button>
-                                <span id="mint-qty" class="w-8 text-center text-xl font-bold text-white">1</span>
-                                <button id="qty-plus" class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-700 bg-dark-card text-xl text-white transition-colors hover:border-brand-primary">+</button>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center justify-between text-sm">
-                            <span class="text-dark-text-secondary">Wallet Balance</span>
-                            <span id="sui-balance" class="font-medium text-white">—</span>
-                        </div>
+                    <div class="mt-5 rounded-2xl border border-white/5 bg-dark-bg/70 p-4">
+                        <div class="flex items-center justify-between gap-4"><div><p class="text-xs uppercase tracking-[.18em] text-dark-text-secondary">Quantity</p><p id="qty-caption" class="mt-2 text-xs text-dark-text-secondary">—</p></div><div class="flex items-center gap-3"><button id="qty-minus" type="button" aria-label="Decrease quantity" class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-700 bg-dark-card text-xl text-white hover:border-blue-400">−</button><span id="quantity" class="w-8 text-center text-xl font-bold text-white">1</span><button id="qty-plus" type="button" aria-label="Increase quantity" class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-700 bg-dark-card text-xl text-white hover:border-blue-400">+</button></div></div>
+                        <div class="mt-4 flex items-center justify-between border-t border-white/5 pt-4 text-sm"><span class="text-dark-text-secondary">Wallet balance</span><span id="sui-balance" class="font-semibold text-white">—</span></div>
                     </div>
 
-                    <button id="mint-btn" class="mt-6 w-full rounded-2xl bg-gray-700 px-5 py-4 text-lg font-bold text-gray-300 shadow-lg transition-all">Loading mint…</button>
-                    <p id="mint-cta-caption" class="mt-3 text-center text-sm text-dark-text-secondary"></p>
-                    <div id="mint-status" class="mt-4 hidden rounded-2xl border px-4 py-3 text-sm"></div>
-                </div>
+                    <button id="mint-btn" type="button" disabled class="mt-6 w-full cursor-not-allowed rounded-2xl bg-gray-700 px-5 py-4 text-lg font-bold text-gray-300 shadow-lg">Loading mint…</button>
+                    <p id="mint-caption" class="mt-3 text-center text-sm leading-6 text-dark-text-secondary"></p>
+                    <div id="mint-status" class="mt-4 hidden rounded-2xl border px-4 py-3 text-sm" role="status" aria-live="polite"></div>
+                </section>
 
-            </div>
+                <section class="rounded-3xl border border-white/5 bg-dark-bg/55 p-5">
+                    <div class="flex gap-3"><span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-400/10 text-sm font-bold text-green-300">✓</span><div><h3 class="font-semibold text-white">Official Alpha City collection</h3><p class="mt-1 text-sm leading-6 text-dark-text-secondary">The published collection contract controls inventory, mint stages, wallet limits, and payment on Sui.</p></div></div>
+                </section>
+            </aside>
         </section>
     </main>
 
-    <footer class="border-t border-white/5 py-8">
-        <div class="container mx-auto px-4 text-center text-sm text-dark-text-secondary sm:px-6 lg:px-8">
-            &copy; <span id="current-year"></span> Alpha City. NFT minting.
-        </div>
-    </footer>
-
-    <script>
-    const DEFAULT_SUI_TYPE = '0x2::sui::SUI';
-    const state = {
-        registry: null,
-        activeCollectionId: null,
-        activeCollectionUrl: null,
-        activeCollection: null,
-        mintQty: 1,
-        connectedAddress: null,
-        walletConnector: null,
-        suiBalance: null,
-    };
-
-    document.getElementById('current-year').textContent = String(new Date().getFullYear());
-
-    // Fix button placeholder text on initialization
-    document.getElementById('mint-btn').textContent = 'Loading mint…';
-
-    function b(id) { return document.getElementById(id); }
-    function numberFmt(value) { return Number(value || 0).toLocaleString(); }
-    function shortAddr(address) { return (!address || address.length < 11) ? address : address.slice(0, 6) + '...' + address.slice(-4); }
-    function isValidSuiAddress(value) { return /^0x[0-9a-fA-F]{40,64}$/.test((value || '').trim()); }
-    function resolveUrl(path, base) { return new URL(path, base).toString(); }
-    function readQueryCollection() { return new URLSearchParams(window.location.search).get('collection'); }
-    function suiChainId() { return state.activeCollection?.network?.chain || 'sui:mainnet'; }
-    function suiCoinType() { return state.activeCollection?.network?.coinType || DEFAULT_SUI_TYPE; }
-    function formatSuiBalance(balance) {
-        if (typeof balance !== 'bigint') return '0.0000';
-        const whole = balance / 1000000000n;
-        const fraction = (balance % 1000000000n).toString().padStart(9, '0').slice(0, 4);
-        return whole.toString() + '.' + fraction;
-    }
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-    function showStatus(message, type) {
-        const el = b('mint-status');
-        const styles = {
-            info: 'border-blue-500/30 bg-blue-500/10 text-blue-100',
-            success: 'border-green-500/30 bg-green-500/10 text-green-100',
-            error: 'border-red-500/30 bg-red-500/10 text-red-100',
-        };
-        el.className = 'mt-4 rounded-2xl border px-4 py-3 text-sm ' + (styles[type] || styles.info);
-        el.textContent = message;
-        el.classList.remove('hidden');
-    }
-    function hideStatus() { b('mint-status').classList.add('hidden'); }
-
-    async function fetchJson(url) {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) throw new Error('Failed to load ' + url + ' (' + response.status + ')');
-        return response.json();
-    }
-
-    function collectionSupply() {
-        return Number(state.activeCollection?.supply || 0);
-    }
-
-    // Dynamic minted count
-    function collectionMinted() {
-        return Number(state.activeCollection?.minted || 0);
-    }
-
-    function collectionPrice() {
-        return Number(state.activeCollection?.priceSui || 0);
-    }
-
-    function formatPrice(value) {
-        return Number(value || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
-    }
-
-    // Max per minting transaction
-    function maxQty() {
-        return Math.max(1, Number(state.activeCollection?.maxPerTx || 1));
-    }
-
-    function updateMintQtyDisplay() {
-        b('mint-qty').textContent = String(state.mintQty);
-    }
-
-    function updateMintBtn() {
-        const button = b('mint-btn');
-        const caption = b('mint-cta-caption');
-        const contract = state.activeCollection?.contract || { mode: 'coming-soon' };
-        const disabledClasses = 'mt-6 w-full rounded-2xl bg-gray-700 px-5 py-4 text-lg font-bold text-gray-300 shadow-lg transition-all cursor-not-allowed';
-        const enabledClasses = 'mt-6 w-full rounded-2xl bg-brand-secondary px-5 py-4 text-lg font-bold text-gray-900 shadow-lg shadow-yellow-500/20 transition-all hover:-translate-y-0.5 hover:bg-brand-secondary-hover';
-
-        if (!state.activeCollection) {
-            button.disabled = true;
-            button.className = disabledClasses;
-            button.textContent = 'Loading mint…';
-            caption.textContent = '';
-            return;
-        }
-
-        if (collectionMinted() >= collectionSupply() && collectionSupply() > 0) {
-            button.disabled = true;
-            button.className = disabledClasses;
-            button.textContent = 'Sold Out';
-            caption.textContent = 'All NFTs in this collection have been minted.';
-            return;
-        }
-
-        if (contract.mode !== 'enabled') {
-            button.disabled = true;
-            button.className = disabledClasses;
-            button.textContent = contract.ctaLabel || 'Mint opens soon';
-            caption.textContent = contract.message || 'Mint details will be announced soon.';
-            return;
-        }
-
-        if (!state.connectedAddress) {
-            button.disabled = true;
-            button.className = disabledClasses;
-            button.textContent = 'Connect Wallet to Mint';
-            caption.textContent = 'Use a Sui wallet to mint from the page.';
-            return;
-        }
-
-        button.disabled = false;
-        button.className = enabledClasses;
-        const totalPrice = formatPrice(state.mintQty * collectionPrice());
-        button.textContent = 'Mint ' + state.mintQty + ' NFT' + (state.mintQty > 1 ? 's' : '') + ' for ' + totalPrice + ' SUI';
-        caption.textContent = 'Review your quantity, then confirm the mint in your wallet.';
-    }
-
-    function renderCollectionSwitcher() {
-        const collections = state.registry?.collections || [];
-        const wrap = b('collection-switcher-wrap');
-        const select = b('collection-switcher');
-        if (collections.length <= 1) {
-            wrap.classList.add('hidden');
-            select.innerHTML = '';
-            return;
-        }
-        wrap.classList.remove('hidden');
-        select.innerHTML = collections.map(collection => {
-            const selected = collection.id === state.activeCollectionId ? ' selected' : '';
-            return '<option value="' + escapeHtml(collection.id) + '"' + selected + '>' + escapeHtml(collection.label || collection.id) + '</option>';
-        }).join('');
-    }
-
-    function renderOverview() {
-        const collection = state.activeCollection;
-        if (!collection) return;
-        const supply = collectionSupply();
-        const minted = collectionMinted();
-        const pct = supply > 0 ? Math.min(100, (minted / supply) * 100) : 0;
-        const heroImage = collection.heroImageResolved || '';
-        const tagline = collection.tagline || '';
-
-        b('collection-eyebrow').textContent = collection.eyebrow || 'Alpha City Mint';
-        b('collection-headline').textContent = collection.headline || collection.name || 'Collection';
-        b('collection-tagline').textContent = tagline;
-        b('collection-tagline').classList.toggle('hidden', !tagline);
-        b('collection-name').textContent = collection.name || 'Unnamed Collection';
-        b('status-label').textContent = collection.statusLabel || 'Coming Soon';
-        b('hero-image').src = heroImage;
-        b('hero-image').alt = (collection.name || 'Collection') + ' hero artwork';
-
-        b('stat-supply').textContent = numberFmt(supply);
-        b('stat-price').textContent = formatPrice(collectionPrice()) + ' SUI';
-        b('stat-max-qty').textContent = String(maxQty());
-        b('stat-network').textContent = collection.network?.name || 'Sui';
-        b('minted-count').textContent = numberFmt(minted);
-        b('mint-note').textContent = collection.mintNote || 'Connect your wallet to be ready when minting opens.';
-        b('max-qty-label').textContent = String(maxQty());
-        b('progress-bar').style.width = pct + '%';
-    }
-
-    function renderPhases() {
-        const phases = state.activeCollection?.phases || [];
-        b('phase-list').innerHTML = phases.map((phase, index) => {
-            const isActive = phase.state === 'active';
-            const isComplete = phase.state === 'complete';
-            const tone = isActive
-                ? 'border-brand-secondary/30 bg-brand-secondary/10 text-white'
-                : isComplete
-                    ? 'border-green-500/20 bg-green-500/10 text-white'
-                    : 'border-white/5 bg-dark-bg/70 text-dark-text-secondary';
-            const badgeTone = isActive
-                ? 'bg-brand-secondary/20 text-brand-secondary'
-                : isComplete
-                    ? 'bg-green-500/20 text-green-300'
-                    : 'bg-gray-700/60 text-gray-400';
-            let badgeLabel = isActive ? 'Active' : isComplete ? 'Complete' : 'Upcoming';
-            if (isActive && state.activeCollection?.contract?.mode === 'coming-soon') {
-                badgeLabel = 'Coming Soon';
-            }
-            return '<div class="rounded-2xl border p-4 ' + tone + '">' +
-                '<div class="flex items-start gap-4">' +
-                    '<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dark-bg text-sm font-bold text-white">' + (index + 1) + '</div>' +
-                    '<div class="min-w-0 flex-1">' +
-                        '<div class="flex flex-wrap items-center gap-2">' +
-                            '<h3 class="text-base font-semibold">' + escapeHtml(phase.name || ('Phase ' + (index + 1))) + '</h3>' +
-                            '<span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ' + badgeTone + '">' + badgeLabel + '</span>' +
-                        '</div>' +
-                        '<p class="mt-2 text-sm leading-6 text-dark-text-secondary">' + escapeHtml(phase.description || '') + '</p>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
-
-    function renderCollection() {
-        renderCollectionSwitcher();
-        renderOverview();
-        renderPhases();
-        updateMintQtyDisplay();
-        updateMintBtn();
-    }
-
-    async function loadCollection(collectionId) {
-        hideStatus();
-        const entry = (state.registry?.collections || []).find(collection => collection.id === collectionId);
-        if (!entry) throw new Error('Unknown collection: ' + collectionId);
-        const collectionUrl = resolveUrl(entry.config, state.registry.__url);
-        const collection = await fetchJson(collectionUrl);
-
-        state.activeCollectionId = entry.id;
-        state.activeCollectionUrl = collectionUrl;
-        state.activeCollection = collection;
-        state.activeCollection.heroImageResolved = collection.heroImage ? resolveUrl(collection.heroImage, collectionUrl) : '';
-        state.mintQty = Math.min(state.mintQty, maxQty());
-        renderCollection();
-    }
-
-    async function loadMint() {
-        const registryUrl = resolveUrl('../launchpad/collections/index.json', window.location.href);
-        const registry = await fetchJson(registryUrl);
-        registry.__url = registryUrl;
-        state.registry = registry;
-        const requestedCollection = readQueryCollection();
-        const collectionId = (registry.collections || []).some(collection => collection.id === requestedCollection)
-            ? requestedCollection
-            : registry.defaultCollection;
-        await loadCollection(collectionId);
-    }
-
-    b('collection-switcher').addEventListener('change', async (event) => {
-        const nextCollection = event.target.value;
-        const url = new URL(window.location.href);
-        url.searchParams.set('collection', nextCollection);
-        window.history.replaceState({}, '', url.toString());
-        await loadCollection(nextCollection);
-    });
-
-    b('qty-minus').addEventListener('click', () => {
-        if (state.mintQty > 1) {
-            state.mintQty -= 1;
-            updateMintQtyDisplay();
-            updateMintBtn();
-        }
-    });
-
-    b('qty-plus').addEventListener('click', () => {
-        if (state.mintQty < maxQty()) {
-            state.mintQty += 1;
-            updateMintQtyDisplay();
-            updateMintBtn();
-        }
-    });
-
-    async function rpc(method, params) {
-        if (!window.AlphaCitySui?.rpc) throw new Error('SUI data client failed to load');
-        return window.AlphaCitySui.rpc(method, params);
-    }
-
-    async function fetchSuiBalance(address) {
-        const result = await rpc('suix_getBalance', [address, suiCoinType()]);
-        return BigInt(result.totalBalance || '0');
-    }
-
-    function updateBalanceDisplay() {
-        if (state.suiBalance === null) {
-            b('sui-balance').textContent = '—';
-            return;
-        }
-        b('sui-balance').textContent = formatSuiBalance(state.suiBalance) + ' SUI';
-    }
-
-    const connectBtn = b('connect-wallet-btn');
-
-    function disconnectWallet() {
-        state.connectedAddress = null;
-        state.suiBalance = null;
-        updateBalanceDisplay();
-        updateMintBtn();
-    }
-
-    async function handleSharedWalletChange(session) {
-        const nextAddress = session?.address || null;
-        if (nextAddress === state.connectedAddress) return;
-        if (!nextAddress) {
-            disconnectWallet();
-            return;
-        }
-        if (!isValidSuiAddress(nextAddress)) {
-            showStatus('Wallet did not provide a valid Sui address.', 'error');
-            return;
-        }
-        state.connectedAddress = nextAddress;
-        try {
-            state.suiBalance = await fetchSuiBalance(nextAddress);
-            updateBalanceDisplay();
-        } catch (error) {
-            showStatus(error?.message || 'Unable to load the wallet balance.', 'error');
-        }
-        updateMintBtn();
-    }
-
-    b('mint-btn').addEventListener('click', () => {
-        const contract = state.activeCollection?.contract || { mode: 'coming-soon' };
-        if (contract.mode !== 'enabled') {
-            showStatus(contract.message || 'Minting for this collection is not live yet.', 'info');
-            return;
-        }
-        showStatus('Minting is not live yet. Please check back when the public sale opens.', 'info');
-    });
-
-    state.walletConnector = window.AlphaCityWalletConnector.create({
-        button: connectBtn,
-        onChange: handleSharedWalletChange,
-    });
-    updateBalanceDisplay();
-    loadMint().catch(error => {
-        showStatus(error?.message || 'Failed to load mint data.', 'error');
-        b('collection-headline').textContent = 'Mint unavailable';
-        b('collection-tagline').textContent = 'Please refresh the page in a moment to try again.';
-        b('mint-btn').textContent = 'Mint unavailable';
-    });
-    </script>
+    <footer class="mt-12 border-t border-white/5 py-8"><div class="container mx-auto px-4 text-center text-sm text-dark-text-secondary">© <span id="current-year"></span> Alpha City. Official NFT minting on Sui.</div></footer>
+    <script src="/shared/wallet-sync.js"></script>
+    <script src="/shared/wallet-connector.js"></script>
+    <script src="/shared/sui-client.js"></script>
+    <script src="/shared/launchpad-core.js"></script>
+    <script src="/mint/app.js"></script>
 </body>
 </html>

@@ -19,7 +19,6 @@ const sharedConnectorPages = [
     'pay/index.html',
     'predict/index.html',
     'sluice/index.html',
-    'launchpad/index.html',
     'launchpad/operator/index.html',
     'verify/index.html',
 ];
